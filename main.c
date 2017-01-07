@@ -58,6 +58,13 @@
 #include <getopt.h>
 #include <math.h>
 #include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
+
+#if defined(_WIN32) || defined(_WIN64) 
+    #include <conio.h>
+#endif
 
 #include "portaudio.h"
 #include "libwebsockets.h"
@@ -944,9 +951,11 @@ int main(int argc, char **argv)
     outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
     outputParameters.hostApiSpecificStreamInfo = NULL;
 
+#ifdef __unix__
     if (fas_realtime) {
         PaAlsa_EnableRealtimeScheduling(&stream, fas_realtime);
     }
+#endif
 
     err = Pa_OpenStream(
               &stream,
@@ -966,12 +975,20 @@ int main(int argc, char **argv)
         goto ws_error;
     }
 
+#if defined(_WIN32) || defined(_WIN64) 
+    struct lfds710_ringbuffer_element *re =
+        malloc(sizeof(struct lfds710_ringbuffer_element) * (fas_frames_queue_size + 1));
+
+    struct lfds710_queue_bss_element *synth_commands_queue_element =
+        malloc(sizeof(struct lfds710_queue_bss_element) * fas_commands_queue_size);
+#else
     struct lfds710_ringbuffer_element *re =
         aligned_alloc(fas_frames_queue_size + 1, sizeof(struct lfds710_ringbuffer_element) * (fas_frames_queue_size + 1));
 
     struct lfds710_queue_bss_element *synth_commands_queue_element =
         aligned_alloc(fas_commands_queue_size, sizeof(struct lfds710_queue_bss_element) * fas_commands_queue_size);
-
+#endif
+	
     if (re == NULL) {
         fprintf(stderr, "lfds rb data structures alloc./align. error.\n");
         goto quit;
@@ -1005,16 +1022,25 @@ int main(int argc, char **argv)
     }
 
     // websocket stuff
+#ifdef __unix__
     struct timeval tv = { 0, 0 };
     fd_set fdset;
     int select_result;
     int fd = fileno(stdin);
+#endif
     do {
         lws_service(context, 1);
-
+	   
+#if defined(_WIN32) || defined(_WIN64) 
+	if (_kbhit()) {
+            break;
+	}
+    } while (1);
+#else    
         FD_ZERO(&fdset);
         FD_SET(fd, &fdset);
     } while ((select_result = select(fd + 1, &fdset, NULL, NULL, &tv)) == 0);
+#endif
 
 quit:
 

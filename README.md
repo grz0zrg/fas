@@ -19,31 +19,37 @@ A free list data structure is used to handle data reuse, the program pre-allocat
 
 Requirements :
 
-* [PortAudio](http://www.portaudio.com/download.html)
-* [liblfds](http://liblfds.org/)
-* [libwebsockets](https://libwebsockets.org/)
+ * [PortAudio](http://www.portaudio.com/download.html)
+ * [liblfds](http://liblfds.org/)
+ * [libwebsockets](https://libwebsockets.org/)
 
 libwebsockets build options : -DLWS_WITH_SSL=0 -DLWS_WITHOUT_CLIENT=1
 
 Debug : **make**
+
 Release : **make release**
+
 Statically linked : **make release-static**
+
+With MinGW :  **make win-release-static**
 
 #####Usage
 
 You can tweak this program by passing settings to its arguments, for command-line help : **fas --h**
 
 Usage: fas [list_of_settings]
-* --sample_rate 44100
-* --frames 512
-* --wavetable 1
-* --wavetable_size 8192
-* --fps 60
-* --deflate 0
-* --rx_buffer_size 4096
-* --port 3003
-* --alsa_realtime_scheduling 0
-* --frames_queue_size 127
-* --commands_queue_size 16
+ * --sample_rate 44100
+ * --frames 512
+ * --wavetable 1
+ * --wavetable_size 8192
+ * --fps 60
+ * --deflate 0
+ * --rx_buffer_size 4096
+ * --port 3003
+ * --alsa_realtime_scheduling 0 (not under Windows)
+ * --frames_queue_size 127
+ * --commands_queue_size 16
+ 
+**Under Windows you can stop the application by pressing any keys, Ctrl + C under Linux.**
 
 https://www.fsynth.com

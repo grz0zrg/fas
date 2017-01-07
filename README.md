@@ -1,0 +1,1 @@
+libwebsockets default build options : -DLWS_WITH_SSL=0 -DLWS_WITHOUT_CLIENT=1

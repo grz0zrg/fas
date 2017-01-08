@@ -326,6 +326,11 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     }
 #endif
             } else {
+                if (curr_notes) {
+                    LFDS710_FREELIST_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
+                    lfds710_freelist_push(&freelist_frames, &curr_freelist_frames_data->fe, NULL);
+                }
+
                 curr_notes = NULL;
             }
         }
@@ -618,6 +623,12 @@ if (remaining_payload != 0) {
 
                     memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->expected_frame_length);
 
+#ifdef DEBUG
+    lfds710_pal_uint_t frames_data_freelist_count;
+    lfds710_freelist_query(&freelist_frames, LFDS710_FREELIST_QUERY_SINGLETHREADED_GET_COUNT, NULL, (void *)&frames_data_freelist_count);
+    printf("frames_data_freelist_count : %llu\n", frames_data_freelist_count);
+#endif
+
                     struct lfds710_freelist_element *fe;
                     struct _freelist_frames_data *freelist_frames_data;
                     int pop_result = lfds710_freelist_pop(&freelist_frames, &fe, NULL);
@@ -637,6 +648,9 @@ if (remaining_payload != 0) {
                         // okay, push it back!
                         LFDS710_FREELIST_SET_VALUE_IN_ELEMENT(overwritten_notes->fe, overwritten_notes);
                         lfds710_freelist_push(&freelist_frames, &overwritten_notes->fe, NULL);
+                        printf("Skipping a frame, notes buffer freelist is empty.\n");
+                        fflush(stdout);
+
                     }
                 } else if (pid == GAIN_CHANGE) {
                     if (usd->synth == NULL) {

@@ -62,7 +62,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-#if defined(_WIN32) || defined(_WIN64) 
+#if defined(_WIN32) || defined(_WIN64)
     #include <conio.h>
 #endif
 
@@ -648,9 +648,6 @@ if (remaining_payload != 0) {
                         // okay, push it back!
                         LFDS710_FREELIST_SET_VALUE_IN_ELEMENT(overwritten_notes->fe, overwritten_notes);
                         lfds710_freelist_push(&freelist_frames, &overwritten_notes->fe, NULL);
-                        printf("Skipping a frame, notes buffer freelist is empty.\n");
-                        fflush(stdout);
-
                     }
                 } else if (pid == GAIN_CHANGE) {
                     if (usd->synth == NULL) {
@@ -989,7 +986,7 @@ int main(int argc, char **argv)
         goto ws_error;
     }
 
-#if defined(_WIN32) || defined(_WIN64) 
+#if defined(_WIN32) || defined(_WIN64)
     struct lfds710_ringbuffer_element *re =
         malloc(sizeof(struct lfds710_ringbuffer_element) * (fas_frames_queue_size + 1));
 
@@ -1002,7 +999,7 @@ int main(int argc, char **argv)
     struct lfds710_queue_bss_element *synth_commands_queue_element =
         aligned_alloc(fas_commands_queue_size, sizeof(struct lfds710_queue_bss_element) * fas_commands_queue_size);
 #endif
-	
+
     if (re == NULL) {
         fprintf(stderr, "lfds rb data structures alloc./align. error.\n");
         goto quit;
@@ -1044,13 +1041,13 @@ int main(int argc, char **argv)
 #endif
     do {
         lws_service(context, 1);
-	   
-#if defined(_WIN32) || defined(_WIN64) 
+
+#if defined(_WIN32) || defined(_WIN64)
 	if (_kbhit()) {
             break;
 	}
     } while (1);
-#else    
+#else
         FD_ZERO(&fdset);
         FD_SET(fd, &fdset);
     } while ((select_result = select(fd + 1, &fdset, NULL, NULL, &tv)) == 0);

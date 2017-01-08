@@ -49,7 +49,7 @@ Usage: fas [list_of_settings]
  * --alsa_realtime_scheduling 0 (not under Windows)
  * --frames_queue_size 127
  * --commands_queue_size 16
- 
-**Under Windows you can stop the application by pressing any keys, Ctrl + C under Linux.**
+
+**You can stop the application by pressing any keys while it is running.**
 
 https://www.fsynth.com

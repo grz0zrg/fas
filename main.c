@@ -423,9 +423,6 @@ void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_lengt
             index += 1;
         } else {
             if (pr > 0 || pg > 0) {
-                volume_l = r * inv_full_brightness;
-                volume_r = g * inv_full_brightness;
-
                 pvl = pr * inv_full_brightness;
                 pvr = pg * inv_full_brightness;
 

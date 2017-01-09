@@ -47,9 +47,7 @@
     Author : Julien Verneuil
     License : Simplified BSD License
 
-    TODO : apply notes related optimizations which were done for CSP (which is not processing silent/useless notes)
-    TODO : data types from JavaScript should NOT be handled as rough as it is right now
-    TODO : default values for the program parameters should be elsewhere
+    TODO : data coming from the network for notes etc. should NOT be handled like it is right now (it should instead come with IEEE 754 representation or something...)
     TODO : refactor/rename some data structures
     TODO : smooth volume transition when paused/stopped
     TODO : thread-safe memory deallocation for synth. parameters change
@@ -84,39 +82,40 @@
 #define FRAME_DATA 1
 #define GAIN_CHANGE 2
 
+// program settings constants
+#define FAS_SAMPLE_RATE 44100
+#define FAS_FRAMES_PER_BUFFER 512
+#define FAS_DEFLATE 0
+#define FAS_WAVETABLE 1
+#define FAS_WAVETABLE_SIZE 8192
+#define FAS_FPS 60
+#define FAS_PORT 3003
+#define FAS_RX_BUFFER_SIZE 4096
+#define FAS_REALTIME 0
+#define FAS_FRAMES_QUEUE_SIZE 127
+#define FAS_COMMANDS_QUEUE_SIZE 16
+#define FAS_MAX_HEIGHT 4096
+
 // program settings with associated default value
-unsigned int fas_sample_rate = 44100;
-unsigned int fas_frames_per_buffer = 512;
-unsigned int fas_deflate = 0;
-unsigned int fas_wavetable = 1;
-unsigned int fas_wavetable_size = 8192;
-unsigned int fas_fps = 60;
-unsigned int fas_port = 3003;
-unsigned int fas_rx_buffer_size = 4096;
-unsigned int fas_realtime = 0;
-unsigned int fas_frames_queue_size = 127;
-unsigned int fas_commands_queue_size = 16;
-unsigned int fas_max_height = 4096;
+unsigned int fas_sample_rate = FAS_SAMPLE_RATE;
+unsigned int fas_frames_per_buffer = FAS_FRAMES_PER_BUFFER;
+unsigned int fas_deflate = FAS_DEFLATE;
+unsigned int fas_wavetable = FAS_WAVETABLE;
+unsigned int fas_wavetable_size = FAS_WAVETABLE_SIZE;
+unsigned int fas_wavetable_size_m1 = FAS_WAVETABLE_SIZE - 1;
+unsigned int fas_fps = FAS_FPS;
+unsigned int fas_port = FAS_PORT;
+unsigned int fas_rx_buffer_size = FAS_RX_BUFFER_SIZE;
+unsigned int fas_realtime = FAS_REALTIME;
+unsigned int fas_frames_queue_size = FAS_FRAMES_QUEUE_SIZE;
+unsigned int fas_commands_queue_size = FAS_COMMANDS_QUEUE_SIZE;
+unsigned int fas_max_height = FAS_MAX_HEIGHT;
 
 float *fas_sine_wavetable = NULL;
 
 double note_time;
 double note_time_samples;
 double lerp_t_step;
-
-// liblfds related
-enum lfds710_misc_flag overwrite_occurred_flag;
-
-struct lfds710_ringbuffer_state rs; // frames related data structure
-struct lfds710_queue_bss_state synth_commands_queue_state;
-struct lfds710_freelist_state freelist_frames;
-
-struct _freelist_frames_data {
-    struct lfds710_freelist_element fe;
-
-    double *data;
-};
-//
 
 struct lws_context *context;
 
@@ -134,6 +133,14 @@ struct oscillator {
     double freq;
     unsigned int phase_index;
     unsigned int phase_step;
+};
+
+struct note {
+    unsigned int osc_index;
+    double previous_volume_l;
+    double previous_volume_r;
+    double diff_volume_l;
+    double diff_volume_r;
 };
 
 struct _synth {
@@ -165,7 +172,21 @@ struct user_session_data {
     unsigned int synth_h;
 };
 
-double *curr_notes = NULL;
+// liblfds related
+enum lfds710_misc_flag overwrite_occurred_flag;
+
+struct lfds710_ringbuffer_state rs; // frames related data structure
+struct lfds710_queue_bss_state synth_commands_queue_state;
+struct lfds710_freelist_state freelist_frames;
+
+struct _freelist_frames_data {
+    struct lfds710_freelist_element fe;
+
+    struct note *data;
+};
+//
+
+struct note *curr_notes = NULL;
 struct _freelist_frames_data *curr_freelist_frames_data = NULL;
 unsigned long frames_read = 0;
 
@@ -255,11 +276,14 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         return paContinue;
     }
 
-    unsigned long note_buffer_len = curr_synth.settings->h * 5;
-
     void *key;
-    double *_notes;
+    struct note *_notes;
     struct _freelist_frames_data *freelist_frames_data;
+    unsigned int note_buffer_len = 0;
+
+    if (curr_notes != NULL) {
+        note_buffer_len = curr_notes[0].osc_index;
+    }
 
     int read_status = 0;
 
@@ -268,19 +292,15 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         double output_r = 0.0;
 
         if (curr_notes != NULL) {
-            for (j = 0; j < note_buffer_len; j += 5) {
-                unsigned int osc_index = curr_notes[j];
-                double previous_volume_l = curr_notes[j + 1];
-                double previous_volume_r = curr_notes[j + 2];
-                double diff_volume_l = curr_notes[j + 3];
-                double diff_volume_r = curr_notes[j + 4];
+            for (j = 1; j < note_buffer_len; j += 1) {
+                struct note *n = &curr_notes[j];
 
-                struct oscillator *osc = &curr_synth.oscillators[osc_index];
+                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                double s = fas_sine_wavetable[osc->phase_index & (fas_wavetable_size - 1)];
+                double s = fas_sine_wavetable[osc->phase_index & fas_wavetable_size_m1];
 
-                output_l += (previous_volume_l + diff_volume_l * curr_synth.lerp_t) * s;
-                output_r += (previous_volume_r + diff_volume_r * curr_synth.lerp_t) * s;
+                output_l += (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t) * s;
+                output_r += (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t) * s;
 
                 osc->phase_index += osc->phase_step;
 
@@ -322,7 +342,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #ifdef DEBUG
     frames_read += 1;
     if ((frames_read % 512) == 0) {
-        printf("%lu frames read", frames_read);
+        printf("%lu frames read\n", frames_read);
     }
 #endif
             } else {
@@ -369,14 +389,14 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
     return oscillators;
 }
 
-void fillNotesBuffer(double *note_buffer, unsigned int h, size_t data_length, unsigned char *prev_data, unsigned char *data) {
+void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_length, unsigned char *prev_data, unsigned char *data) {
     double pvl = 0, pvr = 0, pr, pg;
     unsigned int i;
     unsigned int r, g;
-    unsigned int index = 0;
+    unsigned int index = 1;
     double volume_l, volume_r;
     unsigned int y = h - 1;
-    double inv_full_brightness = 1 / 255.0;
+    double inv_full_brightness = 1.0 / 255.0;
 
     for (i = 0; i < data_length; i += 4) {
         pr = prev_data[i];
@@ -392,34 +412,39 @@ void fillNotesBuffer(double *note_buffer, unsigned int h, size_t data_length, un
             pvl = pr * inv_full_brightness;
             pvr = pg * inv_full_brightness;
 
-            note_buffer[index] = y;
-            note_buffer[index + 1] = pvl;
-            note_buffer[index + 2] = pvr;
-            note_buffer[index + 3] = volume_l - pvl;
-            note_buffer[index + 4] = volume_r - pvr;
+            struct note *_note = &note_buffer[index];
+
+            _note->osc_index = y;
+            _note->previous_volume_l = pvl;
+            _note->previous_volume_r = pvr;
+            _note->diff_volume_l = volume_l - pvl;
+            _note->diff_volume_r = volume_r - pvr;
+
+            index += 1;
         } else {
             if (pr > 0 || pg > 0) {
+                volume_l = r * inv_full_brightness;
+                volume_r = g * inv_full_brightness;
+
                 pvl = pr * inv_full_brightness;
                 pvr = pg * inv_full_brightness;
 
-                note_buffer[index] = y;
-                note_buffer[index + 1] = pvl;
-                note_buffer[index + 2] = pvr;
-                note_buffer[index + 3] = -pvl;
-                note_buffer[index + 4] = -pvr;
-            } else {
-                note_buffer[index] = y;
-                note_buffer[index + 1] = 0.0;
-                note_buffer[index + 2] = 0.0;
-                note_buffer[index + 3] = 0.0;
-                note_buffer[index + 4] = 0.0;
+                struct note *_note = &note_buffer[index];
+
+                _note->osc_index = y;
+                _note->previous_volume_l = pvl;
+                _note->previous_volume_r = pvr;
+                _note->diff_volume_l = -pvl;
+                _note->diff_volume_r = -pvr;
+
+                index += 1;
             }
         }
 
         y -= 1;
-
-        index += 5;
     }
+
+    note_buffer[0].osc_index = index;
 }
 
 int  ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
@@ -773,17 +798,17 @@ int start_server(void) {
 void print_usage() {
     printf("Usage: fas [list_of_settings]\n");
     printf(" possible settings with associated default value:\n");
-    printf("  --sample_rate 44100\n");
-    printf("  --frames 512\n");
-    printf("  --wavetable 1\n");
-    printf("  --wavetable_size 8192\n");
-    printf("  --fps 60\n");
-    printf("  --deflate 0\n");
-    printf("  --rx_buffer_size 4096\n");
-    printf("  --port 3003\n");
-    printf("  --alsa_realtime_scheduling 0\n");
-    printf("  --frames_queue_size 127\n");
-    printf("  --commands_queue_size 16\n");
+    printf("  --sample_rate %u\n", FAS_SAMPLE_RATE);
+    printf("  --frames %u\n", FAS_FRAMES_PER_BUFFER);
+    printf("  --wavetable %u\n", FAS_WAVETABLE);
+    printf("  --wavetable_size %u\n", FAS_WAVETABLE_SIZE);
+    printf("  --fps %u\n", FAS_FPS);
+    printf("  --deflate %u\n", FAS_DEFLATE);
+    printf("  --rx_buffer_size %u\n", FAS_RX_BUFFER_SIZE);
+    printf("  --port %u\n", FAS_PORT);
+    printf("  --alsa_realtime_scheduling %u\n", FAS_REALTIME);
+    printf("  --frames_queue_size %u\n", FAS_FRAMES_QUEUE_SIZE);
+    printf("  --commands_queue_size %u\n", FAS_COMMANDS_QUEUE_SIZE);
 }
 
 int fas_wavetable_init() {
@@ -867,57 +892,59 @@ int main(int argc, char **argv)
     }
 
     if (fas_sample_rate == 0) {
-        printf("Warning: sample_rate program option argument is invalid, should be > 0, the default value (44100) will be used.\n");
+        printf("Warning: sample_rate program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_SAMPLE_RATE);
 
-        fas_sample_rate = 44100;
+        fas_sample_rate = FAS_SAMPLE_RATE;
     }
 
     if (fas_wavetable_size == 0) {
-        printf("Warning: wavetable_size program option argument is invalid, should be > 0, the default value (8192) will be used.\n");
+        printf("Warning: wavetable_size program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_WAVETABLE_SIZE);
 
-        fas_wavetable_size = 8192;
+        fas_wavetable_size = FAS_WAVETABLE_SIZE;
     }
 
-    if (fas_fps == 0) {
-        printf("Warning: fps program option argument is invalid, should be > 0, the default value (60) will be used.\n");
+    fas_wavetable_size_m1 = fas_wavetable_size - 1;
 
-        fas_fps = 60;
+    if (fas_fps == 0) {
+        printf("Warning: fps program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_FPS);
+
+        fas_fps = FAS_FPS;
     }
 
     if (fas_port == 0) {
-        printf("Warning: port program option argument is invalid, should be > 0, the default value (3003) will be used.\n");
+        printf("Warning: port program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_PORT);
 
-        fas_port = 3003;
+        fas_port = FAS_PORT;
     }
 
     if (fas_frames_per_buffer == 0) {
-        printf("Warning: frames program option argument is invalid, should be > 0, the default value (512) will be used.\n");
+        printf("Warning: frames program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_FRAMES_PER_BUFFER);
 
-        fas_frames_per_buffer = 512;
+        fas_frames_per_buffer = FAS_FRAMES_PER_BUFFER;
     }
 
     if (fas_rx_buffer_size == 0) {
-        printf("Warning: rx_buffer_size program option argument is invalid, should be > 0, the default value (4096) will be used.\n");
+        printf("Warning: rx_buffer_size program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_RX_BUFFER_SIZE);
 
-        fas_rx_buffer_size = 4096;
+        fas_rx_buffer_size = FAS_RX_BUFFER_SIZE;
     }
 
     if (fas_frames_queue_size == 0) {
-        printf("Warning: frames_queue_size program option argument is invalid, should be > 0, the default value (127) will be used.\n");
+        printf("Warning: frames_queue_size program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_FRAMES_QUEUE_SIZE);
 
-        fas_frames_queue_size = 127;
+        fas_frames_queue_size = FAS_FRAMES_QUEUE_SIZE;
     }
 
     if (fas_commands_queue_size == 0) {
-        printf("Warning: commands_queue_size program option argument is invalid, should be > 0, the default value (16) will be used.\n");
+        printf("Warning: commands_queue_size program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_COMMANDS_QUEUE_SIZE);
 
-        fas_commands_queue_size = 16;
+        fas_commands_queue_size = FAS_COMMANDS_QUEUE_SIZE;
     }
 
     if (fas_max_height < 512) {
-        printf("Warning: fas_max_height program option argument is invalid, should be >= 512, the default value (4096) will be used.\n");
+        printf("Warning: fas_max_height program option argument is invalid, should be >= 512, the default value (%u) will be used.\n", FAS_MAX_HEIGHT);
 
-        fas_max_height = 4096;
+        fas_max_height = FAS_MAX_HEIGHT;
     }
 
     if (errno == ERANGE) {
@@ -1026,7 +1053,7 @@ int main(int argc, char **argv)
 
     for (i = 0; i < (fas_frames_queue_size * 2); i += 1)
     {
-        ffd[i].data = malloc(sizeof(double) * (fas_max_height * 5));
+        ffd[i].data = malloc(sizeof(struct note) * (fas_max_height + 1));//malloc(sizeof(double) * (fas_max_height * 5));
 
         LFDS710_FREELIST_SET_VALUE_IN_ELEMENT(ffd[i].fe, &ffd[i]);
         lfds710_freelist_push(&freelist_frames, &ffd[i].fe, NULL);

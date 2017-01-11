@@ -51,6 +51,7 @@
     TODO : refactor/rename some data structures
     TODO : smooth volume transition when paused/stopped
     TODO : thread-safe memory deallocation for synth. parameters change
+    TODO : notes optimizations (don't generate event for silent notes)
 */
 
 #include <getopt.h>
@@ -58,6 +59,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <errno.h>
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -101,8 +103,13 @@ unsigned int fas_sample_rate = FAS_SAMPLE_RATE;
 unsigned int fas_frames_per_buffer = FAS_FRAMES_PER_BUFFER;
 unsigned int fas_deflate = FAS_DEFLATE;
 unsigned int fas_wavetable = FAS_WAVETABLE;
+#ifdef FIXED_WAVETABLE
+unsigned int fas_wavetable_size = 65536;
+unsigned int fas_wavetable_size_m1 = 65535;
+#else
 unsigned int fas_wavetable_size = FAS_WAVETABLE_SIZE;
 unsigned int fas_wavetable_size_m1 = FAS_WAVETABLE_SIZE - 1;
+#endif
 unsigned int fas_fps = FAS_FPS;
 unsigned int fas_port = FAS_PORT;
 unsigned int fas_rx_buffer_size = FAS_RX_BUFFER_SIZE;
@@ -131,8 +138,13 @@ struct _synth_gain {
 
 struct oscillator {
     double freq;
+#ifdef FIXED_WAVETABLE
     unsigned int phase_index;
     unsigned int phase_step;
+#else
+    uint32_t phase_index;
+    uint32_t phase_step;
+#endif
 };
 
 struct note {
@@ -304,9 +316,11 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                 osc->phase_index += osc->phase_step;
 
+#ifndef FIXED_WAVETABLE
                 if (osc->phase_index >= fas_wavetable_size) {
                     osc->phase_index -= fas_wavetable_size;
                 }
+#endif
             }
         }
 
@@ -372,7 +386,7 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
     int index = 0;
     double octave_length = n / octaves;
     double frequency;
-    unsigned int phase_step;
+    uint64_t phase_step;
     int nmo = n - 1;
 
     for (y = 0; y < n; y += 1) {
@@ -396,7 +410,7 @@ void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_lengt
     unsigned int index = 1;
     double volume_l, volume_r;
     unsigned int y = h - 1;
-    double inv_full_brightness = 1.0 / 255.0;
+    static double inv_full_brightness = 1.0 / 255.0;
 
     for (i = 0; i < data_length; i += 4) {
         pr = prev_data[i];
@@ -405,38 +419,49 @@ void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_lengt
         r = data[i];
         g = data[i + 1];
 
-        if (r > 0 || g > 0) {
+        struct note *_note = &note_buffer[index];
+        _note->osc_index = y;
+
+        // all of this is useless and sub-optimal
+        // this was done to produce optimized notes (silent notes wouldn't be played at all)
+        // the optimization cannot be applied right now because a better solution is to be found
+        // the problem is : the phase index should still need to be updated if this optimization is applied but if silent notes are ignored here, the phase index will not move at all and it will produce audible crackling!
+        if (r > 0 ) {
             volume_l = r * inv_full_brightness;
-            volume_r = g * inv_full_brightness;
-
             pvl = pr * inv_full_brightness;
-            pvr = pg * inv_full_brightness;
-
-            struct note *_note = &note_buffer[index];
-
-            _note->osc_index = y;
             _note->previous_volume_l = pvl;
-            _note->previous_volume_r = pvr;
             _note->diff_volume_l = volume_l - pvl;
-            _note->diff_volume_r = volume_r - pvr;
-
-            index += 1;
         } else {
-            if (pr > 0 || pg > 0) {
+            if (pr > 0) {
                 pvl = pr * inv_full_brightness;
-                pvr = pg * inv_full_brightness;
 
-                struct note *_note = &note_buffer[index];
-
-                _note->osc_index = y;
                 _note->previous_volume_l = pvl;
-                _note->previous_volume_r = pvr;
                 _note->diff_volume_l = -pvl;
-                _note->diff_volume_r = -pvr;
-
-                index += 1;
+            } else {
+                _note->previous_volume_l = 0;
+                _note->diff_volume_l = 0;
             }
         }
+
+        if (g > 0) {
+            volume_r = g * inv_full_brightness;
+            pvr = pg * inv_full_brightness;
+            _note->previous_volume_r = pvr;
+            _note->diff_volume_r = volume_r - pvr;
+        } else {
+            if (pg > 0) {
+                pvr = pg * inv_full_brightness;
+
+                _note->previous_volume_r = pvr;
+                _note->diff_volume_r = -pvr;
+
+            } else {
+                _note->previous_volume_r = 0;
+                _note->diff_volume_r = 0;
+            }
+        }
+
+        index += 1;
 
         y -= 1;
     }
@@ -798,12 +823,16 @@ void print_usage() {
     printf("  --sample_rate %u\n", FAS_SAMPLE_RATE);
     printf("  --frames %u\n", FAS_FRAMES_PER_BUFFER);
     printf("  --wavetable %u\n", FAS_WAVETABLE);
+#ifndef FIXED_WAVETABLE
     printf("  --wavetable_size %u\n", FAS_WAVETABLE_SIZE);
+#endif
     printf("  --fps %u\n", FAS_FPS);
     printf("  --deflate %u\n", FAS_DEFLATE);
     printf("  --rx_buffer_size %u\n", FAS_RX_BUFFER_SIZE);
     printf("  --port %u\n", FAS_PORT);
+#ifdef __unix__
     printf("  --alsa_realtime_scheduling %u\n", FAS_REALTIME);
+#endif
     printf("  --frames_queue_size %u\n", FAS_FRAMES_QUEUE_SIZE);
     printf("  --commands_queue_size %u\n", FAS_COMMANDS_QUEUE_SIZE);
 }
@@ -830,7 +859,9 @@ int main(int argc, char **argv)
         { "sample_rate",              required_argument, 0, 0 },
         { "frames",                   required_argument, 0, 1 },
         { "wavetable",                required_argument, 0, 2 },
+#ifndef FIXED_WAVETABLE
         { "wavetable_size",           required_argument, 0, 3 },
+#endif
         { "fps",                      required_argument, 0, 4 },
         { "deflate",                  required_argument, 0, 5 },
         { "rx_buffer_size",           required_argument, 0, 6 },

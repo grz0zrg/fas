@@ -13,6 +13,8 @@ There is a generic lock-free thread-safe commands queue for synth. parameters ch
 
 A free list data structure is used to handle data reuse, the program pre-allocate a pool of notes buffer that is reused.
 
+Advanced optimations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping) 
+
 **Can be used as a generic additive synthesizer if you feed it correctly! :)**
 
 ####Build
@@ -31,7 +33,11 @@ Release : **make release**
 
 Statically linked : **make release-static**
 
-With MinGW :  **make win-release-static**
+Statically linked and advanced optimizations (default build): **make release-static-o**
+
+With MinGW (Statically linked) :  **make win-release-static**
+
+With MinGW (Statically linked + advanced optimizations, default build) :  **make win-release-static-o**
 
 #####Usage
 
@@ -40,13 +46,13 @@ You can tweak this program by passing settings to its arguments, for command-lin
 Usage: fas [list_of_settings]
  * --sample_rate 44100
  * --frames 512
- * --wavetable 1
- * --wavetable_size 8192
+ * --wavetable 1 **no effect at the moment**
+ * --wavetable_size 8192 **no effect if built with advanced optimizations option**
  * --fps 60
  * --deflate 0
  * --rx_buffer_size 4096
  * --port 3003
- * --alsa_realtime_scheduling 0 (not under Windows)
+ * --alsa_realtime_scheduling 0 **not under Windows**
  * --frames_queue_size 127
  * --commands_queue_size 16
 

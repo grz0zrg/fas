@@ -149,10 +149,10 @@ struct oscillator {
 
 struct note {
     unsigned int osc_index;
-    double previous_volume_l;
-    double previous_volume_r;
-    double diff_volume_l;
-    double diff_volume_r;
+    float previous_volume_l;
+    float previous_volume_r;
+    float diff_volume_l;
+    float diff_volume_r;
 };
 
 struct _synth {
@@ -160,7 +160,7 @@ struct _synth {
     struct _synth_gain *gain;
     struct oscillator *oscillators;
 
-    double lerp_t;
+    float lerp_t;
     unsigned long curr_sample;
 } curr_synth;
 
@@ -229,10 +229,13 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 {
     LFDS710_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_LOGICAL_CORE;
 
+    static float last_sample_r = 0;
+    static float last_sample_l = 0;
+
     float *out = (float*)outputBuffer;
 
-    enum lfds710_misc_flag rb_overwrite_occurred_flag;
-    double *overwritten_data = NULL;
+    //enum lfds710_misc_flag rb_overwrite_occurred_flag;
+    //double *overwritten_data = NULL;
 
     void *queue_synth_void;
     if (lfds710_queue_bss_dequeue(&synth_commands_queue_state, NULL, &queue_synth_void) == 1) {
@@ -300,8 +303,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     int read_status = 0;
 
     for (i = 0; i < framesPerBuffer; i += 1) {
-        double output_l = 0.0;
-        double output_r = 0.0;
+        float output_l = 0.0f;
+        float output_r = 0.0f;
 
         if (curr_notes != NULL) {
             for (j = 1; j < note_buffer_len; j += 1) {
@@ -309,7 +312,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                 struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                double s = fas_sine_wavetable[osc->phase_index & fas_wavetable_size_m1];
+                float s = fas_sine_wavetable[osc->phase_index & fas_wavetable_size_m1];
 
                 output_l += (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t) * s;
                 output_r += (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t) * s;
@@ -322,10 +325,16 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 }
 #endif
             }
+        } else {
+            output_l = output_l - output_l * curr_synth.lerp_t;
+            output_r = output_r - output_r * curr_synth.lerp_t;
         }
 
-        *out++ = output_l * curr_synth.gain->gain_lr;
-        *out++ = output_r * curr_synth.gain->gain_lr;
+        last_sample_l = output_l * curr_synth.gain->gain_lr;
+        last_sample_r = output_r * curr_synth.gain->gain_lr;
+
+        *out++ = last_sample_l;
+        *out++ = last_sample_r;
 
         curr_synth.lerp_t += lerp_t_step;
 

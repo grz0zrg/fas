@@ -13,7 +13,7 @@ There is a generic lock-free thread-safe commands queue for synth. parameters ch
 
 A free list data structure is used to handle data reuse, the program pre-allocate a pool of notes buffer that is reused.
 
-Advanced optimations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping) 
+Advanced optimations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping)
 
 **Can be used as a generic additive synthesizer if you feed it correctly! :)**
 
@@ -25,7 +25,11 @@ Requirements :
  * [liblfds](http://liblfds.org/)
  * [libwebsockets](https://libwebsockets.org/)
 
-libwebsockets build options : -DLWS_WITH_SSL=0 -DLWS_WITHOUT_CLIENT=1
+libwebsockets default build options for fas : -DLWS_WITH_SSL=1 -DLWS_WITHOUT_CLIENT=1
+
+SSL support is needed for https://www.fsynth.com because Firefox bitch about mixed content even on localhost! :)
+
+Under Windows, [MSYS2](https://msys2.github.io/) with mingw32 is used and well tested.
 
 Debug : **make**
 

@@ -13,7 +13,7 @@ There is a generic lock-free thread-safe commands queue for synth. parameters ch
 
 A free list data structure is used to handle data reuse, the program pre-allocate a pool of notes buffer that is reused.
 
-Advanced optimations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping)
+Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping)
 
 **Can be used as a generic additive synthesizer if you feed it correctly! :)**
 

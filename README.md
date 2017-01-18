@@ -60,6 +60,8 @@ Usage: fas [list_of_settings]
  * --frames_queue_size 127
  * --commands_queue_size 16
 
+Self-signed certificates are provided in case you compile/run it with SSL. (Note: This is useless for many reasons and HTTP should _**ALWAYS**_ be the prefered protocol for online Fragment application, this is explained in [this issue](https://github.com/grz0zrg/fas/issues/1).)
+
 **You can stop the application by pressing any keys while it is running.**
 
 https://www.fsynth.com

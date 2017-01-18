@@ -25,9 +25,7 @@ Requirements :
  * [liblfds](http://liblfds.org/)
  * [libwebsockets](https://libwebsockets.org/)
 
-libwebsockets default build options for fas : -DLWS_WITH_SSL=1 -DLWS_WITHOUT_CLIENT=1
-
-SSL support is needed for https://www.fsynth.com because Firefox bitch about mixed content even on localhost! :)
+libwebsockets default build options for fas : -DLWS_WITH_SSL=0 -DLWS_WITHOUT_CLIENT=1
 
 Under Windows, [MSYS2](https://msys2.github.io/) with mingw32 is used and well tested.
 
@@ -53,6 +51,8 @@ Usage: fas [list_of_settings]
  * --wavetable 1 **no effect at the moment**
  * --wavetable_size 8192 **no effect if built with advanced optimizations option**
  * --fps 60
+ * --ssl 0
+ * --fas_max_height 4096 **this should be changed if you go above 4096 for the score height**
  * --deflate 0
  * --rx_buffer_size 4096
  * --port 3003

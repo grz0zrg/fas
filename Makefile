@@ -1,8 +1,10 @@
 compiler = gcc
 source = main.c
 libs = liblfds710.a -lportaudio -lwebsockets -lrt -lm -lasound -ljack -pthread
-static_libs = liblfds710.a libportaudio.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread -lssl -lcrypto
-win_static_libs = liblfds710.a libwebsockets_static.a libportaudio.a -lm -lz -lssl -lcrypto -lws2_32 -lgdi32
+static_libs = liblfds710.a libportaudio.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread
+ssl_libs = -lssl -lcrypto
+win_ssl_libs = -lssl -lcrypto -lws2_32 -lgdi32
+win_static_libs = liblfds710.a libwebsockets_static.a libportaudio.a -lm -lz -lws2_32
 compat_options = -U__STRICT_ANSI__
 output = fas
 standard_options = -std=c11 -pedantic -D_POSIX_SOURCE
@@ -23,11 +25,17 @@ release-static:
 release-static-o:
 	$(compiler) $(source) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
 
+ssl-release-static-o:
+	$(compiler) $(source) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) $(ssl_libs) -o $(output)
+
 win-release-static:
 	$(compiler) $(source) ${release_options} ${standard_options} ${win_static_options} ${compat_options} $(win_static_libs) -o $(output)
 
 win-release-static-o:
 	$(compiler) $(source) ${release_options} ${standard_options} ${win_static_options} ${adv_optimization_options} ${compat_options} $(win_static_libs) -o $(output)
+
+ssl-win-release-static-o:
+	$(compiler) $(source) ${release_options} ${standard_options} ${win_static_options} ${adv_optimization_options} ${compat_options} $(win_static_libs) $(win_ssl_libs) -o $(output)
 
 32:
 	$(compiler) -m32 $(source) ${release_options} ${standard_options} $(libs) -o $(output)

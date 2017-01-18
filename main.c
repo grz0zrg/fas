@@ -49,7 +49,6 @@
 
     TODO : data coming from the network for notes etc. should NOT be handled like it is right now (it should instead come with IEEE 754 representation or something...)
     TODO : refactor/rename some data structures
-    TODO : smooth volume transition when paused/stopped
     TODO : thread-safe memory deallocation for synth. parameters change
     TODO : notes optimizations (don't generate event for silent notes)
 */
@@ -97,6 +96,7 @@
 #define FAS_FRAMES_QUEUE_SIZE 127
 #define FAS_COMMANDS_QUEUE_SIZE 16
 #define FAS_MAX_HEIGHT 4096
+#define FAS_SSL 0
 
 // program settings with associated default value
 unsigned int fas_sample_rate = FAS_SAMPLE_RATE;
@@ -117,6 +117,7 @@ unsigned int fas_realtime = FAS_REALTIME;
 unsigned int fas_frames_queue_size = FAS_FRAMES_QUEUE_SIZE;
 unsigned int fas_commands_queue_size = FAS_COMMANDS_QUEUE_SIZE;
 unsigned int fas_max_height = FAS_MAX_HEIGHT;
+unsigned int fas_ssl = FAS_SSL;
 
 float *fas_sine_wavetable = NULL;
 
@@ -814,6 +815,12 @@ int start_server(void) {
         context_info.extensions = exts;
     }
 
+    if (fas_ssl) {
+        context_info.ssl_private_key_filepath = "./server.key";
+        context_info.ssl_cert_filepath = "./server.crt";
+        context_info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+    }
+
     context = lws_create_context(&context_info);
 
     if (context == NULL) {
@@ -836,6 +843,7 @@ void print_usage() {
     printf("  --wavetable_size %u\n", FAS_WAVETABLE_SIZE);
 #endif
     printf("  --fps %u\n", FAS_FPS);
+    printf("  --ssl %u\n", FAS_SSL);
     printf("  --deflate %u\n", FAS_DEFLATE);
     printf("  --rx_buffer_size %u\n", FAS_RX_BUFFER_SIZE);
     printf("  --port %u\n", FAS_PORT);
@@ -878,7 +886,8 @@ int main(int argc, char **argv)
         { "alsa_realtime_scheduling", required_argument, 0, 8 },
         { "frames_queue_size",        required_argument, 0, 9 },
         { "commands_queue_size",      required_argument, 0, 10 },
-        { "fas_max_height",           required_argument, 0, 10 },
+        { "fas_max_height",           required_argument, 0, 11 },
+        { "ssl",                      required_argument, 0, 12 },
         { 0, 0, 0, 0 }
     };
 
@@ -922,6 +931,9 @@ int main(int argc, char **argv)
                 break;
             case 11:
                 fas_max_height = strtoul(optarg, NULL, 0);
+                break;
+            case 12:
+                fas_ssl = strtoul(optarg, NULL, 0);
                 break;
             default: print_usage();
                  return EXIT_FAILURE;

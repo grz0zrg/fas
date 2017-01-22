@@ -212,7 +212,7 @@ void flf_element_cleanup_callback(struct lfds710_freelist_state *fs, struct lfds
 }
 
 void q_element_cleanup_callback(struct lfds710_queue_bss_state *qbsss, void *key, void *value) {
-    free(value);
+    //free(value);
 }
 
 void rb_element_cleanup_callback(struct lfds710_ringbuffer_state *rs, void *key, void *value, enum lfds710_misc_flag unread_flag) {
@@ -1108,6 +1108,9 @@ int main(int argc, char **argv)
         lfds710_freelist_push(&freelist_frames, &ffd[i].fe, NULL);
     }
 
+    fflush(stdout);
+    fflush(stderr);
+
     // websocket stuff
 #ifdef __unix__
     struct timeval tv = { 0, 0 };
@@ -1159,6 +1162,8 @@ quit:
         lfds710_queue_bss_cleanup(&synth_commands_queue_state, q_element_cleanup_callback);
         free(synth_commands_queue_element);
     }
+
+    printf("Bye.");
 
     return err;
 

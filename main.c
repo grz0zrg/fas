@@ -50,7 +50,6 @@
     TODO : data coming from the network for notes etc. should NOT be handled like it is right now (it should instead come with IEEE 754 representation or something...)
     TODO : refactor/rename some data structures
     TODO : thread-safe memory deallocation for synth. parameters change
-    TODO : notes optimizations (don't generate event for silent notes)
 */
 
 #include <getopt.h>
@@ -93,7 +92,7 @@
 #define FAS_PORT 3003
 #define FAS_RX_BUFFER_SIZE 4096
 #define FAS_REALTIME 0
-#define FAS_FRAMES_QUEUE_SIZE 127
+#define FAS_FRAMES_QUEUE_SIZE 7
 #define FAS_COMMANDS_QUEUE_SIZE 16
 #define FAS_MAX_HEIGHT 4096
 #define FAS_SSL 0
@@ -307,7 +306,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         float output_l = 0.0f;
         float output_r = 0.0f;
 
-        if (curr_notes != NULL) {
+//        if (curr_notes != NULL) {
             for (j = 1; j < note_buffer_len; j += 1) {
                 struct note *n = &curr_notes[j];
 
@@ -326,11 +325,12 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 }
 #endif
             }
+/*
         } else {
             output_l = output_l - output_l * curr_synth.lerp_t;
             output_r = output_r - output_r * curr_synth.lerp_t;
         }
-
+*/
         last_sample_l = output_l * curr_synth.gain->gain_lr;
         last_sample_r = output_r * curr_synth.gain->gain_lr;
 
@@ -363,6 +363,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 curr_synth.lerp_t = 0;
                 lerp_t_step = 1 / note_time_samples;
 
+                note_buffer_len = curr_notes[0].osc_index;;
+
 #ifdef DEBUG
     frames_read += 1;
     if ((frames_read % 512) == 0) {
@@ -376,6 +378,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 }
 
                 curr_notes = NULL;
+
+                note_buffer_len = 0;
             }
         }
     }
@@ -432,10 +436,6 @@ void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_lengt
         struct note *_note = &note_buffer[index];
         _note->osc_index = y;
 
-        // all of this is useless and sub-optimal
-        // this was done to produce optimized notes (silent notes wouldn't be played at all)
-        // the optimization cannot be applied right now because a better solution is to be found
-        // the problem is : the phase index should still need to be updated if this optimization is applied but if silent notes are ignored here, the phase index will not move at all and it will produce audible crackling!
         if (r > 0 ) {
             volume_l = r * inv_full_brightness;
             pvl = pr * inv_full_brightness;
@@ -450,6 +450,11 @@ void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_lengt
             } else {
                 _note->previous_volume_l = 0;
                 _note->diff_volume_l = 0;
+
+                if (g == 0 && pg == 0) {
+                    y -= 1;
+                    continue;
+                }
             }
         }
 
@@ -464,10 +469,14 @@ void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_lengt
 
                 _note->previous_volume_r = pvr;
                 _note->diff_volume_r = -pvr;
-
             } else {
                 _note->previous_volume_r = 0;
                 _note->diff_volume_r = 0;
+
+                if (r == 0 && pr == 0) {
+                    y -= 1;
+                    continue;
+                }
             }
         }
 
@@ -477,6 +486,10 @@ void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_lengt
     }
 
     note_buffer[0].osc_index = index;
+
+#ifdef DEBUG
+    printf("%i oscillators \n", index);
+#endif
 }
 
 int  ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
@@ -1092,7 +1105,7 @@ int main(int argc, char **argv)
     lfds710_freelist_init_valid_on_current_logical_core(&freelist_frames, NULL, 0, NULL);
 
     int i = 0;
-    struct _freelist_frames_data *ffd = malloc(sizeof(struct _freelist_frames_data) * (fas_frames_queue_size * 2));
+    struct _freelist_frames_data *ffd = malloc(sizeof(struct _freelist_frames_data) * fas_frames_queue_size);
     if (ffd == NULL) {
         fprintf(stderr, "_freelist_frames_data data structure alloc. error.\n");
         free(re);
@@ -1100,7 +1113,7 @@ int main(int argc, char **argv)
         goto quit;
     }
 
-    for (i = 0; i < (fas_frames_queue_size * 2); i += 1)
+    for (i = 0; i < fas_frames_queue_size; i += 1)
     {
         ffd[i].data = malloc(sizeof(struct note) * (fas_max_height + 1));//malloc(sizeof(double) * (fas_max_height * 5));
 

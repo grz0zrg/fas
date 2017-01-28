@@ -82,6 +82,7 @@ Usage: fas [list_of_settings]
  * --rx_buffer_size 4096
  * --port 3003
  * --iface 127.0.0.1
+ * --device -1 **PortAudio audio device index (informations about audio devices are printed when the app. start)**
  * --alsa_realtime_scheduling 0 **not under Windows**
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio will be delayed**
  * --commands_queue_size 16

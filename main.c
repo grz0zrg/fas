@@ -59,6 +59,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <errno.h>
+#include <strings.h>
 
 #if defined(_WIN32) || defined(_WIN64)
     #include <conio.h>
@@ -117,6 +118,7 @@ unsigned int fas_frames_queue_size = FAS_FRAMES_QUEUE_SIZE;
 unsigned int fas_commands_queue_size = FAS_COMMANDS_QUEUE_SIZE;
 unsigned int fas_max_height = FAS_MAX_HEIGHT;
 unsigned int fas_ssl = FAS_SSL;
+int fas_audio_device = -1;
 char *fas_iface = NULL;
 
 float *fas_sine_wavetable = NULL;
@@ -866,6 +868,7 @@ void print_usage() {
     printf("  --rx_buffer_size %u\n", FAS_RX_BUFFER_SIZE);
     printf("  --port %u\n", FAS_PORT);
     printf("  --iface 127.0.0.1\n");
+    printf("  --device -1\n");
 #ifdef __unix__
     printf("  --alsa_realtime_scheduling %u\n", FAS_REALTIME);
 #endif
@@ -910,6 +913,7 @@ int main(int argc, char **argv)
         { "fas_max_height",           required_argument, 0, 11 },
         { "ssl",                      required_argument, 0, 12 },
         { "iface",                    required_argument, 0, 13 },
+        { "device",                   required_argument, 0, 14 },
         { 0, 0, 0, 0 }
     };
 
@@ -960,7 +964,9 @@ int main(int argc, char **argv)
             case 13:
                 fas_iface = optarg;
                 break;
-
+            case 14:
+                fas_audio_device = strtoul(optarg, NULL, 0);
+                break;
             default: print_usage();
                  return EXIT_FAILURE;
         }
@@ -1043,6 +1049,8 @@ int main(int argc, char **argv)
     PaStreamParameters outputParameters;
     PaError err;
 
+    bzero(&outputParameters, sizeof( outputParameters));
+
     err = Pa_Initialize();
     if (err != paNoError) goto error;
 
@@ -1071,22 +1079,30 @@ int main(int argc, char **argv)
 
     printf("\n");
 
-    outputParameters.device = Pa_GetDefaultOutputDevice();
-    if (outputParameters.device == paNoDevice) {
-        fprintf(stderr, "Error: No default output device.\n");
-        goto error;
-    }
-
     curr_synth.settings = NULL;
     curr_synth.gain = NULL;
     curr_synth.oscillators = NULL;
     curr_synth.lerp_t = 0.0;
     curr_synth.curr_sample = 0;
 
-    outputParameters.channelCount = 2;
-    outputParameters.sampleFormat = paFloat32;
-    outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
-    outputParameters.hostApiSpecificStreamInfo = NULL;
+    if (fas_audio_device >= num_devices || fas_audio_device < 0) {
+        outputParameters.device = Pa_GetDefaultOutputDevice();
+        if (outputParameters.device == paNoDevice) {
+            fprintf(stderr, "Error: No default output device.\n");
+            goto error;
+        }
+
+        outputParameters.channelCount = 2;
+        outputParameters.sampleFormat = paFloat32;
+        outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
+        outputParameters.hostApiSpecificStreamInfo = NULL;
+    } else {
+        outputParameters.device = fas_audio_device;
+        outputParameters.channelCount = 2;
+        outputParameters.sampleFormat = paFloat32;
+        outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
+        outputParameters.hostApiSpecificStreamInfo = NULL;
+    }
 
     //printf("PortAudio : Device %s will be used\n", Pa_GetDeviceInfo(outputParameters.device)->name);
 

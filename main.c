@@ -117,12 +117,15 @@ unsigned int fas_frames_queue_size = FAS_FRAMES_QUEUE_SIZE;
 unsigned int fas_commands_queue_size = FAS_COMMANDS_QUEUE_SIZE;
 unsigned int fas_max_height = FAS_MAX_HEIGHT;
 unsigned int fas_ssl = FAS_SSL;
+char *fas_iface = NULL;
 
 float *fas_sine_wavetable = NULL;
 
 double note_time;
 double note_time_samples;
 double lerp_t_step;
+
+PaStream *stream;
 
 struct lws_context *context;
 
@@ -370,6 +373,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     if ((frames_read % 512) == 0) {
         printf("%lu frames read\n", frames_read);
     }
+
+    printf("PortAudio stream CPU load : %f\n", Pa_GetStreamCpuLoad(stream));
 #endif
             } else {
                 if (curr_notes) {
@@ -817,7 +822,7 @@ int start_server(void) {
     protocols[0].rx_buffer_size = fas_rx_buffer_size;
 
     struct lws_context_creation_info context_info = {
-        .port = 3003, .iface = NULL, .protocols = protocols, .extensions = NULL,
+        .port = 3003, .iface = fas_iface, .protocols = protocols, .extensions = NULL,
         .ssl_cert_filepath = NULL, .ssl_private_key_filepath = NULL, .ssl_ca_filepath = NULL,
         .gid = -1, .uid = -1, .options = 0, NULL, .ka_time = 0, .ka_probes = 0, .ka_interval = 0
     };
@@ -841,7 +846,7 @@ int start_server(void) {
         return -1;
     }
 
-    printf("Fragment Synthesizer successfully started and listening on port %u.\n", fas_port);
+    printf("Fragment Synthesizer successfully started and listening on %s:%u.\n", fas_iface, fas_port);
 
     return 0;
 }
@@ -860,6 +865,7 @@ void print_usage() {
     printf("  --deflate %u\n", FAS_DEFLATE);
     printf("  --rx_buffer_size %u\n", FAS_RX_BUFFER_SIZE);
     printf("  --port %u\n", FAS_PORT);
+    printf("  --iface 127.0.0.1\n");
 #ifdef __unix__
     printf("  --alsa_realtime_scheduling %u\n", FAS_REALTIME);
 #endif
@@ -885,6 +891,8 @@ int fas_wavetable_init() {
 
 int main(int argc, char **argv)
 {
+    int i = 0;
+
     static struct option long_options[] = {
         { "sample_rate",              required_argument, 0, 0 },
         { "frames",                   required_argument, 0, 1 },
@@ -901,6 +909,7 @@ int main(int argc, char **argv)
         { "commands_queue_size",      required_argument, 0, 10 },
         { "fas_max_height",           required_argument, 0, 11 },
         { "ssl",                      required_argument, 0, 12 },
+        { "iface",                    required_argument, 0, 13 },
         { 0, 0, 0, 0 }
     };
 
@@ -948,6 +957,10 @@ int main(int argc, char **argv)
             case 12:
                 fas_ssl = strtoul(optarg, NULL, 0);
                 break;
+            case 13:
+                fas_iface = optarg;
+                break;
+
             default: print_usage();
                  return EXIT_FAILURE;
         }
@@ -1028,11 +1041,35 @@ int main(int argc, char **argv)
 
     // PortAudio related
     PaStreamParameters outputParameters;
-    PaStream *stream;
     PaError err;
 
     err = Pa_Initialize();
     if (err != paNoError) goto error;
+
+    // get informations about devices
+    int num_devices;
+    num_devices = Pa_GetDeviceCount();
+    if (num_devices < 0) {
+        fprintf(stderr, "Error: Pa_CountDevices returned 0x%x\n", num_devices);
+        err = num_devices;
+        goto error;
+    }
+
+    const PaDeviceInfo *device_info;
+    for (i = 0; i < num_devices; i += 1) {
+        device_info = Pa_GetDeviceInfo(i);
+
+        printf("\nPortAudio device %i - %s\n==========\n", i, device_info->name);
+        printf("  max input channels : %i\n", device_info->maxInputChannels);
+        printf("  max output channels : %i\n", device_info->maxOutputChannels);
+        printf("  default low input latency : %f\n", device_info->defaultLowInputLatency);
+        printf("  default low output latency : %f\n", device_info->defaultLowOutputLatency);
+        printf("  default high input latency : %f\n", device_info->defaultHighInputLatency);
+        printf("  default high output latency : %f\n", device_info->defaultHighOutputLatency);
+        printf("  default sample rate : %f\n", device_info->defaultSampleRate);
+    }
+
+    printf("\n");
 
     outputParameters.device = Pa_GetDefaultOutputDevice();
     if (outputParameters.device == paNoDevice) {
@@ -1050,6 +1087,13 @@ int main(int argc, char **argv)
     outputParameters.sampleFormat = paFloat32;
     outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
     outputParameters.hostApiSpecificStreamInfo = NULL;
+
+    //printf("PortAudio : Device %s will be used\n", Pa_GetDeviceInfo(outputParameters.device)->name);
+
+    err = Pa_IsFormatSupported(NULL, &outputParameters, (double)fas_sample_rate);
+    if (err != paFormatIsSupported) {
+       printf("Pa_IsFormatSupported : Some device output parameters are unsupported!\n");
+    }
 
 #ifdef __unix__
     if (fas_realtime) {
@@ -1104,7 +1148,6 @@ int main(int argc, char **argv)
     lfds710_queue_bss_init_valid_on_current_logical_core(&synth_commands_queue_state, synth_commands_queue_element, fas_commands_queue_size, NULL);
     lfds710_freelist_init_valid_on_current_logical_core(&freelist_frames, NULL, 0, NULL);
 
-    int i = 0;
     struct _freelist_frames_data *ffd = malloc(sizeof(struct _freelist_frames_data) * fas_frames_queue_size);
     if (ffd == NULL) {
         fprintf(stderr, "_freelist_frames_data data structure alloc. error.\n");

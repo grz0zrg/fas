@@ -25,7 +25,32 @@ Requirements :
  * [liblfds](http://liblfds.org/)
  * [libwebsockets](https://libwebsockets.org/)
 
-libwebsockets default build options for fas : -DLWS_WITH_SSL=0 -DLWS_WITHOUT_CLIENT=1
+Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
+
+ * Get latest PortAudio v19 package
+   * sudo apt-get install libasound-dev jackd qjackctl libjack-jackd2-dev
+   * uncompress, go into the directory
+   * ./configure
+   * make clean
+   * make
+   * sudo make install
+   * the static library can now be found at "lib/.libs/libportaudio.a"
+ * Get latest liblfds 7.1.0 package
+   * uncompress, go into the directory "liblfds7.1.0"
+   * go into the directory "build/gcc_gnumake"
+   * make
+   * "liblfds710.a" can now be found in the "bin" directory
+ * Get latest libwebsockets 2.1 package from github
+   * sudo apt-get install cmake
+   * go into the libwebsockets directory
+   * mkdir build
+   * cd build
+   * cmake .. -DLWS_WITH_SSL=0 -DLWS_WITHOUT_CLIENT=1
+   * make
+   * sudo make install
+   * "libwebsockets.a" can now be found in the "build/lib" directory
+
+Copy the \*.a into "fas" root directory then compile by using one of the rule below.
 
 Under Windows, [MSYS2](https://msys2.github.io/) with mingw32 is used and well tested.
 
@@ -56,6 +81,7 @@ Usage: fas [list_of_settings]
  * --deflate 0
  * --rx_buffer_size 4096
  * --port 3003
+ * --iface 127.0.0.1
  * --alsa_realtime_scheduling 0 **not under Windows**
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio will be delayed**
  * --commands_queue_size 16

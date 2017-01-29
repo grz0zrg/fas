@@ -16,6 +16,9 @@ release_options = -O2
 all:
 	$(compiler) $(source) ${debug_options} ${standard_options} $(libs) -o $(output)
 
+profile:
+	$(compiler) $(source) ${release_options} ${standard_options} -DPROFILE $(libs) -o $(output)
+
 release:
 	$(compiler) $(source) ${release_options} ${standard_options} $(libs) -o $(output)
 

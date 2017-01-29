@@ -144,11 +144,11 @@ struct _synth_gain {
 struct oscillator {
     double freq;
 #ifdef FIXED_WAVETABLE
-    unsigned int phase_index;
-    unsigned int phase_step;
-#else
     uint32_t phase_index;
     uint32_t phase_step;
+#else
+    unsigned int phase_index;
+    unsigned int phase_step;
 #endif
 };
 
@@ -375,7 +375,9 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     if ((frames_read % 512) == 0) {
         printf("%lu frames read\n", frames_read);
     }
+#endif
 
+#ifdef PROFILE
     printf("PortAudio stream CPU load : %f\n", Pa_GetStreamCpuLoad(stream));
 #endif
             } else {
@@ -858,7 +860,7 @@ void print_usage() {
     printf(" possible settings with associated default value:\n");
     printf("  --sample_rate %u\n", FAS_SAMPLE_RATE);
     printf("  --frames %u\n", FAS_FRAMES_PER_BUFFER);
-    printf("  --wavetable %u\n", FAS_WAVETABLE);
+    //printf("  --wavetable %u\n", FAS_WAVETABLE);
 #ifndef FIXED_WAVETABLE
     printf("  --wavetable_size %u\n", FAS_WAVETABLE_SIZE);
 #endif

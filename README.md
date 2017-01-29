@@ -3,7 +3,9 @@
 
 Band-aid raw additive synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based Collaborative Spectral Synthesizer](https://www.fsynth.com)
 
-This program collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound from it in real-time, this serve as a band-aid for crackling audio in the Fragment Synthesizer until some heavier optimizations are done or Web Audio API change.
+This program collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound in real-time, this serve as a fast and independent alternative to play audio for the Fragment Synthesizer.
+
+This can be run on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores.
 
 Only one client is supported (altough many can connect, not tested but it may result in a big audio mess and likely a crash!)
 
@@ -15,9 +17,11 @@ A free list data structure is used to handle data reuse, the program pre-allocat
 
 Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping)
 
-**Can be used as a generic additive synthesizer if you feed it correctly! :)**
+**Can be used as a raw generic additive synthesizer if you feed it correctly! :)**
 
-####Build
+###Build
+
+Under Windows, [MSYS2](https://msys2.github.io/) with mingw32 is used and well tested.
 
 Requirements :
 
@@ -52,9 +56,11 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
 
 Copy the \*.a into "fas" root directory then compile by using one of the rule below.
 
-Under Windows, [MSYS2](https://msys2.github.io/) with mingw32 is used and well tested.
+####Makefile rules
 
 Debug : **make**
+
+Profile (benchmark) : **make profile**
 
 Release : **make release**
 
@@ -66,14 +72,13 @@ With MinGW (Statically linked) :  **make win-release-static**
 
 With MinGW (Statically linked + advanced optimizations, default build) :  **make win-release-static-o**
 
-#####Usage
+###Usage
 
-You can tweak this program by passing settings to its arguments, for command-line help : **fas --h**
+You can tweak this program by passing parametsrs to its arguments, for command-line help : **fas --h**
 
 Usage: fas [list_of_settings]
  * --sample_rate 44100
  * --frames 512
- * --wavetable 1 **no effects at the moment**
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
  * --fps 60
  * --ssl 0
@@ -82,7 +87,7 @@ Usage: fas [list_of_settings]
  * --rx_buffer_size 4096
  * --port 3003
  * --iface 127.0.0.1
- * --device -1 **PortAudio audio device index (informations about audio devices are printed when the app. start)**
+ * --device -1 **PortAudio audio device index (informations about audio devices are displayed when the app. start)**
  * --alsa_realtime_scheduling 0 **not under Windows**
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio will be delayed**
  * --commands_queue_size 16

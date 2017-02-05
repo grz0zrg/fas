@@ -59,7 +59,7 @@ Copy the \*.a into "fas" root directory then compile by using one of the rule be
 Recommended launch parameters with HiFiBerry DAC+ :
     ./fas --alsa_realtime_scheduling 1 --frames_queue_size 63 --sample_rate 48000 --device 2
 
-Bit depth is always set as 32 bits float at the moment. (16/24 bits will be implemented soon as options)
+Bit depth is always set as 32 bits float at the moment. (16/24 bits will be implemented soon as an option)
 
 ####Makefile rules
 

@@ -850,7 +850,7 @@ int start_server(void) {
         return -1;
     }
 
-    printf("Fragment Synthesizer successfully started and listening on %s:%u.\n", fas_iface, fas_port);
+    printf("Fragment Synthesizer successfully started and listening on %s:%u.\n", (fas_iface == NULL) ? "127.0.0.1" : fas_iface, fas_port);
 
     return 0;
 }

@@ -28,6 +28,9 @@ release-static:
 release-static-o:
 	$(compiler) $(source) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
 
+release-static-o-profile:
+	$(compiler) $(source) ${release_options} ${adv_optimization_options} -DPROFILE ${standard_options} $(static_libs) -o $(output)
+
 ssl-release-static-o:
 	$(compiler) $(source) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) $(ssl_libs) -o $(output)
 

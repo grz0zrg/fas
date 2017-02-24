@@ -7,7 +7,7 @@ This program collect Fragment settings and notes data over WebSocket, convert th
 
 This can be run on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled, note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
 
-Only one client is supported (altough many can connect, not tested but it may result in a big audio mess and likely a crash!)
+Only one client is supported at the moment (altough many can connect, not tested but it may result in a big audio mess and likely a crash!)
 
 The audio callback contain its own synth. data structure, the data structure is filled from data coming from a lock-free ring buffer to ensure thread safety for the incoming notes data.
 
@@ -73,13 +73,15 @@ Statically linked : **make release-static**
 
 Statically linked and advanced optimizations (default build): **make release-static-o**
 
+Statically linked, advanced optimizations and profiling: **make release-static-o-profile**
+
 With MinGW (Statically linked) :  **make win-release-static**
 
 With MinGW (Statically linked + advanced optimizations, default build) :  **make win-release-static-o**
 
 ###Usage
 
-You can tweak this program by passing parametsrs to its arguments, for command-line help : **fas --h**
+You can tweak this program by passing parameters to its arguments, for command-line help : **fas --h**
 
 Usage: fas [list_of_settings]
  * --sample_rate 44100
@@ -87,12 +89,13 @@ Usage: fas [list_of_settings]
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
  * --fps 60
  * --ssl 0
- * --fas_max_height 4096 **this should be changed if you go above 4096 for the score height**
+ * --max_height 4096 **this should be changed if you go above 4096 for the score height**
  * --deflate 0
  * --rx_buffer_size 4096
  * --port 3003
  * --iface 127.0.0.1
  * --device -1 **PortAudio audio device index (informations about audio devices are displayed when the app. start)**
+ * --output_channels 2 **go in pair**
  * --alsa_realtime_scheduling 0 **not under Windows**
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio will be delayed**
  * --commands_queue_size 16

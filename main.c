@@ -77,6 +77,7 @@
 #define PEER_ADDRESS_BUFFER_LENGTH 16
 
 #define PACKET_HEADER_LENGTH 8
+#define FRAME_HEADER_LENGTH 8
 
 // packets id
 #define SYNTH_SETTINGS 0
@@ -96,6 +97,7 @@
 #define FAS_FRAMES_QUEUE_SIZE 7
 #define FAS_COMMANDS_QUEUE_SIZE 16
 #define FAS_MAX_HEIGHT 4096
+#define FAS_OUTPUT_CHANNELS 2
 #define FAS_SSL 0
 
 // program settings with associated default value
@@ -118,6 +120,8 @@ unsigned int fas_frames_queue_size = FAS_FRAMES_QUEUE_SIZE;
 unsigned int fas_commands_queue_size = FAS_COMMANDS_QUEUE_SIZE;
 unsigned int fas_max_height = FAS_MAX_HEIGHT;
 unsigned int fas_ssl = FAS_SSL;
+unsigned int fas_output_channels = FAS_OUTPUT_CHANNELS;
+unsigned int frame_data_count = FAS_OUTPUT_CHANNELS / 2;
 int fas_audio_device = -1;
 char *fas_iface = NULL;
 
@@ -182,6 +186,7 @@ struct user_session_data {
     char *frame_data;
     char *prev_frame_data;
     size_t expected_frame_length;
+    size_t expected_max_frame_length;
 
     // contain user session related synth. data
     struct _synth *synth;
@@ -234,6 +239,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 {
     LFDS710_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_LOGICAL_CORE;
 
+
     static float last_sample_r = 0;
     static float last_sample_l = 0;
 
@@ -278,14 +284,16 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 */
     }
 
-    unsigned int i, j;
+    unsigned int i, j, k, s, e;
 
     if (curr_synth.oscillators == NULL ||
            curr_synth.settings == NULL ||
                curr_synth.gain == NULL) {
         for (i = 0; i < framesPerBuffer; i += 1) {
-            *out++ = 0;
-            *out++ = 0;
+            for (j = 0; j < frame_data_count; j += 1) {
+                *out++ = 0;
+                *out++ = 0;
+            }
         }
 
         curr_synth.lerp_t = 0.0;
@@ -299,48 +307,62 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     void *key;
     struct note *_notes;
     struct _freelist_frames_data *freelist_frames_data;
-    unsigned int note_buffer_len = 0;
+    unsigned int note_buffer_len = 0, pv_note_buffer_len = 0;
 
-    if (curr_notes != NULL) {
-        note_buffer_len = curr_notes[0].osc_index;
-    }
+    //if (curr_notes != NULL) {
+    //    note_buffer_len = curr_notes[0].osc_index;
+    //}
 
     int read_status = 0;
 
     for (i = 0; i < framesPerBuffer; i += 1) {
-        float output_l = 0.0f;
-        float output_r = 0.0f;
+        note_buffer_len = 0;
+        pv_note_buffer_len = 0;
 
-//        if (curr_notes != NULL) {
-            for (j = 1; j < note_buffer_len; j += 1) {
-                struct note *n = &curr_notes[j];
+        for (k = 0; k < frame_data_count; k += 1) {
+            float output_l = 0.0f;
+            float output_r = 0.0f;
 
-                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+            if (curr_notes != NULL) {
+                pv_note_buffer_len += note_buffer_len + k;
+                note_buffer_len = curr_notes[pv_note_buffer_len].osc_index;
+                s = pv_note_buffer_len + 1;
+                e = s + note_buffer_len;
 
-                float s = fas_sine_wavetable[osc->phase_index & fas_wavetable_size_m1];
+//                printf("s %u e %u\n",s, e);
 
-                output_l += (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t) * s;
-                output_r += (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t) * s;
+    //        if (curr_notes != NULL) {
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
 
-                osc->phase_index += osc->phase_step;
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-#ifndef FIXED_WAVETABLE
-                if (osc->phase_index >= fas_wavetable_size) {
-                    osc->phase_index -= fas_wavetable_size;
+                    float s = fas_sine_wavetable[osc->phase_index & fas_wavetable_size_m1];
+
+                    output_l += (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t) * s;
+                    output_r += (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t) * s;
+
+                    osc->phase_index += osc->phase_step;
+
+    #ifndef FIXED_WAVETABLE
+                    if (osc->phase_index >= fas_wavetable_size) {
+                        osc->phase_index -= fas_wavetable_size;
+                    }
+    #endif
                 }
-#endif
             }
-/*
-        } else {
-            output_l = output_l - output_l * curr_synth.lerp_t;
-            output_r = output_r - output_r * curr_synth.lerp_t;
-        }
-*/
-        last_sample_l = output_l * curr_synth.gain->gain_lr;
-        last_sample_r = output_r * curr_synth.gain->gain_lr;
+    /*
+            } else {
+                output_l = output_l - output_l * curr_synth.lerp_t;
+                output_r = output_r - output_r * curr_synth.lerp_t;
+            }
+    */
+            last_sample_l = output_l * curr_synth.gain->gain_lr;
+            last_sample_r = output_r * curr_synth.gain->gain_lr;
 
-        *out++ = last_sample_l;
-        *out++ = last_sample_r;
+            *out++ = last_sample_l;
+            *out++ = last_sample_r;
+        }
 
         curr_synth.lerp_t += lerp_t_step;
 
@@ -368,7 +390,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 curr_synth.lerp_t = 0;
                 lerp_t_step = 1 / note_time_samples;
 
-                note_buffer_len = curr_notes[0].osc_index;;
+                note_buffer_len = curr_notes[0].osc_index;
 
 #ifdef DEBUG
     frames_read += 1;
@@ -428,77 +450,92 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
 
 void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_length, unsigned char *prev_data, unsigned char *data) {
     double pvl = 0, pvr = 0, pr, pg;
-    unsigned int i;
+    unsigned int i, j, frame_data_index = 4;
     unsigned int r, g;
-    unsigned int index = 1;
+    unsigned int index = 0, note_osc_index = 0, osc_count = 0;
     double volume_l, volume_r;
-    unsigned int y = h - 1;
     static double inv_full_brightness = 1.0 / 255.0;
 
-    for (i = 0; i < data_length; i += 4) {
-        pr = prev_data[i];
-        pg = prev_data[i + 1];
+    static unsigned int channels[1];
 
-        r = data[i];
-        g = data[i + 1];
+    memcpy(&channels, &((char *) data)[0], sizeof(channels));
 
-        struct note *_note = &note_buffer[index];
-        _note->osc_index = y;
-
-        if (r > 0 ) {
-            volume_l = r * inv_full_brightness;
-            pvl = pr * inv_full_brightness;
-            _note->previous_volume_l = pvl;
-            _note->diff_volume_l = volume_l - pvl;
-        } else {
-            if (pr > 0) {
-                pvl = pr * inv_full_brightness;
-
-                _note->previous_volume_l = pvl;
-                _note->diff_volume_l = -pvl;
-            } else {
-                _note->previous_volume_l = 0;
-                _note->diff_volume_l = 0;
-
-                if (g == 0 && pg == 0) {
-                    y -= 1;
-                    continue;
-                }
-            }
-        }
-
-        if (g > 0) {
-            volume_r = g * inv_full_brightness;
-            pvr = pg * inv_full_brightness;
-            _note->previous_volume_r = pvr;
-            _note->diff_volume_r = volume_r - pvr;
-        } else {
-            if (pg > 0) {
-                pvr = pg * inv_full_brightness;
-
-                _note->previous_volume_r = pvr;
-                _note->diff_volume_r = -pvr;
-            } else {
-                _note->previous_volume_r = 0;
-                _note->diff_volume_r = 0;
-
-                if (r == 0 && pr == 0) {
-                    y -= 1;
-                    continue;
-                }
-            }
-        }
-
+    for (j = 0; j < (*channels); j += 1) {
+        note_osc_index = index;
         index += 1;
+        osc_count = 0;
 
-        y -= 1;
-    }
+        unsigned int y = h - 1;
 
-    note_buffer[0].osc_index = index;
+        for (i = 0; i < data_length; i += 4) {
+            pr = prev_data[frame_data_index];
+            pg = prev_data[frame_data_index + 1];
+
+            r = data[frame_data_index];
+            g = data[frame_data_index + 1];
+
+            frame_data_index += 4;
+
+            struct note *_note = &note_buffer[index];
+            _note->osc_index = y;
+
+            if (r > 0 ) {
+                volume_l = r * inv_full_brightness;
+                pvl = pr * inv_full_brightness;
+                _note->previous_volume_l = pvl;
+                _note->diff_volume_l = volume_l - pvl;
+            } else {
+                if (pr > 0) {
+                    pvl = pr * inv_full_brightness;
+
+                    _note->previous_volume_l = pvl;
+                    _note->diff_volume_l = -pvl;
+                } else {
+                    _note->previous_volume_l = 0;
+                    _note->diff_volume_l = 0;
+
+                    if (g == 0 && pg == 0) {
+                        y -= 1;
+                        continue;
+                    }
+                }
+            }
+
+            if (g > 0) {
+                volume_r = g * inv_full_brightness;
+                pvr = pg * inv_full_brightness;
+                _note->previous_volume_r = pvr;
+                _note->diff_volume_r = volume_r - pvr;
+            } else {
+                if (pg > 0) {
+                    pvr = pg * inv_full_brightness;
+
+                    _note->previous_volume_r = pvr;
+                    _note->diff_volume_r = -pvr;
+                } else {
+                    _note->previous_volume_r = 0;
+                    _note->diff_volume_r = 0;
+
+                    if (r == 0 && pr == 0) {
+                        y -= 1;
+                        continue;
+                    }
+                }
+            }
+
+            index += 1;
+
+            osc_count += 1;
+
+            y -= 1;
+        }
+
+        note_buffer[note_osc_index].osc_index = osc_count;
 
 #ifdef DEBUG
-    printf("%i oscillators \n", index);
+    printf("Channel l/r %u: %i oscillators \n", (j + 1), osc_count);
 #endif
+    }
 }
 
 int  ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
@@ -646,8 +683,10 @@ if (remaining_payload != 0) {
                     }
 
                     usd->expected_frame_length = 4 * sizeof(unsigned char) * usd->synth->settings->h;
-                    usd->frame_data = malloc(usd->expected_frame_length);
-                    usd->prev_frame_data = calloc(usd->expected_frame_length, sizeof(unsigned char));
+                    usd->expected_max_frame_length = 4 * sizeof(unsigned char) * usd->synth->settings->h * frame_data_count;
+                    size_t max_frame_data_len = usd->expected_frame_length * frame_data_count + sizeof(unsigned int);
+                    usd->frame_data = malloc(max_frame_data_len);
+                    usd->prev_frame_data = calloc(max_frame_data_len, sizeof(unsigned char));
 
                     usd->synth_h = usd->synth->settings->h;
 
@@ -685,12 +724,17 @@ if (remaining_payload != 0) {
                 } else if (pid == FRAME_DATA) {
 #ifdef DEBUG
     printf("FRAME_DATA\n");
+
+    static unsigned int frame_data_length[1];
+    memcpy(&frame_data_length, &((char *) usd->packet)[PACKET_HEADER_LENGTH], sizeof(frame_data_length));
+    printf("Number of channels in the frame: %u\n", *frame_data_length);
 #endif
-                    if ((usd->packet_len - PACKET_HEADER_LENGTH) != usd->expected_frame_length) {
-                        printf("Skipping a frame, the frame length does not match the expected frame length.\n");
-                        fflush(stdout);
-                        goto free_packet;
-                    }
+                    //size_t frame_length = usd->packet_len - PACKET_HEADER_LENGTH - FRAME_HEADER_LENGTH;
+                    //if (frame_length != usd->expected_frame_length) {
+                    //    printf("Skipping a frame, the frame length %zu does not match the expected frame length %zu.\n", frame_length, usd->expected_frame_length);
+                    //    fflush(stdout);
+                    //    goto free_packet;
+                    //}
 
                     if (usd->frame_data == NULL) {
                         printf("Skipping a frame (alloc. error) until a synth. settings change happen.\n");
@@ -698,9 +742,9 @@ if (remaining_payload != 0) {
                         goto free_packet;
                     }
 
-                    memcpy(usd->prev_frame_data, &usd->frame_data[0], usd->expected_frame_length);
+                    memcpy(usd->prev_frame_data, &usd->frame_data[0], usd->expected_max_frame_length);
 
-                    memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->expected_frame_length);
+                    memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->packet_len - PACKET_HEADER_LENGTH);
 
 #ifdef DEBUG
     lfds710_pal_uint_t frames_data_freelist_count;
@@ -718,6 +762,8 @@ if (remaining_payload != 0) {
                     }
 
                     freelist_frames_data = LFDS710_FREELIST_GET_VALUE_FROM_ELEMENT(*fe);
+
+                    memset(freelist_frames_data->data, 0, sizeof(struct note) * (fas_max_height + 1) * frame_data_count + sizeof(unsigned int));
 
                     fillNotesBuffer(freelist_frames_data->data, usd->synth_h, usd->expected_frame_length, (unsigned char *)usd->prev_frame_data, (unsigned char *)usd->frame_data);
 
@@ -871,6 +917,8 @@ void print_usage() {
     printf("  --port %u\n", FAS_PORT);
     printf("  --iface 127.0.0.1\n");
     printf("  --device -1\n");
+    printf("  --max_height %u\n", FAS_MAX_HEIGHT);
+    printf("  --output_channels %u\n", FAS_OUTPUT_CHANNELS);
 #ifdef __unix__
     printf("  --alsa_realtime_scheduling %u\n", FAS_REALTIME);
 #endif
@@ -912,10 +960,11 @@ int main(int argc, char **argv)
         { "alsa_realtime_scheduling", required_argument, 0, 8 },
         { "frames_queue_size",        required_argument, 0, 9 },
         { "commands_queue_size",      required_argument, 0, 10 },
-        { "fas_max_height",           required_argument, 0, 11 },
+        { "max_height",               required_argument, 0, 11 },
         { "ssl",                      required_argument, 0, 12 },
         { "iface",                    required_argument, 0, 13 },
         { "device",                   required_argument, 0, 14 },
+        { "output_channels",          required_argument, 0, 15 },
         { 0, 0, 0, 0 }
     };
 
@@ -968,6 +1017,9 @@ int main(int argc, char **argv)
                 break;
             case 14:
                 fas_audio_device = strtoul(optarg, NULL, 0);
+                break;
+            case 15:
+                fas_output_channels = strtoul(optarg, NULL, 0);
                 break;
             default: print_usage();
                  return EXIT_FAILURE;
@@ -1025,9 +1077,15 @@ int main(int argc, char **argv)
     }
 
     if (fas_max_height < 512) {
-        printf("Warning: fas_max_height program option argument is invalid, should be >= 512, the default value (%u) will be used.\n", FAS_MAX_HEIGHT);
+        printf("Warning: max_height program option argument is invalid, should be >= 512, the default value (%u) will be used.\n", FAS_MAX_HEIGHT);
 
         fas_max_height = FAS_MAX_HEIGHT;
+    }
+
+    if (fas_output_channels < 2 || (fas_output_channels % 2) != 0) {
+        printf("Warning: output_channels program option argument is invalid, should be >= 2, the default value (%u) will be used.\n", FAS_OUTPUT_CHANNELS);
+
+        fas_output_channels = FAS_OUTPUT_CHANNELS;
     }
 
     if (errno == ERANGE) {
@@ -1087,6 +1145,7 @@ int main(int argc, char **argv)
     curr_synth.lerp_t = 0.0;
     curr_synth.curr_sample = 0;
 
+    int device_max_input_channels;
     if (fas_audio_device >= num_devices || fas_audio_device < 0) {
         outputParameters.device = Pa_GetDefaultOutputDevice();
         if (outputParameters.device == paNoDevice) {
@@ -1094,19 +1153,35 @@ int main(int argc, char **argv)
             goto error;
         }
 
-        outputParameters.channelCount = 2;
+        device_max_input_channels = Pa_GetDeviceInfo(outputParameters.device)->maxInputChannels;
+        if (fas_output_channels > device_max_input_channels) {
+            printf("Warning: Requested output_channels program option is larger than device input channels, defaulting to %i\n", device_max_input_channels);
+            fas_output_channels = device_max_input_channels;
+        }
+
+        outputParameters.channelCount = fas_output_channels;
         outputParameters.sampleFormat = paFloat32;
         outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
         outputParameters.hostApiSpecificStreamInfo = NULL;
     } else {
+        device_info = Pa_GetDeviceInfo(fas_audio_device);
+
+        device_max_input_channels = device_info->maxInputChannels;
+        if (fas_output_channels > device_max_input_channels) {
+            printf("Warning: Requested output_channels program option is larger than device input channels, defaulting to %i\n", device_max_input_channels);
+            fas_output_channels = device_max_input_channels;
+        }
+
         outputParameters.device = fas_audio_device;
-        outputParameters.channelCount = 2;
+        outputParameters.channelCount = fas_output_channels;
         outputParameters.sampleFormat = paFloat32;
         outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
         outputParameters.hostApiSpecificStreamInfo = NULL;
     }
 
-    //printf("PortAudio : Device %s will be used\n", Pa_GetDeviceInfo(outputParameters.device)->name);
+    frame_data_count = fas_output_channels / 2;
+
+    printf("\nPortAudio: Using device '%s' with %u output channels\n", Pa_GetDeviceInfo(outputParameters.device)->name, fas_output_channels);
 
     err = Pa_IsFormatSupported(NULL, &outputParameters, (double)fas_sample_rate);
     if (err != paFormatIsSupported) {
@@ -1176,7 +1251,7 @@ int main(int argc, char **argv)
 
     for (i = 0; i < fas_frames_queue_size; i += 1)
     {
-        ffd[i].data = malloc(sizeof(struct note) * (fas_max_height + 1));//malloc(sizeof(double) * (fas_max_height * 5));
+        ffd[i].data = malloc(sizeof(struct note) * (fas_max_height + 1) * frame_data_count + sizeof(unsigned int));//malloc(sizeof(double) * (fas_max_height * 5));
 
         LFDS710_FREELIST_SET_VALUE_IN_ELEMENT(ffd[i].fe, &ffd[i]);
         lfds710_freelist_push(&freelist_frames, &ffd[i].fe, NULL);

@@ -50,6 +50,7 @@
     TODO : data coming from the network for notes etc. should NOT be handled like it is right now (it should instead come with IEEE 754 representation or something...)
     TODO : refactor/rename some data structures
     TODO : thread-safe memory deallocation for synth. parameters change
+    TODO : adjust max height automatically and remove the need of the program option
 */
 
 #include <getopt.h>
@@ -67,7 +68,7 @@
 
 #include "portaudio.h"
 #include "libwebsockets.h"
-#include "inc/liblfds710.h"
+#include "inc/liblfds711.h"
 
 #ifndef M_PI
     #define M_PI (3.141592653589)
@@ -148,12 +149,19 @@ struct _synth_gain {
 struct oscillator {
     double freq;
 #ifdef FIXED_WAVETABLE
-    uint32_t phase_index;
+    uint32_t *phase_index;
     uint32_t phase_step;
 #else
-    unsigned int phase_index;
+    unsigned int *phase_index;
     unsigned int phase_step;
 #endif
+};
+
+struct osc_norm {
+    unsigned int divisor;
+    unsigned int *indexes;
+    size_t indexes_len;
+    size_t indexes_curr;
 };
 
 struct note {
@@ -195,14 +203,14 @@ struct user_session_data {
 };
 
 // liblfds related
-enum lfds710_misc_flag overwrite_occurred_flag;
+enum lfds711_misc_flag overwrite_occurred_flag;
 
-struct lfds710_ringbuffer_state rs; // frames related data structure
-struct lfds710_queue_bss_state synth_commands_queue_state;
-struct lfds710_freelist_state freelist_frames;
+struct lfds711_ringbuffer_state rs; // frames related data structure
+struct lfds711_queue_bss_state synth_commands_queue_state;
+struct lfds711_freelist_state freelist_frames;
 
 struct _freelist_frames_data {
-    struct lfds710_freelist_element fe;
+    struct lfds711_freelist_element fe;
 
     struct note *data;
 };
@@ -212,20 +220,22 @@ struct note *curr_notes = NULL;
 struct _freelist_frames_data *curr_freelist_frames_data = NULL;
 unsigned long frames_read = 0;
 
+struct osc_norm *osc_norms = NULL;
+
 // liblfds data structures cleanup callbacks
-void flf_element_cleanup_callback(struct lfds710_freelist_state *fs, struct lfds710_freelist_element *fe) {
+void flf_element_cleanup_callback(struct lfds711_freelist_state *fs, struct lfds711_freelist_element *fe) {
     struct _freelist_frames_data *freelist_frames_data;
-    freelist_frames_data = LFDS710_FREELIST_GET_VALUE_FROM_ELEMENT(*fe);
+    freelist_frames_data = LFDS711_FREELIST_GET_VALUE_FROM_ELEMENT(*fe);
 
     free(freelist_frames_data->data);
 }
 
-void q_element_cleanup_callback(struct lfds710_queue_bss_state *qbsss, void *key, void *value) {
+void q_element_cleanup_callback(struct lfds711_queue_bss_state *qbsss, void *key, void *value) {
     //free(value);
 }
 
-void rb_element_cleanup_callback(struct lfds710_ringbuffer_state *rs, void *key, void *value, enum lfds710_misc_flag unread_flag) {
-    if (unread_flag == LFDS710_MISC_FLAG_RAISED) {
+void rb_element_cleanup_callback(struct lfds711_ringbuffer_state *rs, void *key, void *value, enum lfds711_misc_flag unread_flag) {
+    if (unread_flag == LFDS711_MISC_FLAG_RAISED) {
         free(key);
     }
 }
@@ -237,7 +247,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             PaStreamCallbackFlags statusFlags,
                             void *data )
 {
-    LFDS710_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_LOGICAL_CORE;
+    LFDS711_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_LOGICAL_CORE;
 
 
     static float last_sample_r = 0;
@@ -245,11 +255,11 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
     float *out = (float*)outputBuffer;
 
-    //enum lfds710_misc_flag rb_overwrite_occurred_flag;
+    //enum lfds711_misc_flag rb_overwrite_occurred_flag;
     //double *overwritten_data = NULL;
 
     void *queue_synth_void;
-    if (lfds710_queue_bss_dequeue(&synth_commands_queue_state, NULL, &queue_synth_void) == 1) {
+    if (lfds711_queue_bss_dequeue(&synth_commands_queue_state, NULL, &queue_synth_void) == 1) {
         struct _synth *queue_synth = (struct _synth *)queue_synth_void;
 
         if (queue_synth->oscillators) {
@@ -257,7 +267,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
             curr_synth.oscillators = queue_synth->oscillators;
 
-            //lfds710_ringbuffer_cleanup(&rs, rb_element_cleanup_callback);
+            //lfds711_ringbuffer_cleanup(&rs, rb_element_cleanup_callback);
         }
 
         if (queue_synth->settings) {
@@ -265,7 +275,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
             curr_synth.settings = queue_synth->settings;
 
-            //lfds710_ringbuffer_cleanup(&rs, rb_element_cleanup_callback);
+            //lfds711_ringbuffer_cleanup(&rs, rb_element_cleanup_callback);
         }
 
         if (queue_synth->gain) {
@@ -274,8 +284,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             curr_synth.gain = queue_synth->gain;
         }
 /*
-        lfds710_ringbuffer_write(&free_data_rb_state, (void *) (lfds710_pal_uint_t) queue_synth, NULL, &rb_overwrite_occurred_flag, (void *)&overwritten_data, NULL);
-        if (rb_overwrite_occurred_flag == LFDS710_MISC_FLAG_RAISED) {
+        lfds711_ringbuffer_write(&free_data_rb_state, (void *) (lfds711_pal_uint_t) queue_synth, NULL, &rb_overwrite_occurred_flag, (void *)&overwritten_data, NULL);
+        if (rb_overwrite_occurred_flag == LFDS711_MISC_FLAG_RAISED) {
             free(overwritten_data);
 #ifdef DEBUG
     printf("Freeing rb synth. data!");
@@ -309,10 +319,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     struct _freelist_frames_data *freelist_frames_data;
     unsigned int note_buffer_len = 0, pv_note_buffer_len = 0;
 
-    //if (curr_notes != NULL) {
-    //    note_buffer_len = curr_notes[0].osc_index;
-    //}
-
     int read_status = 0;
 
     for (i = 0; i < framesPerBuffer; i += 1) {
@@ -329,34 +335,26 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 s = pv_note_buffer_len + 1;
                 e = s + note_buffer_len;
 
-//                printf("s %u e %u\n",s, e);
-
-    //        if (curr_notes != NULL) {
                 for (j = s; j < e; j += 1) {
                     struct note *n = &curr_notes[j];
 
                     struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                    float s = fas_sine_wavetable[osc->phase_index & fas_wavetable_size_m1];
+                    float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
 
                     output_l += (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t) * s;
                     output_r += (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t) * s;
 
-                    osc->phase_index += osc->phase_step;
+                    osc->phase_index[k] += osc->phase_step;
 
     #ifndef FIXED_WAVETABLE
-                    if (osc->phase_index >= fas_wavetable_size) {
-                        osc->phase_index -= fas_wavetable_size;
+                    if (osc->phase_index[k] >= fas_wavetable_size) {
+                        osc->phase_index[k] -= fas_wavetable_size;
                     }
     #endif
                 }
             }
-    /*
-            } else {
-                output_l = output_l - output_l * curr_synth.lerp_t;
-                output_r = output_r - output_r * curr_synth.lerp_t;
-            }
-    */
+
             last_sample_l = output_l * curr_synth.gain->gain_lr;
             last_sample_r = output_r * curr_synth.gain->gain_lr;
 
@@ -373,15 +371,15 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
             curr_synth.curr_sample = 0;
 
-            read_status = lfds710_ringbuffer_read(&rs, &key, NULL);
+            read_status = lfds711_ringbuffer_read(&rs, &key, NULL);
             if (read_status == 1) {
                 freelist_frames_data = (struct _freelist_frames_data *)key;
 
                 _notes = freelist_frames_data->data;
 
                 if (curr_notes) {
-                    LFDS710_FREELIST_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
-                    lfds710_freelist_push(&freelist_frames, &curr_freelist_frames_data->fe, NULL);
+                    LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
+                    lfds711_freelist_push(&freelist_frames, &curr_freelist_frames_data->fe, NULL);
                 }
 
                 curr_notes = _notes;
@@ -404,8 +402,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
             } else {
                 if (curr_notes) {
-                    LFDS710_FREELIST_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
-                    lfds710_freelist_push(&freelist_frames, &curr_freelist_frames_data->fe, NULL);
+                    LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
+                    lfds711_freelist_push(&freelist_frames, &curr_freelist_frames_data->fe, NULL);
                 }
 
                 curr_notes = NULL;
@@ -441,13 +439,58 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         phase_step = frequency / (double)fas_sample_rate * fas_wavetable_size;
 
         oscillators[index].freq = frequency;
-        oscillators[index].phase_index = rand() / (double)RAND_MAX * fas_wavetable_size;
+
+#ifdef FIXED_WAVETABLE
+        oscillators[index].phase_index = malloc(sizeof(uint32_t) * frame_data_count);
+#else
+        oscillators[index].phase_index = malloc(sizeof(unsigned int) * frame_data_count);
+#endif
+
+        for (int i = 0; i < frame_data_count; i += 1) {
+            oscillators[index].phase_index[i] = rand() / (double)RAND_MAX * fas_wavetable_size;
+        }
+
         oscillators[index].phase_step = phase_step;
     }
 
     return oscillators;
 }
 
+struct oscillator *freeOscillators(struct oscillator *oscs, unsigned int n) {
+    if (oscs == NULL) {
+        return NULL;
+    }
+
+    int y = 0;
+    for (y = 0; y < n; y += 1) {
+        free(oscs[y].phase_index);
+    }
+
+    free(oscs);
+
+    return NULL;
+}
+
+void resetNorm(struct osc_norm *_osc_norm) {
+    _osc_norm->indexes_len = 16;
+    _osc_norm->indexes_curr = 0;
+    _osc_norm->divisor = 0;
+
+    _osc_norm->indexes = malloc(sizeof(unsigned int) * _osc_norm->indexes_len);
+}
+
+void resetNorms() {
+    unsigned int i = 0;
+    for (i = 0; i < fas_max_height; i += 1) {
+        struct osc_norm *_osc_norm = &osc_norms[i];
+        free(_osc_norm->indexes);
+
+        resetNorm(_osc_norm);
+    }
+}
+
+// fill the notes buffer for each output channels
+// data argument is the raw RGBA values received with the channels count indicated as the first entry
 void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_length, unsigned char *prev_data, unsigned char *data) {
     double pvl = 0, pvr = 0, pr, pg;
     unsigned int i, j, frame_data_index = 4;
@@ -522,7 +565,17 @@ void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_lengt
                     }
                 }
             }
+/*
+            struct osc_norm *_osc_norm = &osc_norms[y];
+            if (_osc_norm->indexes_curr == _osc_norm->indexes_len) {
+                _osc_norm->indexes_len *= 2;
+                _osc_norm->indexes = realloc(_osc_norm->indexes, _osc_norm->indexes_len);
+            }
 
+            _osc_norm->indexes[_osc_norm->indexes_curr] = index;
+            _osc_norm->indexes_curr += 1;
+            _osc_norm->divisor += 1;
+*/
             index += 1;
 
             osc_count += 1;
@@ -536,12 +589,30 @@ void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_lengt
     printf("Channel l/r %u: %i oscillators \n", (j + 1), osc_count);
 #endif
     }
+
+    // normalize output
+/*
+    for (i = 0; i < fas_max_height; i += 1) {
+        struct osc_norm *_osc_norm = &osc_norms[i];
+        if (_osc_norm->divisor > 1) {
+            for (j = 0; j < _osc_norm->indexes_curr; j += 1) {
+                struct note *_note = &note_buffer[_osc_norm->indexes[j]];
+                _note->previous_volume_l /= _osc_norm->divisor;
+                _note->diff_volume_l /= _osc_norm->divisor;
+                _note->previous_volume_r /= _osc_norm->divisor;
+                _note->diff_volume_r /= _osc_norm->divisor;
+            }
+        }
+
+        resetNorm(_osc_norm);
+    }
+*/
 }
 
 int  ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
                         void *user, void *in, size_t len)
 {
-    LFDS710_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_LOGICAL_CORE;
+    LFDS711_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_LOGICAL_CORE;
 
     struct user_session_data *usd = (struct user_session_data *)user;
     int n, m, fd;
@@ -644,7 +715,12 @@ if (remaining_payload != 0) {
 #endif
                 pid = usd->packet[0];
 
+#ifdef DEBUG
+    printf("Packet id: %u\n", pid);
+#endif
+
                 if (pid == SYNTH_SETTINGS) {
+                    unsigned int h = 0;
                     if (usd->synth == NULL) {
                         usd->synth = (struct _synth*)malloc(sizeof(struct _synth));
 
@@ -666,10 +742,15 @@ if (remaining_payload != 0) {
 
                             goto free_packet;
                         }
+
+                        usd->synth->oscillators = NULL;
+                    } else {
+                        h = usd->synth->settings->h;
                     }
 
+                    usd->synth->oscillators = freeOscillators(usd->synth->oscillators, h);
+
                     usd->synth->gain = NULL;
-                    usd->synth->oscillators = NULL;
 
                     memcpy(usd->synth->settings, &((char *) usd->packet)[PACKET_HEADER_LENGTH], 16);
 
@@ -677,10 +758,6 @@ if (remaining_payload != 0) {
     printf("SYNTH_SETTINGS : %u, %u, %f\n", usd->synth->settings->h,
         usd->synth->settings->octave, usd->synth->settings->base_frequency);
 #endif
-                    if (usd->synth->oscillators) {
-                        free(usd->synth->oscillators);
-                        usd->synth->oscillators = NULL;
-                    }
 
                     usd->expected_frame_length = 4 * sizeof(unsigned char) * usd->synth->settings->h;
                     usd->expected_max_frame_length = 4 * sizeof(unsigned char) * usd->synth->settings->h * frame_data_count;
@@ -708,12 +785,12 @@ if (remaining_payload != 0) {
                     usd->synth->oscillators = createOscillators(usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave);
 
-                    if (lfds710_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
+                    if (lfds711_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
                         printf("Skipping packet, the synth commands queue is full.\n");
                         fflush(stdout);
 
                         free(usd->synth->settings);
-                        free(usd->synth->oscillators);
+                        usd->synth->oscillators = freeOscillators(usd->synth->oscillators, usd->synth->settings->h);
                         free(usd->synth);
                         usd->synth = NULL;
 
@@ -747,32 +824,32 @@ if (remaining_payload != 0) {
                     memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->packet_len - PACKET_HEADER_LENGTH);
 
 #ifdef DEBUG
-    lfds710_pal_uint_t frames_data_freelist_count;
-    lfds710_freelist_query(&freelist_frames, LFDS710_FREELIST_QUERY_SINGLETHREADED_GET_COUNT, NULL, (void *)&frames_data_freelist_count);
+    lfds711_pal_uint_t frames_data_freelist_count;
+    lfds711_freelist_query(&freelist_frames, LFDS711_FREELIST_QUERY_SINGLETHREADED_GET_COUNT, NULL, (void *)&frames_data_freelist_count);
     printf("frames_data_freelist_count : %llu\n", frames_data_freelist_count);
 #endif
 
-                    struct lfds710_freelist_element *fe;
+                    struct lfds711_freelist_element *fe;
                     struct _freelist_frames_data *freelist_frames_data;
-                    int pop_result = lfds710_freelist_pop(&freelist_frames, &fe, NULL);
+                    int pop_result = lfds711_freelist_pop(&freelist_frames, &fe, NULL);
                     if (pop_result == 0) {
                         printf("Skipping a frame, notes buffer freelist is empty.\n");
                         fflush(stdout);
                         goto free_packet;
                     }
 
-                    freelist_frames_data = LFDS710_FREELIST_GET_VALUE_FROM_ELEMENT(*fe);
+                    freelist_frames_data = LFDS711_FREELIST_GET_VALUE_FROM_ELEMENT(*fe);
 
                     memset(freelist_frames_data->data, 0, sizeof(struct note) * (fas_max_height + 1) * frame_data_count + sizeof(unsigned int));
 
                     fillNotesBuffer(freelist_frames_data->data, usd->synth_h, usd->expected_frame_length, (unsigned char *)usd->prev_frame_data, (unsigned char *)usd->frame_data);
 
                     struct _freelist_frames_data *overwritten_notes = NULL;
-                    lfds710_ringbuffer_write(&rs, (void *) (lfds710_pal_uint_t) freelist_frames_data, NULL, &overwrite_occurred_flag, (void *)&overwritten_notes, NULL);
-                    if (overwrite_occurred_flag == LFDS710_MISC_FLAG_RAISED) {
+                    lfds711_ringbuffer_write(&rs, (void *) (lfds711_pal_uint_t) freelist_frames_data, NULL, &overwrite_occurred_flag, (void *)&overwritten_notes, NULL);
+                    if (overwrite_occurred_flag == LFDS711_MISC_FLAG_RAISED) {
                         // okay, push it back!
-                        LFDS710_FREELIST_SET_VALUE_IN_ELEMENT(overwritten_notes->fe, overwritten_notes);
-                        lfds710_freelist_push(&freelist_frames, &overwritten_notes->fe, NULL);
+                        LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(overwritten_notes->fe, overwritten_notes);
+                        lfds711_freelist_push(&freelist_frames, &overwritten_notes->fe, NULL);
                     }
                 } else if (pid == GAIN_CHANGE) {
                     if (usd->synth == NULL) {
@@ -803,7 +880,7 @@ if (remaining_payload != 0) {
 #ifdef DEBUG
     printf("GAIN_CHANGE : %f\n", usd->synth->gain->gain_lr);
 #endif
-                    if (lfds710_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
+                    if (lfds711_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
                         printf("Skipping packet, the synth commands queue is full.\n");
                         fflush(stdout);
 
@@ -829,6 +906,13 @@ free_packet:
             break;
 
         case LWS_CALLBACK_WS_PEER_INITIATED_CLOSE:
+            if (usd->synth) {
+                if (usd->synth->oscillators && usd->synth->settings) {
+                    usd->synth->oscillators = freeOscillators(usd->synth->oscillators, usd->synth->settings->h);
+                }
+                free(usd->synth->settings);
+                free(usd->synth);
+            }
             free(usd->prev_frame_data);
             free(usd->frame_data);
             free(usd->packet);
@@ -1213,17 +1297,17 @@ int main(int argc, char **argv)
     }
 
 #if defined(_WIN32) || defined(_WIN64)
-    struct lfds710_ringbuffer_element *re =
-        malloc(sizeof(struct lfds710_ringbuffer_element) * (fas_frames_queue_size + 1));
+    struct lfds711_ringbuffer_element *re =
+        malloc(sizeof(struct lfds711_ringbuffer_element) * (fas_frames_queue_size + 1));
 
-    struct lfds710_queue_bss_element *synth_commands_queue_element =
-        malloc(sizeof(struct lfds710_queue_bss_element) * fas_commands_queue_size);
+    struct lfds711_queue_bss_element *synth_commands_queue_element =
+        malloc(sizeof(struct lfds711_queue_bss_element) * fas_commands_queue_size);
 #else
-    struct lfds710_ringbuffer_element *re =
-        aligned_alloc(fas_frames_queue_size + 1, sizeof(struct lfds710_ringbuffer_element) * (fas_frames_queue_size + 1));
+    struct lfds711_ringbuffer_element *re =
+        aligned_alloc(fas_frames_queue_size + 1, sizeof(struct lfds711_ringbuffer_element) * (fas_frames_queue_size + 1));
 
-    struct lfds710_queue_bss_element *synth_commands_queue_element =
-        aligned_alloc(fas_commands_queue_size, sizeof(struct lfds710_queue_bss_element) * fas_commands_queue_size);
+    struct lfds711_queue_bss_element *synth_commands_queue_element =
+        aligned_alloc(fas_commands_queue_size, sizeof(struct lfds711_queue_bss_element) * fas_commands_queue_size);
 #endif
 
     if (re == NULL) {
@@ -1237,9 +1321,9 @@ int main(int argc, char **argv)
         goto quit;
     }
 
-    lfds710_ringbuffer_init_valid_on_current_logical_core(&rs, re, (fas_frames_queue_size + 1), NULL);
-    lfds710_queue_bss_init_valid_on_current_logical_core(&synth_commands_queue_state, synth_commands_queue_element, fas_commands_queue_size, NULL);
-    lfds710_freelist_init_valid_on_current_logical_core(&freelist_frames, NULL, 0, NULL);
+    lfds711_ringbuffer_init_valid_on_current_logical_core(&rs, re, (fas_frames_queue_size + 1), NULL);
+    lfds711_queue_bss_init_valid_on_current_logical_core(&synth_commands_queue_state, synth_commands_queue_element, fas_commands_queue_size, NULL);
+    lfds711_freelist_init_valid_on_current_logical_core(&freelist_frames, NULL, 0, NULL);
 
     struct _freelist_frames_data *ffd = malloc(sizeof(struct _freelist_frames_data) * fas_frames_queue_size);
     if (ffd == NULL) {
@@ -1249,12 +1333,14 @@ int main(int argc, char **argv)
         goto quit;
     }
 
-    for (i = 0; i < fas_frames_queue_size; i += 1)
-    {
+    //osc_norms = malloc(sizeof(struct osc_norm) * (fas_max_height + 1));
+    //resetNorms();
+
+    for (i = 0; i < fas_frames_queue_size; i += 1) {
         ffd[i].data = malloc(sizeof(struct note) * (fas_max_height + 1) * frame_data_count + sizeof(unsigned int));//malloc(sizeof(double) * (fas_max_height * 5));
 
-        LFDS710_FREELIST_SET_VALUE_IN_ELEMENT(ffd[i].fe, &ffd[i]);
-        lfds710_freelist_push(&freelist_frames, &ffd[i].fe, NULL);
+        LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(ffd[i].fe, &ffd[i]);
+        lfds711_freelist_push(&freelist_frames, &ffd[i].fe, NULL);
     }
 
     fflush(stdout);
@@ -1297,22 +1383,26 @@ quit:
     free(fas_sine_wavetable);
 
     if (re) {
-        lfds710_ringbuffer_cleanup(&rs, rb_element_cleanup_callback);
+        lfds711_ringbuffer_cleanup(&rs, rb_element_cleanup_callback);
         free(re);
     }
 
-    lfds710_freelist_cleanup(&freelist_frames, flf_element_cleanup_callback);
+    lfds711_freelist_cleanup(&freelist_frames, flf_element_cleanup_callback);
 
     if (ffd) {
         free(ffd);
     }
 
     if (synth_commands_queue_element) {
-        lfds710_queue_bss_cleanup(&synth_commands_queue_state, q_element_cleanup_callback);
+        lfds711_queue_bss_cleanup(&synth_commands_queue_state, q_element_cleanup_callback);
         free(synth_commands_queue_element);
     }
-
-    printf("Bye.");
+/*
+    if (osc_norms) {
+        free(osc_norms);
+    }
+*/
+    printf("Bye.\n");
 
     return err;
 

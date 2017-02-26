@@ -230,13 +230,14 @@ void flf_element_cleanup_callback(struct lfds711_freelist_state *fs, struct lfds
     free(freelist_frames_data->data);
 }
 
+// don't seem to work
 void q_element_cleanup_callback(struct lfds711_queue_bss_state *qbsss, void *key, void *value) {
-    //free(value);
+//    free(value);
 }
 
 void rb_element_cleanup_callback(struct lfds711_ringbuffer_state *rs, void *key, void *value, enum lfds711_misc_flag unread_flag) {
     if (unread_flag == LFDS711_MISC_FLAG_RAISED) {
-        free(key);
+//        free(key);
     }
 }
 // -
@@ -301,8 +302,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                curr_synth.gain == NULL) {
         for (i = 0; i < framesPerBuffer; i += 1) {
             for (j = 0; j < frame_data_count; j += 1) {
-                *out++ = 0;
-                *out++ = 0;
+                *out++ = 0.0f;
+                *out++ = 0.0f;
             }
         }
 
@@ -330,9 +331,10 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             float output_r = 0.0f;
 
             if (curr_notes != NULL) {
-                pv_note_buffer_len += note_buffer_len + k;
+                pv_note_buffer_len += note_buffer_len;
                 note_buffer_len = curr_notes[pv_note_buffer_len].osc_index;
-                s = pv_note_buffer_len + 1;
+                pv_note_buffer_len += 1;
+                s = pv_note_buffer_len;
                 e = s + note_buffer_len;
 
                 for (j = s; j < e; j += 1) {
@@ -1337,7 +1339,7 @@ int main(int argc, char **argv)
     //resetNorms();
 
     for (i = 0; i < fas_frames_queue_size; i += 1) {
-        ffd[i].data = malloc(sizeof(struct note) * (fas_max_height + 1) * frame_data_count + sizeof(unsigned int));//malloc(sizeof(double) * (fas_max_height * 5));
+        ffd[i].data = malloc(sizeof(struct note) * (fas_max_height + 1) * frame_data_count + sizeof(unsigned int));
 
         LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(ffd[i].fe, &ffd[i]);
         lfds711_freelist_push(&freelist_frames, &ffd[i].fe, NULL);

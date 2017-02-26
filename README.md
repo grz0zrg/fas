@@ -3,7 +3,7 @@
 
 Band-aid raw additive synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based Collaborative Spectral Synthesizer](https://www.fsynth.com)
 
-This program collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound in real-time, this serve as a fast and independent alternative to play audio for the Fragment Synthesizer.
+This program collect Fragment settings and RGBA notes data over WebSocket, convert them to a suitable data structure and generate sound in real-time, this serve as a fast and independent alternative to play audio for the Fragment Synthesizer.
 
 This can be run on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled, note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
 
@@ -85,20 +85,20 @@ You can tweak this program by passing parameters to its arguments, for command-l
 
 Usage: fas [list_of_settings]
  * --sample_rate 44100
- * --frames 512
+ * --frames 512 **audio buffer*
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
- * --fps 60
+ * --fps 60 **you can experiment with this but this may have strange effects**
  * --ssl 0
  * --max_height 4096 **this should be changed if you go above 4096 for the score height**
  * --deflate 0
- * --rx_buffer_size 4096
- * --port 3003
- * --iface 127.0.0.1
+ * --rx_buffer_size 4096 **this is how much data is accepted in one single packet**
+ * --port 3003 **the listening port**
+ * --iface 127.0.0.1 **the listening adress**
  * --device -1 **PortAudio audio device index (informations about audio devices are displayed when the app. start)**
- * --output_channels 2 **go in pair (stereo)**
- * --alsa_realtime_scheduling 0 **not under Windows**
+ * --output_channels 2 **stereo pair**
+ * --alsa_realtime_scheduling 0 **Linux only**
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio will be delayed**
- * --commands_queue_size 16
+ * --commands_queue_size 16 **should be a positive integer power of 2**
 
 Self-signed certificates are provided in case you compile/run it with SSL. (Note: This is useless for many reasons and HTTP should _**ALWAYS**_ be the prefered protocol for online Fragment application, this is explained in [this issue](https://github.com/grz0zrg/fas/issues/1).)
 

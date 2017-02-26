@@ -19,6 +19,9 @@ all:
 debug-o:
 	$(compiler) $(source) ${debug_options} ${adv_optimization_options} ${standard_options} $(libs) -o $(output)
 
+debug-static:
+	$(compiler) $(source) ${debug_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
+
 profile:
 	$(compiler) $(source) ${release_options} ${standard_options} -DPROFILE $(libs) -o $(output)
 

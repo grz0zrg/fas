@@ -1,10 +1,10 @@
 compiler = gcc
 source = main.c
-libs = liblfds710.a -lportaudio -lwebsockets -lrt -lm -lasound -ljack -pthread
-static_libs = liblfds710.a libportaudio.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread
+libs = liblfds711.a -lportaudio -lwebsockets -lrt -lm -lasound -ljack -pthread
+static_libs = liblfds711.a libportaudio.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread
 ssl_libs = -lssl -lcrypto
 win_ssl_libs = -lssl -lcrypto -lws2_32 -lgdi32
-win_static_libs = liblfds710.a libwebsockets_static.a libportaudio.a -lm -lz -lws2_32
+win_static_libs = liblfds711.a libwebsockets_static.a libportaudio.a -lm -lz -lws2_32
 compat_options = -U__STRICT_ANSI__
 output = fas
 standard_options = -std=c11 -pedantic -D_POSIX_SOURCE
@@ -15,6 +15,9 @@ release_options = -O2
 
 all:
 	$(compiler) $(source) ${debug_options} ${standard_options} $(libs) -o $(output)
+
+debug-o:
+	$(compiler) $(source) ${debug_options} ${adv_optimization_options} ${standard_options} $(libs) -o $(output)
 
 profile:
 	$(compiler) $(source) ${release_options} ${standard_options} -DPROFILE $(libs) -o $(output)

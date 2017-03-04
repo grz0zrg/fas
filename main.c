@@ -230,14 +230,14 @@ void flf_element_cleanup_callback(struct lfds711_freelist_state *fs, struct lfds
     free(freelist_frames_data->data);
 }
 
-// don't seem to work
+// uneeded
 void q_element_cleanup_callback(struct lfds711_queue_bss_state *qbsss, void *key, void *value) {
-//    free(value);
+
 }
 
 void rb_element_cleanup_callback(struct lfds711_ringbuffer_state *rs, void *key, void *value, enum lfds711_misc_flag unread_flag) {
     if (unread_flag == LFDS711_MISC_FLAG_RAISED) {
-//        free(key);
+
     }
 }
 // -

@@ -1208,7 +1208,7 @@ int main(int argc, char **argv)
     PaStreamParameters outputParameters;
     PaError err;
 
-    bzero(&outputParameters, sizeof( outputParameters));
+	memset(&outputParameters, 0, sizeof(PaStreamParameters));
 
     err = Pa_Initialize();
     if (err != paNoError) goto error;

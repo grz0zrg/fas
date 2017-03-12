@@ -60,6 +60,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <errno.h>
+#include <string.h>
 #include <strings.h>
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -1243,7 +1244,7 @@ int main(int argc, char **argv)
     curr_synth.lerp_t = 0.0;
     curr_synth.curr_sample = 0;
 
-    int device_max_input_channels;
+    int device_max_output_channels;
     if (fas_audio_device >= num_devices || fas_audio_device < 0) {
         outputParameters.device = Pa_GetDefaultOutputDevice();
         if (outputParameters.device == paNoDevice) {
@@ -1251,10 +1252,10 @@ int main(int argc, char **argv)
             goto error;
         }
 
-        device_max_input_channels = Pa_GetDeviceInfo(outputParameters.device)->maxInputChannels;
-        if (fas_output_channels > device_max_input_channels) {
-            printf("Warning: Requested output_channels program option is larger than device input channels, defaulting to %i\n", device_max_input_channels);
-            fas_output_channels = device_max_input_channels;
+        device_max_output_channels = Pa_GetDeviceInfo(outputParameters.device)->maxOutputChannels;
+        if (fas_output_channels > device_max_output_channels) {
+            printf("Warning: Requested output_channels program option is larger than the device output channels, defaulting to %i\n", device_max_output_channels);
+            fas_output_channels = device_max_output_channels;
         }
 
         outputParameters.channelCount = fas_output_channels;
@@ -1264,10 +1265,10 @@ int main(int argc, char **argv)
     } else {
         device_info = Pa_GetDeviceInfo(fas_audio_device);
 
-        device_max_input_channels = device_info->maxInputChannels;
-        if (fas_output_channels > device_max_input_channels) {
-            printf("Warning: Requested output_channels program option is larger than device input channels, defaulting to %i\n", device_max_input_channels);
-            fas_output_channels = device_max_input_channels;
+        device_max_output_channels = device_info->maxOutputChannels;
+        if (fas_output_channels > device_max_output_channels) {
+            printf("Warning: Requested output_channels program option is larger than the device output channels, defaulting to %i\n", device_max_output_channels);
+            fas_output_channels = device_max_output_channels;
         }
 
         outputParameters.device = fas_audio_device;

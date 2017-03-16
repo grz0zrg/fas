@@ -12,6 +12,7 @@ win_static_options = -static -static-libgcc
 adv_optimization_options = -DFIXED_WAVETABLE
 debug_options = -g -DDEBUG
 release_options = -O2
+agressive_release_options = -O3
 
 all:
 	$(compiler) $(source) ${debug_options} ${standard_options} $(libs) -o $(output)
@@ -48,6 +49,9 @@ win-release-static-o:
 
 ssl-win-release-static-o:
 	$(compiler) $(source) ${release_options} ${standard_options} ${win_static_options} ${adv_optimization_options} ${compat_options} $(win_static_libs) $(win_ssl_libs) -o $(output)
+
+i7:
+	$(compiler) $(source) ${agressive_release_options} -march=corei7  ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
 
 32:
 	$(compiler) -m32 $(source) ${release_options} ${standard_options} $(libs) -o $(output)

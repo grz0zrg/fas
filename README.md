@@ -19,7 +19,7 @@ Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at 
 
 **Can be used as a raw generic additive synthesizer if you feed it correctly! :)**
 
-###Build
+### Build
 
 Under Windows, [MSYS2](https://msys2.github.io/) with mingw32 is used and well tested.
 
@@ -61,7 +61,7 @@ Recommended launch parameters with HiFiBerry DAC+ :
 
 Bit depth is fixed to 32 bits float at the moment. (16/24 bits may be implemented soon as an option)
 
-####Makefile rules
+#### Makefile rules
 
 Debug : **make**
 
@@ -79,7 +79,7 @@ With MinGW (Statically linked) :  **make win-release-static**
 
 With MinGW (Statically linked + advanced optimizations, default build) :  **make win-release-static-o**
 
-###Usage
+### Usage
 
 You can tweak this program by passing parameters to its arguments, for command-line help : **fas --h**
 

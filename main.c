@@ -1003,6 +1003,7 @@ int start_server(void) {
 void print_usage() {
     printf("Usage: fas [list_of_settings]\n");
     printf(" possible settings with associated default value:\n");
+    printf("  --i\n");
     printf("  --sample_rate %u\n", FAS_SAMPLE_RATE);
     printf("  --frames %u\n", FAS_FRAMES_PER_BUFFER);
     //printf("  --wavetable %u\n", FAS_WAVETABLE);
@@ -1043,6 +1044,8 @@ int fas_wavetable_init() {
 
 int main(int argc, char **argv)
 {
+    int print_infos = 0;
+
     int i = 0;
 
     static struct option long_options[] = {
@@ -1064,6 +1067,7 @@ int main(int argc, char **argv)
         { "iface",                    required_argument, 0, 13 },
         { "device",                   required_argument, 0, 14 },
         { "output_channels",          required_argument, 0, 15 },
+        { "i",                              no_argument, 0, 16 },
         { 0, 0, 0, 0 }
     };
 
@@ -1119,6 +1123,9 @@ int main(int argc, char **argv)
                 break;
             case 15:
                 fas_output_channels = strtoul(optarg, NULL, 0);
+                break;
+            case 16:
+                print_infos = 1;
                 break;
             default: print_usage();
                  return EXIT_FAILURE;
@@ -1208,7 +1215,7 @@ int main(int argc, char **argv)
     PaStreamParameters outputParameters;
     PaError err;
 
-	memset(&outputParameters, 0, sizeof(PaStreamParameters));
+    memset(&outputParameters, 0, sizeof(PaStreamParameters));
 
     err = Pa_Initialize();
     if (err != paNoError) goto error;
@@ -1237,6 +1244,10 @@ int main(int argc, char **argv)
     }
 
     printf("\n");
+
+    if (print_infos == 1) {
+        goto error;
+    }
 
     curr_synth.settings = NULL;
     curr_synth.gain = NULL;

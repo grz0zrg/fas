@@ -84,8 +84,9 @@ With MinGW (Statically linked + advanced optimizations, default build) :  **make
 You can tweak this program by passing parameters to its arguments, for command-line help : **fas --h**
 
 Usage: fas [list_of_settings]
+ * --i **print audio device infos**
  * --sample_rate 44100
- * --frames 512 **audio buffer*
+ * --frames 512 **audio buffer**
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
  * --fps 60 **you can experiment with this but this may have strange effects**
  * --ssl 0

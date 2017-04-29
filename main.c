@@ -101,6 +101,7 @@
 #define FAS_MAX_HEIGHT 4096
 #define FAS_OUTPUT_CHANNELS 2
 #define FAS_SSL 0
+#define FAS_NOISE_AMOUNT 0.1
 
 // program settings with associated default value
 unsigned int fas_sample_rate = FAS_SAMPLE_RATE;
@@ -124,10 +125,13 @@ unsigned int fas_max_height = FAS_MAX_HEIGHT;
 unsigned int fas_ssl = FAS_SSL;
 unsigned int fas_output_channels = FAS_OUTPUT_CHANNELS;
 unsigned int frame_data_count = FAS_OUTPUT_CHANNELS / 2;
+float fas_noise_amount = FAS_NOISE_AMOUNT;
 int fas_audio_device = -1;
 char *fas_iface = NULL;
 
 float *fas_sine_wavetable = NULL;
+float *fas_white_noise_table = NULL;
+uint16_t noise_index = 0.;
 
 double note_time;
 double note_time_samples;
@@ -150,8 +154,8 @@ struct _synth_gain {
 struct oscillator {
     double freq;
 #ifdef FIXED_WAVETABLE
-    uint32_t *phase_index;
-    uint32_t phase_step;
+    uint16_t *phase_index;
+    uint16_t phase_step;
 #else
     unsigned int *phase_index;
     unsigned int phase_step;
@@ -242,6 +246,16 @@ void rb_element_cleanup_callback(struct lfds711_ringbuffer_state *rs, void *key,
     }
 }
 // -
+
+float randf(float min, float max) {
+    if (min == 0.f && max == 0.f) {
+        return 0.f;
+    }
+
+    float range = (max - min);
+    float div = RAND_MAX / range;
+    return min + (rand() / div);
+}
 
 static int paCallback( const void *inputBuffer, void *outputBuffer,
                             unsigned long framesPerBuffer,
@@ -343,12 +357,19 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                     struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
+    #ifndef FIXED_WAVETABLE
+                    float s = fas_sine_wavetable[osc->phase_index[k]];
+    #else
                     float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
+    #endif
 
-                    output_l += (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t) * s;
-                    output_r += (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t) * s;
+                    float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
+                    float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
 
-                    osc->phase_index[k] += osc->phase_step;
+                    output_l += vl * s;
+                    output_r += vr * s;
+
+                    osc->phase_index[k] += osc->phase_step * fas_white_noise_table[noise_index++];
 
     #ifndef FIXED_WAVETABLE
                     if (osc->phase_index[k] >= fas_wavetable_size) {
@@ -444,7 +465,7 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         oscillators[index].freq = frequency;
 
 #ifdef FIXED_WAVETABLE
-        oscillators[index].phase_index = malloc(sizeof(uint32_t) * frame_data_count);
+        oscillators[index].phase_index = malloc(sizeof(uint16_t) * frame_data_count);
 #else
         oscillators[index].phase_index = malloc(sizeof(unsigned int) * frame_data_count);
 #endif
@@ -1006,6 +1027,7 @@ void print_usage() {
     printf("  --i\n");
     printf("  --sample_rate %u\n", FAS_SAMPLE_RATE);
     printf("  --frames %u\n", FAS_FRAMES_PER_BUFFER);
+    printf("  --noise_amount %f\n", FAS_NOISE_AMOUNT);
     //printf("  --wavetable %u\n", FAS_WAVETABLE);
 #ifndef FIXED_WAVETABLE
     printf("  --wavetable_size %u\n", FAS_WAVETABLE_SIZE);
@@ -1039,6 +1061,12 @@ int fas_wavetable_init() {
         fas_sine_wavetable[i] = (float)sin(((double)i/(double)fas_wavetable_size) * M_PI * 2.0);
     }
 
+    fas_white_noise_table = (float*)calloc(65536, sizeof(float));
+
+    for (i = 0; i < 65536; i += 1) {
+        fas_white_noise_table[i] = 1. + randf(-fas_noise_amount, fas_noise_amount);
+    }
+
     return 0;
 }
 
@@ -1068,6 +1096,7 @@ int main(int argc, char **argv)
         { "device",                   required_argument, 0, 14 },
         { "output_channels",          required_argument, 0, 15 },
         { "i",                              no_argument, 0, 16 },
+        { "noise_amount",             required_argument, 0, 17 },
         { 0, 0, 0, 0 }
     };
 
@@ -1126,6 +1155,9 @@ int main(int argc, char **argv)
                 break;
             case 16:
                 print_infos = 1;
+                break;
+            case 17:
+                fas_noise_amount = strtof(optarg, NULL);
                 break;
             default: print_usage();
                  return EXIT_FAILURE;
@@ -1192,6 +1224,12 @@ int main(int argc, char **argv)
         printf("Warning: output_channels program option argument is invalid, should be >= 2, the default value (%u) will be used.\n", FAS_OUTPUT_CHANNELS);
 
         fas_output_channels = FAS_OUTPUT_CHANNELS;
+    }
+
+    if (fas_noise_amount < 0.) {
+        printf("Warning: noise_amount program option argument is invalid, should be >= 0, the default value (%f) will be used.\n", FAS_NOISE_AMOUNT);
+
+        fas_noise_amount = FAS_NOISE_AMOUNT;
     }
 
     if (errno == ERANGE) {
@@ -1372,6 +1410,8 @@ int main(int argc, char **argv)
     fflush(stdout);
     fflush(stderr);
 
+    srand(time(NULL));
+
     // websocket stuff
 #ifdef __unix__
     struct timeval tv = { 0, 0 };
@@ -1407,6 +1447,7 @@ quit:
     Pa_Terminate();
 
     free(fas_sine_wavetable);
+    free(fas_white_noise_table);
 
     if (re) {
         lfds711_ringbuffer_cleanup(&rs, rb_element_cleanup_callback);
@@ -1446,6 +1487,7 @@ error:
     }
 
     free(fas_sine_wavetable);
+    free(fas_white_noise_table);
 
     return err;
 }

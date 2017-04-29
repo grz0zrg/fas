@@ -1,9 +1,9 @@
 [Fragment Synthesizer](https://github.com/grz0zrg/fsynth) Band-aid
 =====
 
-Band-aid raw additive synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based Collaborative Spectral Synthesizer](https://www.fsynth.com)
+Raw additive synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based Collaborative Spectral Synthesizer](https://www.fsynth.com)
 
-This program collect Fragment settings and RGBA notes data over WebSocket, convert them to a suitable data structure and generate sound in real-time, this serve as a fast and independent alternative to play audio for the Fragment Synthesizer.
+This program collect Fragment settings and RGBA notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, this serve as a fast and independent alternative to play audio for the Fragment Synthesizer.
 
 This can be run on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled, note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
 
@@ -86,6 +86,7 @@ You can tweak this program by passing parameters to its arguments, for command-l
 Usage: fas [list_of_settings]
  * --i **print audio device infos**
  * --sample_rate 44100
+ * --noise_amount 0.1 **the amount of band-limited noise**
  * --frames 512 **audio buffer**
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
  * --fps 60 **you can experiment with this but this may have strange effects**

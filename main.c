@@ -50,7 +50,6 @@
     TODO : data coming from the network for notes etc. should NOT be handled like it is right now (it should instead come with IEEE 754 representation or something...)
     TODO : refactor/rename some data structures
     TODO : thread-safe memory deallocation for synth. parameters change
-    TODO : adjust max height automatically and remove the need of the program option
 */
 
 #include <getopt.h>
@@ -98,7 +97,6 @@
 #define FAS_REALTIME 0
 #define FAS_FRAMES_QUEUE_SIZE 7
 #define FAS_COMMANDS_QUEUE_SIZE 16
-#define FAS_MAX_HEIGHT 4096
 #define FAS_OUTPUT_CHANNELS 2
 #define FAS_SSL 0
 #define FAS_NOISE_AMOUNT 0.1
@@ -121,7 +119,6 @@ unsigned int fas_rx_buffer_size = FAS_RX_BUFFER_SIZE;
 unsigned int fas_realtime = FAS_REALTIME;
 unsigned int fas_frames_queue_size = FAS_FRAMES_QUEUE_SIZE;
 unsigned int fas_commands_queue_size = FAS_COMMANDS_QUEUE_SIZE;
-unsigned int fas_max_height = FAS_MAX_HEIGHT;
 unsigned int fas_ssl = FAS_SSL;
 unsigned int fas_output_channels = FAS_OUTPUT_CHANNELS;
 unsigned int frame_data_count = FAS_OUTPUT_CHANNELS / 2;
@@ -213,6 +210,8 @@ enum lfds711_misc_flag overwrite_occurred_flag;
 struct lfds711_ringbuffer_state rs; // frames related data structure
 struct lfds711_queue_bss_state synth_commands_queue_state;
 struct lfds711_freelist_state freelist_frames;
+
+struct _freelist_frames_data *ffd;
 
 struct _freelist_frames_data {
     struct lfds711_freelist_element fe;
@@ -503,16 +502,6 @@ void resetNorm(struct osc_norm *_osc_norm) {
     _osc_norm->indexes = malloc(sizeof(unsigned int) * _osc_norm->indexes_len);
 }
 
-void resetNorms() {
-    unsigned int i = 0;
-    for (i = 0; i < fas_max_height; i += 1) {
-        struct osc_norm *_osc_norm = &osc_norms[i];
-        free(_osc_norm->indexes);
-
-        resetNorm(_osc_norm);
-    }
-}
-
 // fill the notes buffer for each output channels
 // data argument is the raw RGBA values received with the channels count indicated as the first entry
 void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_length, unsigned char *prev_data, unsigned char *data) {
@@ -625,27 +614,20 @@ void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_lengt
     }
 #endif
     }
-
-    // normalize output
-/*
-    for (i = 0; i < fas_max_height; i += 1) {
-        struct osc_norm *_osc_norm = &osc_norms[i];
-        if (_osc_norm->divisor > 1) {
-            for (j = 0; j < _osc_norm->indexes_curr; j += 1) {
-                struct note *_note = &note_buffer[_osc_norm->indexes[j]];
-                _note->previous_volume_l /= _osc_norm->divisor;
-                _note->diff_volume_l /= _osc_norm->divisor;
-                _note->previous_volume_r /= _osc_norm->divisor;
-                _note->diff_volume_r /= _osc_norm->divisor;
-            }
-        }
-
-        resetNorm(_osc_norm);
-    }
-*/
 }
 
-int  ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
+void change_height(unsigned int new_height) {
+  lfds711_freelist_cleanup(&freelist_frames, flf_element_cleanup_callback);
+
+  for (int i = 0; i < fas_frames_queue_size; i += 1) {
+      ffd[i].data = malloc(sizeof(struct note) * (new_height + 1) * frame_data_count + sizeof(unsigned int));
+
+      LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(ffd[i].fe, &ffd[i]);
+      lfds711_freelist_push(&freelist_frames, &ffd[i].fe, NULL);
+  }
+}
+
+int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
                         void *user, void *in, size_t len)
 {
     LFDS711_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_LOGICAL_CORE;
@@ -803,20 +785,7 @@ if (remaining_payload != 0) {
 
                     usd->synth_h = usd->synth->settings->h;
 
-                    if (usd->synth_h >= fas_max_height) {
-                        printf("Client disconnected, synth. height reach max. height, please increase max. height.\n");
-                        fflush(stdout);
-
-                        free(usd->synth->settings);
-                        free(usd->synth);
-                        usd->synth = NULL;
-
-                        free(usd->prev_frame_data);
-                        free(usd->frame_data);
-                        free(usd->packet);
-
-                        return -1;
-                    }
+                    change_height(usd->synth_h);
 
                     usd->synth->oscillators = createOscillators(usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave);
@@ -876,7 +845,7 @@ if (remaining_payload != 0) {
 
                     freelist_frames_data = LFDS711_FREELIST_GET_VALUE_FROM_ELEMENT(*fe);
 
-                    memset(freelist_frames_data->data, 0, sizeof(struct note) * (fas_max_height + 1) * frame_data_count + sizeof(unsigned int));
+                    memset(freelist_frames_data->data, 0, sizeof(struct note) * (usd->synth_h + 1) * frame_data_count + sizeof(unsigned int));
 
                     fillNotesBuffer(freelist_frames_data->data, usd->synth_h, usd->expected_frame_length, (unsigned char *)usd->prev_frame_data, (unsigned char *)usd->frame_data);
 
@@ -1039,7 +1008,6 @@ void print_usage() {
     printf("  --port %u\n", FAS_PORT);
     printf("  --iface 127.0.0.1\n");
     printf("  --device -1\n");
-    printf("  --max_height %u\n", FAS_MAX_HEIGHT);
     printf("  --output_channels %u\n", FAS_OUTPUT_CHANNELS);
 #ifdef __unix__
     printf("  --alsa_realtime_scheduling %u\n", FAS_REALTIME);
@@ -1090,13 +1058,12 @@ int main(int argc, char **argv)
         { "alsa_realtime_scheduling", required_argument, 0, 8 },
         { "frames_queue_size",        required_argument, 0, 9 },
         { "commands_queue_size",      required_argument, 0, 10 },
-        { "max_height",               required_argument, 0, 11 },
-        { "ssl",                      required_argument, 0, 12 },
-        { "iface",                    required_argument, 0, 13 },
-        { "device",                   required_argument, 0, 14 },
-        { "output_channels",          required_argument, 0, 15 },
-        { "i",                              no_argument, 0, 16 },
-        { "noise_amount",             required_argument, 0, 17 },
+        { "ssl",                      required_argument, 0, 11 },
+        { "iface",                    required_argument, 0, 12 },
+        { "device",                   required_argument, 0, 13 },
+        { "output_channels",          required_argument, 0, 14 },
+        { "i",                              no_argument, 0, 15 },
+        { "noise_amount",             required_argument, 0, 16 },
         { 0, 0, 0, 0 }
     };
 
@@ -1139,24 +1106,21 @@ int main(int argc, char **argv)
                 fas_commands_queue_size = strtoul(optarg, NULL, 0);
                 break;
             case 11:
-                fas_max_height = strtoul(optarg, NULL, 0);
-                break;
-            case 12:
                 fas_ssl = strtoul(optarg, NULL, 0);
                 break;
-            case 13:
+            case 12:
                 fas_iface = optarg;
                 break;
-            case 14:
+            case 13:
                 fas_audio_device = strtoul(optarg, NULL, 0);
                 break;
-            case 15:
+            case 14:
                 fas_output_channels = strtoul(optarg, NULL, 0);
                 break;
-            case 16:
+            case 15:
                 print_infos = 1;
                 break;
-            case 17:
+            case 16:
                 fas_noise_amount = strtof(optarg, NULL);
                 break;
             default: print_usage();
@@ -1212,12 +1176,6 @@ int main(int argc, char **argv)
         printf("Warning: commands_queue_size program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_COMMANDS_QUEUE_SIZE);
 
         fas_commands_queue_size = FAS_COMMANDS_QUEUE_SIZE;
-    }
-
-    if (fas_max_height < 512) {
-        printf("Warning: max_height program option argument is invalid, should be >= 512, the default value (%u) will be used.\n", FAS_MAX_HEIGHT);
-
-        fas_max_height = FAS_MAX_HEIGHT;
     }
 
     if (fas_output_channels < 2 || (fas_output_channels % 2) != 0) {
@@ -1389,7 +1347,7 @@ int main(int argc, char **argv)
     lfds711_queue_bss_init_valid_on_current_logical_core(&synth_commands_queue_state, synth_commands_queue_element, fas_commands_queue_size, NULL);
     lfds711_freelist_init_valid_on_current_logical_core(&freelist_frames, NULL, 0, NULL);
 
-    struct _freelist_frames_data *ffd = malloc(sizeof(struct _freelist_frames_data) * fas_frames_queue_size);
+    ffd = malloc(sizeof(struct _freelist_frames_data) * fas_frames_queue_size);
     if (ffd == NULL) {
         fprintf(stderr, "_freelist_frames_data data structure alloc. error.\n");
         free(re);
@@ -1399,14 +1357,14 @@ int main(int argc, char **argv)
 
     //osc_norms = malloc(sizeof(struct osc_norm) * (fas_max_height + 1));
     //resetNorms();
-
+/*
     for (i = 0; i < fas_frames_queue_size; i += 1) {
         ffd[i].data = malloc(sizeof(struct note) * (fas_max_height + 1) * frame_data_count + sizeof(unsigned int));
 
         LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(ffd[i].fe, &ffd[i]);
         lfds711_freelist_push(&freelist_frames, &ffd[i].fe, NULL);
     }
-
+*/
     fflush(stdout);
     fflush(stderr);
 

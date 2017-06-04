@@ -91,7 +91,6 @@ Usage: fas [list_of_settings]
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
  * --fps 60 **you can experiment with this but this may have strange effects**
  * --ssl 0
- * --max_height 4096 **this should be changed if you go above 4096 for the score height**
  * --deflate 0
  * --rx_buffer_size 4096 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**

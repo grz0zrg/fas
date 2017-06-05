@@ -48,7 +48,6 @@
     License : Simplified BSD License
 
     TODO : data coming from the network for notes etc. should NOT be handled like it is right now (it should instead come with IEEE 754 representation or something...)
-    TODO : refactor/rename some data structures
     TODO : thread-safe memory deallocation for synth. parameters change
 */
 
@@ -270,43 +269,21 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
     float *out = (float*)outputBuffer;
 
-    //enum lfds711_misc_flag rb_overwrite_occurred_flag;
-    //double *overwritten_data = NULL;
-
     void *queue_synth_void;
     if (lfds711_queue_bss_dequeue(&synth_commands_queue_state, NULL, &queue_synth_void) == 1) {
         struct _synth *queue_synth = (struct _synth *)queue_synth_void;
 
         if (queue_synth->oscillators) {
-            //free(curr_synth.oscillators);
-
             curr_synth.oscillators = queue_synth->oscillators;
-
-            //lfds711_ringbuffer_cleanup(&rs, rb_element_cleanup_callback);
         }
 
         if (queue_synth->settings) {
-            //free(curr_synth.settings);
-
             curr_synth.settings = queue_synth->settings;
-
-            //lfds711_ringbuffer_cleanup(&rs, rb_element_cleanup_callback);
         }
 
         if (queue_synth->gain) {
-            //free(curr_synth.gain);
-
             curr_synth.gain = queue_synth->gain;
         }
-/*
-        lfds711_ringbuffer_write(&free_data_rb_state, (void *) (lfds711_pal_uint_t) queue_synth, NULL, &rb_overwrite_occurred_flag, (void *)&overwritten_data, NULL);
-        if (rb_overwrite_occurred_flag == LFDS711_MISC_FLAG_RAISED) {
-            free(overwritten_data);
-#ifdef DEBUG
-    printf("Freeing rb synth. data!");
-#endif
-        }
-*/
     }
 
     unsigned int i, j, k, s, e;
@@ -586,17 +563,7 @@ void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_lengt
                     }
                 }
             }
-/*
-            struct osc_norm *_osc_norm = &osc_norms[y];
-            if (_osc_norm->indexes_curr == _osc_norm->indexes_len) {
-                _osc_norm->indexes_len *= 2;
-                _osc_norm->indexes = realloc(_osc_norm->indexes, _osc_norm->indexes_len);
-            }
 
-            _osc_norm->indexes[_osc_norm->indexes_curr] = index;
-            _osc_norm->indexes_curr += 1;
-            _osc_norm->divisor += 1;
-*/
             index += 1;
 
             osc_count += 1;
@@ -1355,16 +1322,6 @@ int main(int argc, char **argv)
         goto quit;
     }
 
-    //osc_norms = malloc(sizeof(struct osc_norm) * (fas_max_height + 1));
-    //resetNorms();
-/*
-    for (i = 0; i < fas_frames_queue_size; i += 1) {
-        ffd[i].data = malloc(sizeof(struct note) * (fas_max_height + 1) * frame_data_count + sizeof(unsigned int));
-
-        LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(ffd[i].fe, &ffd[i]);
-        lfds711_freelist_push(&freelist_frames, &ffd[i].fe, NULL);
-    }
-*/
     fflush(stdout);
     fflush(stderr);
 

@@ -11,6 +11,7 @@ standard_options = -std=c11 -pedantic -D_POSIX_SOURCE
 win_static_options = -static -static-libgcc
 adv_optimization_options = -DFIXED_WAVETABLE
 debug_options = -g -DDEBUG
+ui_options = -DWITH_UI `pkg-config --cflags gtk+-3.0` `pkg-config --libs gtk+-3.0`
 release_options = -O2
 
 all:
@@ -33,6 +34,9 @@ release-static:
 
 release-static-o:
 	$(compiler) $(source) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
+
+release-static-ui-o:
+	$(compiler) $(source) ${release_options} ${adv_optimization_options} ${standard_options} ${ui_options} $(static_libs) -o $(output)
 
 release-static-o-profile:
 	$(compiler) $(source) ${release_options} ${adv_optimization_options} -DPROFILE ${standard_options} $(static_libs) -o $(output)

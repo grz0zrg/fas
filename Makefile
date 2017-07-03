@@ -1,7 +1,7 @@
 compiler = gcc
 source = main.c
-libs = liblfds711.a -lportaudio -lwebsockets -lrt -lm -lasound -ljack -pthread
-static_libs = liblfds711.a libportaudio.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread
+libs = liblfds711.a -lportaudio -lwebsockets -lrt -lm -lasound -ljack -pthread -lsndfile
+static_libs = liblfds711.a libportaudio.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread -lsndfile
 ssl_libs = -lssl -lcrypto
 win_ssl_libs = -lssl -lcrypto -lws2_32 -lgdi32
 win_static_libs = liblfds711.a libwebsockets_static.a libportaudio.a -lm -lz -lws2_32
@@ -22,6 +22,15 @@ debug-o:
 
 debug-static:
 	$(compiler) $(source) ${debug_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
+
+granular-debug:
+	$(compiler) $(source) ${debug_options} -DGRANULAR ${standard_options} $(libs) -o $(output)
+
+granular-release:
+	$(compiler) $(source) ${release_options} -DGRANULAR ${adv_optimization_options} ${standard_options} $(libs) -o $(output)
+
+granular-release-static:
+	$(compiler) $(source) ${release_options} -DGRANULAR ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
 
 profile:
 	$(compiler) $(source) ${release_options} ${standard_options} -DPROFILE $(libs) -o $(output)

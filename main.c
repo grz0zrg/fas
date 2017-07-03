@@ -68,6 +68,8 @@
 #include "portaudio.h"
 #include "libwebsockets.h"
 #include "inc/liblfds711.h"
+#include "inc/sndfile.h"
+#include "inc/tinydir.h"
 
 #ifndef M_PI
     #define M_PI (3.141592653589)
@@ -147,6 +149,24 @@ struct _synth_gain {
     double gain_lr;
 };
 
+// granular synthesis
+struct sample {
+    float *data;
+    uint32_t len;
+    unsigned int chn;
+};
+
+struct sample *samples = NULL;
+unsigned int samples_count = 0;
+
+struct grain {
+    unsigned int frame; // current position
+    unsigned int frames; // duration
+    unsigned int index; // grain position
+    unsigned int direction;
+    float *env;
+};
+
 struct oscillator {
     double freq;
 #ifdef FIXED_WAVETABLE
@@ -177,6 +197,9 @@ struct _synth {
     struct _synth_settings *settings;
     struct _synth_gain *gain;
     struct oscillator *oscillators;
+#ifdef GRANULAR
+    struct grain *grains;
+#endif
 
     float lerp_t;
     unsigned long curr_sample;
@@ -245,6 +268,10 @@ void rb_element_cleanup_callback(struct lfds711_ringbuffer_state *rs, void *key,
 }
 // -
 
+float lin(float y1, float y2, float mu) {
+   return (y1 * (1 - mu) + y2 * mu);
+}
+
 float randf(float min, float max) {
     if (min == 0.f && max == 0.f) {
         return 0.f;
@@ -284,11 +311,20 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         if (queue_synth->gain) {
             curr_synth.gain = queue_synth->gain;
         }
+
+#ifdef GRANULAR
+        if (queue_synth->grains) {
+            curr_synth.grains = queue_synth->grains;
+        }
+#endif
     }
 
     unsigned int i, j, k, s, e;
 
     if (curr_synth.oscillators == NULL ||
+#ifdef GRANULAR
+        curr_synth.grains == NULL ||
+#endif
            curr_synth.settings == NULL ||
                curr_synth.gain == NULL) {
         for (i = 0; i < framesPerBuffer; i += 1) {
@@ -331,6 +367,26 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 for (j = s; j < e; j += 1) {
                     struct note *n = &curr_notes[j];
 
+#ifdef GRANULAR
+                    struct sample *smp = &samples[n->osc_index%samples_count];
+                    struct grain *gr = &curr_synth.grains[n->osc_index];
+
+                    float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
+                    float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
+
+                    output_l += vl * (smp->data[gr->frame + gr->index] * gr->env[gr->frame]);
+                    output_r += vr * (smp->data[gr->frame + gr->index + smp->chn] * gr->env[gr->frame]);
+
+                    gr->frame+=gr->direction;
+
+                    if (gr->frame >= gr->frames) {
+                        gr->frames = randf(0.001f, 0.02f) * smp->len; //* fas_sample_rate; // 1ms - 100ms
+                        gr->index = (smp->len - gr->frames) * randf(0.0f, 1.0f);//floor(randf(0, smp->len - gr->frames - 1));
+                        gr->frame = 0;
+                        gr->direction = ((rand()%1) == 1) ? -1 : 1;
+                    }
+
+#else
                     struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
     #ifndef FIXED_WAVETABLE
@@ -352,8 +408,12 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         osc->phase_index[k] -= fas_wavetable_size;
                     }
     #endif
+#endif
                 }
             }
+
+            //output_l /= (e-s);
+            //output_r /= (e-s);
 
             last_sample_l = output_l * curr_synth.gain->gain_lr;
             last_sample_r = output_r * curr_synth.gain->gain_lr;
@@ -414,6 +474,52 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     }
 
     return paContinue;
+}
+
+struct grain *createGrains(unsigned int n) {
+    struct grain *g = (struct grain *)malloc(n * sizeof(struct grain));
+    for (int i = 0; i < n; i += 1) {
+        struct sample *smp = &samples[i%samples_count];
+
+        g[i].frames = floor(randf(0.01f, 0.1f) * fas_sample_rate); // 1ms - 100ms
+        g[i].frame = 0;
+        g[i].index = floor(randf(0, smp->len - g[i].frames - 1));
+        g[i].env = (float *)malloc(g[i].frames * sizeof(float));
+        g[i].direction = 1;
+
+        for (int j = 0; j < g[i].frames; j += 1) {
+            g[i].env[j] = 1.0;
+        }
+
+        int slope_end = g[i].frames / 8;
+        double step = 1.0 / slope_end;
+        float s = 0;
+
+        for (int j = 0; j < slope_end; j += 1) {
+            g[i].env[j] = lin(0.0, 1.0, s);
+
+            s += step;
+        }
+
+        s = 0;
+        for (int j = (g[i].frames - slope_end); j < g[i].frames; j += 1) {
+            g[i].env[j] = lin(1.0, 0.0, s);
+
+            s += step;
+        }
+    }
+
+    return g;
+}
+
+struct grain *freeGrains(struct grain *g, unsigned int n) {
+    for (int i = 0; i < n; i += 1) {
+        free(g[i].env);
+    }
+
+    free(g);
+
+    return NULL;
 }
 
 struct oscillator *createOscillators(unsigned int n, double base_frequency, unsigned int octaves) {
@@ -729,9 +835,17 @@ if (remaining_payload != 0) {
                         }
 
                         usd->synth->oscillators = NULL;
+
+#ifdef GRANULAR
+                        usd->synth->grains = NULL;
+#endif
                     } else {
                         h = usd->synth->settings->h;
                     }
+
+#ifdef GRANULAR
+                    freeGrains(usd->synth->grains, h);
+#endif
 
                     usd->synth->oscillators = freeOscillators(usd->synth->oscillators, h);
 
@@ -757,12 +871,19 @@ if (remaining_payload != 0) {
                     usd->synth->oscillators = createOscillators(usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave);
 
+#ifdef GRANULAR
+                    usd->synth->grains = createGrains(usd->synth_h);
+#endif
+
                     if (lfds711_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
                         printf("Skipping packet, the synth commands queue is full.\n");
                         fflush(stdout);
 
                         free(usd->synth->settings);
                         usd->synth->oscillators = freeOscillators(usd->synth->oscillators, usd->synth->settings->h);
+#ifdef GRANULAR
+                        freeGrains(usd->synth->grains, usd->synth->settings->h);
+#endif
                         free(usd->synth);
                         usd->synth = NULL;
 
@@ -882,6 +1003,9 @@ free_packet:
                 if (usd->synth->oscillators && usd->synth->settings) {
                     usd->synth->oscillators = freeOscillators(usd->synth->oscillators, usd->synth->settings->h);
                 }
+#ifdef GRANULAR
+                freeGrains(usd->synth->grains, usd->synth->settings->h);
+#endif
                 free(usd->synth->settings);
                 free(usd->synth);
             }
@@ -955,6 +1079,68 @@ int start_server(void) {
     printf("Fragment Synthesizer successfully started and listening on %s:%u.\n", (fas_iface == NULL) ? "127.0.0.1" : fas_iface, fas_port);
 
     return 0;
+}
+
+void load_grains() {
+    size_t path_len;
+
+    const char *grains_directory = "./grains/";
+
+    SF_INFO sfinfo;
+    memset(&sfinfo, 0, sizeof(sfinfo));
+
+    tinydir_dir dir;
+    tinydir_open(&dir, grains_directory);
+
+    samples = malloc(sizeof(struct sample) * 1);
+
+    while (dir.has_next) {
+        tinydir_file file;
+        tinydir_readfile(&dir, &file);
+
+        if (file.is_reg) {
+            if (strcmp(file.extension, "flac") == 0 ||
+                  strcmp(file.extension, "wav") == 0) {
+                size_t filepath_len = strlen(grains_directory) + strlen(file.name);
+                char *filepath = (char *)malloc(filepath_len + 1);
+                filepath[0] = '\0';
+                strcat(filepath, grains_directory);
+                strcat(filepath, file.name);
+                filepath[filepath_len] = '\0';
+
+                SNDFILE *audio_file;
+                if (!(audio_file = sf_open(filepath, SFM_READ, &sfinfo))) {
+                    printf ("libsdnfile: Not able to open input file %s.\n", filepath);
+                    puts(sf_strerror(NULL));
+
+                    free(filepath);
+
+                    continue;
+                }
+
+                free(filepath);
+
+                //printf("%i\n", sfinfo.frames);
+                //printf("%i\n", sfinfo.channels);
+
+                samples_count++;
+
+                samples = (struct sample *)realloc(samples, sizeof(struct sample) * samples_count);
+
+                struct sample *smp = &samples[samples_count - 1];
+                smp->chn = sfinfo.channels - 1;
+                smp->len = sfinfo.frames;
+                smp->data = (float *)malloc(smp->len * sizeof(float));
+                sf_read_float(audio_file, smp->data, smp->len);
+
+                sf_close(audio_file);
+            }
+        }
+
+        tinydir_next(&dir);
+    }
+
+    tinydir_close(&dir);
 }
 
 void print_usage() {
@@ -1160,6 +1346,10 @@ int main(int argc, char **argv)
     if (errno == ERANGE) {
         printf("Warning: One of the specified program option is out of range and was set to its maximal value.\n");
     }
+
+#ifdef GRANULAR
+    load_grains();
+#endif
 
     // fas setup
     note_time = 1 / (double)fas_fps;
@@ -1403,6 +1593,12 @@ error:
 
     free(fas_sine_wavetable);
     free(fas_white_noise_table);
+
+    for (i = 0; i < samples_count; i++) {
+      struct sample *smp = &samples[i];
+      free(smp->data);
+    }
+    free(samples);
 
     return err;
 }

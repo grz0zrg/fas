@@ -23,6 +23,37 @@ Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at 
 
 The granular synthesis part is being actively developed (and was quickly hacker into FAS :P), you can't have additive and granular synthesis at the same time, both need a different version of FAS (compile with the -DGRANULAR for granular synthesis), all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment, this feature is WIP and many things may change, it is a very simple granular synthesis right now.
 
+### Packets
+
+To communicate with FAS, there is only three type of packets, the first byte is the packet identifier, below is the expected data for each packets :
+
+Synth settings, packet identifier 0 : 
+```c
+struct _synth_settings {
+    unsigned int h;
+    unsigned int octave;
+    double base_frequency;
+};
+```
+
+Frame data, packet identifier 1 : 
+```c
+struct _frame_data {
+    unsigned int channels;
+    unsigned int monophonic;
+    // Note : the expected data length is computed by : (4 * sizeof(unsigned char) * _synth_settings.h) * (fas_output_channels / 2)
+    // Example with one output channel (L/R) and an image height of 400 pixels : (4 * sizeof(unsigned char) * 400)
+    char *rgba_data;
+};
+```
+
+Synth gain, packet identifier 2 : 
+```c
+struct _synth_gain {
+    double gain_lr;
+};
+```
+
 ### Build
 
 Under Windows, [MSYS2](https://msys2.github.io/) with mingw32 is used and well tested.

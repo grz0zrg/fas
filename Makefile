@@ -1,5 +1,5 @@
 compiler = gcc
-source = main.c
+source = main.c Yin.c
 libs = liblfds711.a -lportaudio -lwebsockets -lrt -lm -lasound -ljack -pthread -lsndfile
 static_libs = liblfds711.a libportaudio.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread -lsndfile
 ssl_libs = -lssl -lcrypto

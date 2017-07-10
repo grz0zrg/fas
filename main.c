@@ -70,10 +70,13 @@
 #include "inc/liblfds711.h"
 #include "inc/sndfile.h"
 #include "inc/tinydir.h"
+#include "inc/Yin.h"
 
 #ifndef M_PI
     #define M_PI (3.141592653589)
 #endif
+
+#define E 2.718281828459045
 
 #define PEER_NAME_BUFFER_LENGTH 64
 #define PEER_ADDRESS_BUFFER_LENGTH 16
@@ -101,6 +104,8 @@
 #define FAS_OUTPUT_CHANNELS 2
 #define FAS_SSL 0
 #define FAS_NOISE_AMOUNT 0.1
+#define FAS_ENVS_SIZE 8192
+#define FAS_ENVS_COUNT 9
 
 // program settings with associated default value
 unsigned int fas_sample_rate = FAS_SAMPLE_RATE;
@@ -153,19 +158,26 @@ struct _synth_gain {
 struct sample {
     float *data;
     uint32_t len;
+    uint32_t frames;
     unsigned int chn;
+    float pitch; // hz
+    int samplerate;
 };
 
 struct sample *samples = NULL;
 unsigned int samples_count = 0;
 
 struct grain {
-    unsigned int frame; // current position
+    float frame; // current position
     unsigned int frames; // duration
     unsigned int index; // grain position
-    unsigned int direction;
-    float *env;
+    unsigned int env_type; // envelope type
+    float speed;
+    float env_index;
+    float env_step;
 };
+
+float **grain_envelope;
 
 struct oscillator {
     double freq;
@@ -197,9 +209,7 @@ struct _synth {
     struct _synth_settings *settings;
     struct _synth_gain *gain;
     struct oscillator *oscillators;
-#ifdef GRANULAR
     struct grain *grains;
-#endif
 
     float lerp_t;
     unsigned long curr_sample;
@@ -312,19 +322,15 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             curr_synth.gain = queue_synth->gain;
         }
 
-#ifdef GRANULAR
         if (queue_synth->grains) {
             curr_synth.grains = queue_synth->grains;
         }
-#endif
     }
 
     unsigned int i, j, k, s, e;
 
     if (curr_synth.oscillators == NULL ||
-#ifdef GRANULAR
         curr_synth.grains == NULL ||
-#endif
            curr_synth.settings == NULL ||
                curr_synth.gain == NULL) {
         for (i = 0; i < framesPerBuffer; i += 1) {
@@ -374,16 +380,50 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                     float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
                     float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
 
-                    output_l += vl * (smp->data[gr->frame + gr->index] * gr->env[gr->frame]);
-                    output_r += vr * (smp->data[gr->frame + gr->index + smp->chn] * gr->env[gr->frame]);
+                    output_l += vl * (smp->data[((unsigned int)gr->frame) * (smp->chn + 1) + gr->index] * grain_envelope[gr->env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE]);
+                    output_r += vr * (smp->data[((unsigned int)gr->frame) * (smp->chn + 1) + gr->index + smp->chn] * grain_envelope[gr->env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE]);
 
-                    gr->frame+=gr->direction;
+                    gr->frame+=gr->speed;
+
+                    gr->env_index+=gr->env_step;
 
                     if (gr->frame >= gr->frames) {
-                        gr->frames = randf(0.001f, 0.02f) * smp->len; //* fas_sample_rate; // 1ms - 100ms
-                        gr->index = (smp->len - gr->frames) * randf(0.0f, 1.0f);//floor(randf(0, smp->len - gr->frames - 1));
+                        /*gr->index -= (gr->frames / 2) * (smp->chn + 1);//floor(randf(0, smp->len - gr->frames - 1));
+                        if (gr->index < 0) {
+                            gr->index = gr->frames + gr->index;
+                        }*/
+                        gr->index += (gr->frames / 2) * (smp->chn + 1);
+                        gr->frames = randf(0.002f, 0.1f) * fas_sample_rate; //* fas_sample_rate; // 1ms - 100ms
+                        //gr->index = ((int)(floor(randf(0, gr->frames / 2)))%gr->frames) * (smp->chn + 1);//floor(randf(0, smp->len - gr->frames - 1));
+                        gr->env_step = /*floor(gr->frames / */FAS_ENVS_SIZE / (gr->frames / gr->speed)/*)*/;
+                        //gr->env_index = rand()%8192;
+                        gr->env_index = 0;
                         gr->frame = 0;
-                        gr->direction = ((rand()%1) == 1) ? -1 : 1;
+                        gr->env_type = rand()%FAS_ENVS_COUNT;
+                        //gr->index = floor(randf(gr->frames + 8, smp->frames - gr->frames - 8));
+                        if (rand()%100 == 1) {
+                          gr->index = ((int)(floor(randf(0, gr->frames)))%gr->frames) * (smp->chn + 1);
+                        }
+
+                        if (gr->index > (smp->frames - gr->frames)) {
+                          gr->index %= (smp->frames - gr->frames);
+                        }
+
+/*
+                        if (rand()%2 == 1) {
+                          gr->frame = 0;
+
+                          if (gr->speed < 0) {
+                            gr->speed = -gr->speed;
+                          }
+                        } else {
+                          gr->frame = gr->frames;
+
+                          if (gr->speed > 0) {
+                            gr->speed = -gr->speed;
+                          }
+                        }
+*/
                     }
 
 #else
@@ -476,47 +516,148 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     return paContinue;
 }
 
-struct grain *createGrains(unsigned int n) {
+float gaussian(float x, int L, float sigma) {
+   return exp(-pow((x - L / 2) / (2 * sigma), 2));
+}
+
+float **createGrainsEnvelope(unsigned int n) {
+    float **envs = (float **)malloc(FAS_ENVS_COUNT * sizeof(float *));
+
+    float a0, a1, a2, a3, L, fN;
+
+    for (int i = 0; i < FAS_ENVS_COUNT; i++) {
+        envs[i] = (float *)malloc(n * sizeof(float));
+
+        // thank to http://michaelkrzyzaniak.com/AudioSynthesis/2_Audio_Synthesis/11_Granular_Synthesis/1_Window_Functions/
+        switch(i) {
+            case 0: // SINE
+              for (int j = 0; j < n; j++) {
+                  envs[i][j] = sin(M_PI * (double)j / n);
+              }
+              break;
+
+            case 1: // HANN
+              for (int j = 0; j < n; j++) {
+                  envs[i][j] = 0.5 * (1 - cos(2 * M_PI * j / n));
+              }
+              break;
+
+            case 2: // HAMMING
+              for (int j = 0; j < n; j++) {
+                  envs[i][j] = 0.54 - 0.46 * cos(2 * M_PI * j / n);
+              }
+              break;
+
+            case 3: // TUKEY
+              for (int j = 0; j < n; j++) {
+                  float truncationHeight = 0.5;
+                  float f = 1 / (2 * truncationHeight) * (1 - cos(2 * M_PI * j / n));
+                  envs[i][j] = f < 1 ? f : 1;
+              }
+              break;
+
+            case 4: // GAUSSIAN
+              for (int j = 0; j < n; j++) {
+                  float sigma = 0.3;
+                  envs[i][j] = pow(E, -0.5* pow(((j - n/   2) / (sigma * n / 2)), 2) );
+              }
+              break;
+
+            case 5: // CONFINED GAUSSIAN
+                fN = (float)n;
+                float sigma = fN * 0.3f;
+                float L = (float)(n - 1);
+
+                float numerator = 0.0f;
+                float denominator = 0.0f;
+                float fn = 0.0f;
+
+                for (int j = 0; j < n; j++) {
+                    fn = (float)j;
+                    numerator = gaussian(-0.5f, L, sigma) * (gaussian(fn + fN, L, sigma) + gaussian(fn - fN, L, sigma));
+                    denominator = gaussian(-0.5f + fN, L, sigma) + gaussian(-0.5f - fN, L, sigma);
+                    envs[i][j] = gaussian(fn, L, sigma) - numerator / denominator;
+                }
+              break;
+
+            case 6: // TRAPEZOIDAL
+              for (int j = 0; j < n; j++) {
+                  float slope = 10;
+                  float x = (float) j / n;
+                  float f1 = slope * x;
+                  float f2 = -1 * slope * (x-(slope-1) / slope) + 1;
+                  envs[i][j] = x < 0.5 ? (f1 < 1 ? f1 : 1) : (f2 < 1 ? f2 : 1);
+              }
+              break;
+
+            case 7: // BLACKMAN
+                a0 = 0.426591f;
+                a1 = 0.496561f;
+                a2 = 0.076849f;
+                L = (float)(n - 1);
+                for (int j = 0; j < n; j++) {
+                    envs[i][j] = a0;
+                    envs[i][j] -= a1 * cos((1.0f * 2.0f * (float)(M_PI) * j) / L);
+                    envs[i][j] += a2 * cos((2.0f * 2.0f * (float)(M_PI) * j) / L);
+                }
+              break;
+
+            case 8: // BLACKMAN HARRIS
+                a0 = 0.35875f;
+                a1 = 0.48829f;
+                a2 = 0.14128f;
+                a3 = 0.01168f;
+                L = (float)(n - 1);
+
+                for (int j = 0; j < n; j++) {
+                    envs[i][j] = a0;
+                    envs[i][j] -= a1 * cos((1.0f * 2.0f * (float)(M_PI) * j) / L);
+                    envs[i][j] += a2 * cos((2.0f * 2.0f * (float)(M_PI) * j) / L);
+                    envs[i][j] -= a3 * cos((3.0f * 2.0f * (float)(M_PI) * j) / L);
+                }
+              break;
+
+            default:
+              printf("Envelope type %i not defined, ignored.\n", i);
+              free(envs[i]);
+              break;
+        }
+    }
+
+    return envs;
+}
+
+void freeGrainsEnvelope(float **envs) {
+    for (int i = 0; i < FAS_ENVS_COUNT; i++) {
+        free(envs[i]);
+    }
+    free(envs);
+}
+
+struct grain *createGrains(unsigned int n, double base_frequency, unsigned int octaves) {
     struct grain *g = (struct grain *)malloc(n * sizeof(struct grain));
     for (int i = 0; i < n; i += 1) {
         struct sample *smp = &samples[i%samples_count];
 
-        g[i].frames = floor(randf(0.01f, 0.1f) * fas_sample_rate); // 1ms - 100ms
+        double octave_length = n / octaves;
+        double frequency;
+        frequency = base_frequency * pow(2, (n-i) / octave_length);
+
+        g[i].frames = floor(randf(0.001f, 0.02f) * fas_sample_rate); // 1ms - 100ms
         g[i].frame = 0;
-        g[i].index = floor(randf(0, smp->len - g[i].frames - 1));
-        g[i].env = (float *)malloc(g[i].frames * sizeof(float));
-        g[i].direction = 1;
-
-        for (int j = 0; j < g[i].frames; j += 1) {
-            g[i].env[j] = 1.0;
+        g[i].index = floor(randf(0, smp->frames - g[i].frames - 1)) * (smp->chn + 1);
+        g[i].speed = frequency / smp->pitch;//((smp->pitch * (frequency / smp->pitch)) / (double)fas_sample_rate * g[i].frames);
+        if (g[i].speed <= 0) {
+          g[i].speed = 1;
         }
-
-        int slope_end = g[i].frames / 8;
-        double step = 1.0 / slope_end;
-        float s = 0;
-
-        for (int j = 0; j < slope_end; j += 1) {
-            g[i].env[j] = lin(0.0, 1.0, s);
-
-            s += step;
-        }
-
-        s = 0;
-        for (int j = (g[i].frames - slope_end); j < g[i].frames; j += 1) {
-            g[i].env[j] = lin(1.0, 0.0, s);
-
-            s += step;
-        }
+        g[i].env_step = /*floor(g[i].frames / */8192 / (g[i].frames / g[i].speed)/*)*/;
+        g[i].env_index = 0;
     }
 
     return g;
 }
 
 struct grain *freeGrains(struct grain *g, unsigned int n) {
-    for (int i = 0; i < n; i += 1) {
-        free(g[i].env);
-    }
-
     free(g);
 
     return NULL;
@@ -835,17 +976,12 @@ if (remaining_payload != 0) {
                         }
 
                         usd->synth->oscillators = NULL;
-
-#ifdef GRANULAR
                         usd->synth->grains = NULL;
-#endif
                     } else {
                         h = usd->synth->settings->h;
                     }
 
-#ifdef GRANULAR
                     freeGrains(usd->synth->grains, h);
-#endif
 
                     usd->synth->oscillators = freeOscillators(usd->synth->oscillators, h);
 
@@ -871,9 +1007,7 @@ if (remaining_payload != 0) {
                     usd->synth->oscillators = createOscillators(usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave);
 
-#ifdef GRANULAR
-                    usd->synth->grains = createGrains(usd->synth_h);
-#endif
+                    usd->synth->grains = createGrains(usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave);
 
                     if (lfds711_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
                         printf("Skipping packet, the synth commands queue is full.\n");
@@ -881,9 +1015,9 @@ if (remaining_payload != 0) {
 
                         free(usd->synth->settings);
                         usd->synth->oscillators = freeOscillators(usd->synth->oscillators, usd->synth->settings->h);
-#ifdef GRANULAR
+
                         freeGrains(usd->synth->grains, usd->synth->settings->h);
-#endif
+
                         free(usd->synth);
                         usd->synth = NULL;
 
@@ -1003,9 +1137,9 @@ free_packet:
                 if (usd->synth->oscillators && usd->synth->settings) {
                     usd->synth->oscillators = freeOscillators(usd->synth->oscillators, usd->synth->settings->h);
                 }
-#ifdef GRANULAR
+
                 freeGrains(usd->synth->grains, usd->synth->settings->h);
-#endif
+
                 free(usd->synth->settings);
                 free(usd->synth);
             }
@@ -1013,7 +1147,7 @@ free_packet:
             free(usd->frame_data);
             free(usd->packet);
 
-            printf("Connection from %s (%s) close.\n", usd->peer_name, usd->peer_ip);
+            printf("Connection from %s (%s) closed.\n", usd->peer_name, usd->peer_ip);
             fflush(stdout);
             break;
 
@@ -1099,9 +1233,19 @@ void load_grains() {
         tinydir_readfile(&dir, &file);
 
         if (file.is_reg) {
-            if (strcmp(file.extension, "flac") == 0 ||
-                  strcmp(file.extension, "wav") == 0) {
+/*
+            if (strcmp(file.extension, "wav") == 0 ||
+                strcmp(file.extension, "flac") == 0 ||
+                strcmp(file.extension, "ogg") == 0 ||
+                strcmp(file.extension, "aiff") == 0 ||
+                strcmp(file.extension, "raw") == 0 ||
+                strcmp(file.extension, "au") == 0 ||
+                strcmp(file.extension, "voc") == 0 ||
+                strcmp(file.extension, "ircam") == 0 ||
+                strcmp(file.extension, "sds") == 0) {
+*/
                 size_t filepath_len = strlen(grains_directory) + strlen(file.name);
+
                 char *filepath = (char *)malloc(filepath_len + 1);
                 filepath[0] = '\0';
                 strcat(filepath, grains_directory);
@@ -1110,8 +1254,7 @@ void load_grains() {
 
                 SNDFILE *audio_file;
                 if (!(audio_file = sf_open(filepath, SFM_READ, &sfinfo))) {
-                    printf ("libsdnfile: Not able to open input file %s.\n", filepath);
-                    puts(sf_strerror(NULL));
+                    printf ("libsdnfile: Not able to open input file %s.\nlibsndfile: %s", filepath, sf_strerror(NULL));
 
                     free(filepath);
 
@@ -1127,15 +1270,48 @@ void load_grains() {
 
                 samples = (struct sample *)realloc(samples, sizeof(struct sample) * samples_count);
 
+                // insert into samples data structure
                 struct sample *smp = &samples[samples_count - 1];
                 smp->chn = sfinfo.channels - 1;
-                smp->len = sfinfo.frames;
+                smp->len = sfinfo.frames * sfinfo.channels;
+                smp->frames = sfinfo.frames;
+                smp->samplerate = sfinfo.samplerate;
                 smp->data = (float *)malloc(smp->len * sizeof(float));
                 sf_read_float(audio_file, smp->data, smp->len);
 
+                sf_seek(audio_file, 0, SEEK_SET);
+
+                // pitch detection
+                int16_t *st_samples = (int16_t *)malloc(smp->len * sizeof(int16_t));
+                sf_read_short(audio_file, st_samples, smp->len);
+
+                int16_t *yin_samples = (int16_t *)malloc(smp->frames * sizeof(int16_t));
+                for(int i = 0; i < smp->frames; i++) { // convert to mono for pitch detection
+                    yin_samples[i] = 0;
+                    for(int j = 0; j < sfinfo.channels; j++) {
+                        yin_samples[i] += st_samples[i * sfinfo.channels + j];
+                    }
+                    yin_samples[i] /= sfinfo.channels;
+                }
+
+                Yin *yin = (Yin *)malloc(sizeof(struct _Yin));
+
+                Yin_init(yin, 4096, 0.05);
+                smp->pitch = Yin_getPitch(yin, yin_samples);
+
+                if (smp->pitch == -1) {
+                  smp->pitch = 440.0;
+                }
+
+                printf("Sample '%s' loaded, detected fundamental pitch is %fhz\n", file.name, smp->pitch);
+
+                free(yin_samples);
+                free(st_samples);
+                free(yin);
+
                 sf_close(audio_file);
             }
-        }
+//        }
 
         tinydir_next(&dir);
     }
@@ -1347,9 +1523,7 @@ int main(int argc, char **argv)
         printf("Warning: One of the specified program option is out of range and was set to its maximal value.\n");
     }
 
-#ifdef GRANULAR
     load_grains();
-#endif
 
     // fas setup
     note_time = 1 / (double)fas_fps;
@@ -1363,6 +1537,8 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         }
     }
+
+    grain_envelope = createGrainsEnvelope(FAS_ENVS_SIZE);
 
     // PortAudio related
     PaStreamParameters outputParameters;
@@ -1590,6 +1766,8 @@ error:
         fprintf(stderr, "Error number: %d\n", err);
         fprintf(stderr, "Error message: %s\n", Pa_GetErrorText(err));
     }
+
+    freeGrainsEnvelope(grain_envelope);
 
     free(fas_sine_wavetable);
     free(fas_white_noise_table);

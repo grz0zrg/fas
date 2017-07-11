@@ -449,9 +449,9 @@ if (remaining_payload != 0) {
                         h = usd->synth->settings->h;
                     }
 
-                    freeGrains(usd->synth->grains, h);
+                    freeGrains(&usd->synth->grains, h);
 
-                    usd->synth->oscillators = freeOscillators(usd->synth->oscillators, h);
+                    usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, h);
 
                     usd->synth->gain = NULL;
 
@@ -475,16 +475,16 @@ if (remaining_payload != 0) {
                     usd->synth->oscillators = createOscillators(usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
 
-                    usd->synth->grains = createGrains(samples, samples_count, usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate);
+                    usd->synth->grains = createGrains(&samples, samples_count, usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate);
 
                     if (lfds711_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
                         printf("Skipping packet, the synth commands queue is full.\n");
                         fflush(stdout);
 
                         free(usd->synth->settings);
-                        usd->synth->oscillators = freeOscillators(usd->synth->oscillators, usd->synth->settings->h);
+                        usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, usd->synth->settings->h);
 
-                        freeGrains(usd->synth->grains, usd->synth->settings->h);
+                        freeGrains(&usd->synth->grains, usd->synth->settings->h);
 
                         free(usd->synth);
                         usd->synth = NULL;
@@ -603,10 +603,10 @@ free_packet:
         case LWS_CALLBACK_WS_PEER_INITIATED_CLOSE:
             if (usd->synth) {
                 if (usd->synth->oscillators && usd->synth->settings) {
-                    usd->synth->oscillators = freeOscillators(usd->synth->oscillators, usd->synth->settings->h);
+                    usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, usd->synth->settings->h);
                 }
 
-                freeGrains(usd->synth->grains, usd->synth->settings->h);
+                freeGrains(&usd->synth->grains, usd->synth->settings->h);
 
                 free(usd->synth->settings);
                 free(usd->synth);
@@ -839,7 +839,8 @@ int main(int argc, char **argv)
         printf("Warning: One of the specified program option is out of range and was set to its maximal value.\n");
     }
 
-    samples_count = load_samples(samples, "./grains/");
+    samples_count = load_samples(&samples, "./grains/");
+    printf("%i", samples);
 
     // fas setup
     note_time = 1 / (double)fas_fps;

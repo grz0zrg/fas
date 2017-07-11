@@ -4,9 +4,11 @@
 
 #include "samples.h"
 
-unsigned int load_samples(struct sample *samples, char *directory) {
+unsigned int load_samples(struct sample **s, char *directory) {
     unsigned int samples_count = 0;
     size_t path_len;
+
+    struct sample *samples = NULL;
 
     SF_INFO sfinfo;
     memset(&sfinfo, 0, sizeof(sfinfo));
@@ -93,6 +95,8 @@ unsigned int load_samples(struct sample *samples, char *directory) {
     }
 
     tinydir_close(&dir);
+
+    *s = samples;
 
     return samples_count;
 }

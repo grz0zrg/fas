@@ -1,6 +1,8 @@
 #include "grains.h"
 
-struct grain *createGrains(struct sample *samples, unsigned int samples_count, unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate) {
+struct grain *createGrains(struct sample **s, unsigned int samples_count, unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate) {
+    struct sample *samples = *s;
+
     struct grain *g = (struct grain *)malloc(n * sizeof(struct grain));
     for (int i = 0; i < n; i += 1) {
         struct sample *smp = &samples[i%samples_count];
@@ -23,8 +25,10 @@ struct grain *createGrains(struct sample *samples, unsigned int samples_count, u
     return g;
 }
 
-struct grain *freeGrains(struct grain *g, unsigned int n) {
-    free(g);
+struct grain *freeGrains(struct grain **g, unsigned int n) {
+    struct grain *grains = *g;
+
+    free(grains);
 
     return NULL;
 }

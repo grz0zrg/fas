@@ -10,6 +10,6 @@
         int samplerate;
     };
 
-    extern unsigned int load_samples(struct sample *samples, char *directory);
+    extern unsigned int load_samples(struct sample **samples, char *directory);
 
 #endif

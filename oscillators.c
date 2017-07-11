@@ -44,7 +44,9 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
     return oscillators;
 }
 
-struct oscillator *freeOscillators(struct oscillator *oscs, unsigned int n) {
+struct oscillator *freeOscillators(struct oscillator **o, unsigned int n) {
+    struct oscillator *oscs = *o;
+
     if (oscs == NULL) {
         return NULL;
     }

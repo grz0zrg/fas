@@ -17,7 +17,7 @@
         float env_step;
     };
 
-    extern struct grain *createGrains(struct sample *samples, unsigned int samples_count, unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate);
-    extern struct grain *freeGrains(struct grain *g, unsigned int n);
+    extern struct grain *createGrains(struct sample **samples, unsigned int samples_count, unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate);
+    extern struct grain *freeGrains(struct grain **g, unsigned int n);
 
 #endif

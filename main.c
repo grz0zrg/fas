@@ -51,212 +51,7 @@
     TODO : thread-safe memory deallocation for synth. parameters change
 */
 
-#include <getopt.h>
-#include <math.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <errno.h>
-#include <string.h>
-#include <strings.h>
-
-#if defined(_WIN32) || defined(_WIN64)
-    #include <conio.h>
-#endif
-
-#include "portaudio.h"
-#include "libwebsockets.h"
-#include "inc/liblfds711.h"
-#include "inc/sndfile.h"
-#include "inc/tinydir.h"
-#include "inc/Yin.h"
-
-#ifndef M_PI
-    #define M_PI (3.141592653589)
-#endif
-
-#define E 2.718281828459045
-
-#define PEER_NAME_BUFFER_LENGTH 64
-#define PEER_ADDRESS_BUFFER_LENGTH 16
-
-#define PACKET_HEADER_LENGTH 8
-#define FRAME_HEADER_LENGTH 8
-
-// packets id
-#define SYNTH_SETTINGS 0
-#define FRAME_DATA 1
-#define GAIN_CHANGE 2
-
-// program settings constants
-#define FAS_SAMPLE_RATE 44100
-#define FAS_FRAMES_PER_BUFFER 512
-#define FAS_DEFLATE 0
-#define FAS_WAVETABLE 1
-#define FAS_WAVETABLE_SIZE 8192
-#define FAS_FPS 60
-#define FAS_PORT 3003
-#define FAS_RX_BUFFER_SIZE 4096
-#define FAS_REALTIME 0
-#define FAS_FRAMES_QUEUE_SIZE 7
-#define FAS_COMMANDS_QUEUE_SIZE 16
-#define FAS_OUTPUT_CHANNELS 2
-#define FAS_SSL 0
-#define FAS_NOISE_AMOUNT 0.1
-#define FAS_ENVS_SIZE 8192
-#define FAS_ENVS_COUNT 9
-
-// program settings with associated default value
-unsigned int fas_sample_rate = FAS_SAMPLE_RATE;
-unsigned int fas_frames_per_buffer = FAS_FRAMES_PER_BUFFER;
-unsigned int fas_deflate = FAS_DEFLATE;
-unsigned int fas_wavetable = FAS_WAVETABLE;
-#ifdef FIXED_WAVETABLE
-unsigned int fas_wavetable_size = 65536;
-unsigned int fas_wavetable_size_m1 = 65535;
-#else
-unsigned int fas_wavetable_size = FAS_WAVETABLE_SIZE;
-unsigned int fas_wavetable_size_m1 = FAS_WAVETABLE_SIZE - 1;
-#endif
-unsigned int fas_fps = FAS_FPS;
-unsigned int fas_port = FAS_PORT;
-unsigned int fas_rx_buffer_size = FAS_RX_BUFFER_SIZE;
-unsigned int fas_realtime = FAS_REALTIME;
-unsigned int fas_frames_queue_size = FAS_FRAMES_QUEUE_SIZE;
-unsigned int fas_commands_queue_size = FAS_COMMANDS_QUEUE_SIZE;
-unsigned int fas_ssl = FAS_SSL;
-unsigned int fas_output_channels = FAS_OUTPUT_CHANNELS;
-unsigned int frame_data_count = FAS_OUTPUT_CHANNELS / 2;
-float fas_noise_amount = FAS_NOISE_AMOUNT;
-int fas_audio_device = -1;
-char *fas_iface = NULL;
-
-float *fas_sine_wavetable = NULL;
-float *fas_white_noise_table = NULL;
-uint16_t noise_index = 0.;
-
-double note_time;
-double note_time_samples;
-double lerp_t_step;
-
-PaStream *stream;
-
-struct lws_context *context;
-
-struct _synth_settings {
-    unsigned int h;
-    unsigned int octave;
-    double base_frequency;
-};
-
-struct _synth_gain {
-    double gain_lr;
-};
-
-// granular synthesis
-struct sample {
-    float *data;
-    uint32_t len;
-    uint32_t frames;
-    unsigned int chn;
-    float pitch; // hz
-    int samplerate;
-};
-
-struct sample *samples = NULL;
-unsigned int samples_count = 0;
-
-struct grain {
-    float frame; // current position
-    unsigned int frames; // duration
-    unsigned int index; // grain position
-    unsigned int env_type; // envelope type
-    float speed;
-    float env_index;
-    float env_step;
-};
-
-float **grain_envelope;
-
-struct oscillator {
-    double freq;
-#ifdef FIXED_WAVETABLE
-    uint16_t *phase_index;
-    uint16_t phase_step;
-#else
-    unsigned int *phase_index;
-    unsigned int phase_step;
-#endif
-};
-
-struct osc_norm {
-    unsigned int divisor;
-    unsigned int *indexes;
-    size_t indexes_len;
-    size_t indexes_curr;
-};
-
-struct note {
-    unsigned int osc_index;
-    float previous_volume_l;
-    float previous_volume_r;
-    float diff_volume_l;
-    float diff_volume_r;
-};
-
-struct _synth {
-    struct _synth_settings *settings;
-    struct _synth_gain *gain;
-    struct oscillator *oscillators;
-    struct grain *grains;
-
-    float lerp_t;
-    unsigned long curr_sample;
-} curr_synth;
-
-struct user_session_data {
-    char peer_name[PEER_NAME_BUFFER_LENGTH];
-    char peer_ip[PEER_ADDRESS_BUFFER_LENGTH];
-
-    // contain either a fragmented packet or the final packet data
-    char *packet;
-    size_t packet_len;
-    int packet_skip;
-
-    // contain the current and previously processed audio-frame data
-    char *frame_data;
-    char *prev_frame_data;
-    size_t expected_frame_length;
-    size_t expected_max_frame_length;
-
-    // contain user session related synth. data
-    struct _synth *synth;
-
-    unsigned int synth_h;
-};
-
-// liblfds related
-enum lfds711_misc_flag overwrite_occurred_flag;
-
-struct lfds711_ringbuffer_state rs; // frames related data structure
-struct lfds711_queue_bss_state synth_commands_queue_state;
-struct lfds711_freelist_state freelist_frames;
-
-struct _freelist_frames_data *ffd;
-
-struct _freelist_frames_data {
-    struct lfds711_freelist_element fe;
-
-    struct note *data;
-};
-//
-
-struct note *curr_notes = NULL;
-struct _freelist_frames_data *curr_freelist_frames_data = NULL;
-unsigned long frames_read = 0;
-
-struct osc_norm *osc_norms = NULL;
+#include "fas.h"
 
 // liblfds data structures cleanup callbacks
 void flf_element_cleanup_callback(struct lfds711_freelist_state *fs, struct lfds711_freelist_element *fe) {
@@ -278,20 +73,6 @@ void rb_element_cleanup_callback(struct lfds711_ringbuffer_state *rs, void *key,
 }
 // -
 
-float lin(float y1, float y2, float mu) {
-   return (y1 * (1 - mu) + y2 * mu);
-}
-
-float randf(float min, float max) {
-    if (min == 0.f && max == 0.f) {
-        return 0.f;
-    }
-
-    float range = (max - min);
-    float div = RAND_MAX / range;
-    return min + (rand() / div);
-}
-
 static int paCallback( const void *inputBuffer, void *outputBuffer,
                             unsigned long framesPerBuffer,
                             const PaStreamCallbackTimeInfo* timeInfo,
@@ -299,7 +80,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             void *data )
 {
     LFDS711_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_LOGICAL_CORE;
-
 
     static float last_sample_r = 0;
     static float last_sample_l = 0;
@@ -396,7 +176,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         gr->frames = randf(0.002f, 0.1f) * fas_sample_rate; //* fas_sample_rate; // 1ms - 100ms
                         //gr->index = ((int)(floor(randf(0, gr->frames / 2)))%gr->frames) * (smp->chn + 1);//floor(randf(0, smp->len - gr->frames - 1));
                         gr->env_step = /*floor(gr->frames / */FAS_ENVS_SIZE / (gr->frames / gr->speed)/*)*/;
-                        //gr->env_index = rand()%8192;
+                        //gr->env_index = rand()%FAS_ENVS_SIZE;
                         gr->env_index = 0;
                         gr->frame = 0;
                         gr->env_type = rand()%FAS_ENVS_COUNT;
@@ -494,11 +274,13 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     frames_read += 1;
     if ((frames_read % 512) == 0) {
         printf("%lu frames read\n", frames_read);
+        fflush(stdout);
     }
 #endif
 
 #ifdef PROFILE
     printf("PortAudio stream CPU load : %f\n", Pa_GetStreamCpuLoad(stream));
+    fflush(stdout);
 #endif
             } else {
                 if (curr_notes) {
@@ -514,320 +296,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     }
 
     return paContinue;
-}
-
-float gaussian(float x, int L, float sigma) {
-   return exp(-pow((x - L / 2) / (2 * sigma), 2));
-}
-
-float **createGrainsEnvelope(unsigned int n) {
-    float **envs = (float **)malloc(FAS_ENVS_COUNT * sizeof(float *));
-
-    float a0, a1, a2, a3, L, fN;
-
-    for (int i = 0; i < FAS_ENVS_COUNT; i++) {
-        envs[i] = (float *)malloc(n * sizeof(float));
-
-        // thank to http://michaelkrzyzaniak.com/AudioSynthesis/2_Audio_Synthesis/11_Granular_Synthesis/1_Window_Functions/
-        switch(i) {
-            case 0: // SINE
-              for (int j = 0; j < n; j++) {
-                  envs[i][j] = sin(M_PI * (double)j / n);
-              }
-              break;
-
-            case 1: // HANN
-              for (int j = 0; j < n; j++) {
-                  envs[i][j] = 0.5 * (1 - cos(2 * M_PI * j / n));
-              }
-              break;
-
-            case 2: // HAMMING
-              for (int j = 0; j < n; j++) {
-                  envs[i][j] = 0.54 - 0.46 * cos(2 * M_PI * j / n);
-              }
-              break;
-
-            case 3: // TUKEY
-              for (int j = 0; j < n; j++) {
-                  float truncationHeight = 0.5;
-                  float f = 1 / (2 * truncationHeight) * (1 - cos(2 * M_PI * j / n));
-                  envs[i][j] = f < 1 ? f : 1;
-              }
-              break;
-
-            case 4: // GAUSSIAN
-              for (int j = 0; j < n; j++) {
-                  float sigma = 0.3;
-                  envs[i][j] = pow(E, -0.5* pow(((j - n/   2) / (sigma * n / 2)), 2) );
-              }
-              break;
-
-            case 5: // CONFINED GAUSSIAN
-                fN = (float)n;
-                float sigma = fN * 0.3f;
-                float L = (float)(n - 1);
-
-                float numerator = 0.0f;
-                float denominator = 0.0f;
-                float fn = 0.0f;
-
-                for (int j = 0; j < n; j++) {
-                    fn = (float)j;
-                    numerator = gaussian(-0.5f, L, sigma) * (gaussian(fn + fN, L, sigma) + gaussian(fn - fN, L, sigma));
-                    denominator = gaussian(-0.5f + fN, L, sigma) + gaussian(-0.5f - fN, L, sigma);
-                    envs[i][j] = gaussian(fn, L, sigma) - numerator / denominator;
-                }
-              break;
-
-            case 6: // TRAPEZOIDAL
-              for (int j = 0; j < n; j++) {
-                  float slope = 10;
-                  float x = (float) j / n;
-                  float f1 = slope * x;
-                  float f2 = -1 * slope * (x-(slope-1) / slope) + 1;
-                  envs[i][j] = x < 0.5 ? (f1 < 1 ? f1 : 1) : (f2 < 1 ? f2 : 1);
-              }
-              break;
-
-            case 7: // BLACKMAN
-                a0 = 0.426591f;
-                a1 = 0.496561f;
-                a2 = 0.076849f;
-                L = (float)(n - 1);
-                for (int j = 0; j < n; j++) {
-                    envs[i][j] = a0;
-                    envs[i][j] -= a1 * cos((1.0f * 2.0f * (float)(M_PI) * j) / L);
-                    envs[i][j] += a2 * cos((2.0f * 2.0f * (float)(M_PI) * j) / L);
-                }
-              break;
-
-            case 8: // BLACKMAN HARRIS
-                a0 = 0.35875f;
-                a1 = 0.48829f;
-                a2 = 0.14128f;
-                a3 = 0.01168f;
-                L = (float)(n - 1);
-
-                for (int j = 0; j < n; j++) {
-                    envs[i][j] = a0;
-                    envs[i][j] -= a1 * cos((1.0f * 2.0f * (float)(M_PI) * j) / L);
-                    envs[i][j] += a2 * cos((2.0f * 2.0f * (float)(M_PI) * j) / L);
-                    envs[i][j] -= a3 * cos((3.0f * 2.0f * (float)(M_PI) * j) / L);
-                }
-              break;
-
-            default:
-              printf("Envelope type %i not defined, ignored.\n", i);
-              free(envs[i]);
-              break;
-        }
-    }
-
-    return envs;
-}
-
-void freeGrainsEnvelope(float **envs) {
-    for (int i = 0; i < FAS_ENVS_COUNT; i++) {
-        free(envs[i]);
-    }
-    free(envs);
-}
-
-struct grain *createGrains(unsigned int n, double base_frequency, unsigned int octaves) {
-    struct grain *g = (struct grain *)malloc(n * sizeof(struct grain));
-    for (int i = 0; i < n; i += 1) {
-        struct sample *smp = &samples[i%samples_count];
-
-        double octave_length = n / octaves;
-        double frequency;
-        frequency = base_frequency * pow(2, (n-i) / octave_length);
-
-        g[i].frames = floor(randf(0.001f, 0.02f) * fas_sample_rate); // 1ms - 100ms
-        g[i].frame = 0;
-        g[i].index = floor(randf(0, smp->frames - g[i].frames - 1)) * (smp->chn + 1);
-        g[i].speed = frequency / smp->pitch;//((smp->pitch * (frequency / smp->pitch)) / (double)fas_sample_rate * g[i].frames);
-        if (g[i].speed <= 0) {
-          g[i].speed = 1;
-        }
-        g[i].env_step = /*floor(g[i].frames / */8192 / (g[i].frames / g[i].speed)/*)*/;
-        g[i].env_index = 0;
-    }
-
-    return g;
-}
-
-struct grain *freeGrains(struct grain *g, unsigned int n) {
-    free(g);
-
-    return NULL;
-}
-
-struct oscillator *createOscillators(unsigned int n, double base_frequency, unsigned int octaves) {
-    struct oscillator *oscillators = (struct oscillator*)malloc(n * sizeof(struct oscillator));
-
-    if (oscillators == NULL) {
-        printf("createOscillators alloc. error.");
-        fflush(stdout);
-        return NULL;
-    }
-
-    int y = 0;
-    int index = 0;
-    double octave_length = n / octaves;
-    double frequency;
-    uint64_t phase_step;
-    int nmo = n - 1;
-
-    for (y = 0; y < n; y += 1) {
-        index = nmo - y;
-
-        frequency = base_frequency * pow(2, y / octave_length);
-        phase_step = frequency / (double)fas_sample_rate * fas_wavetable_size;
-
-        oscillators[index].freq = frequency;
-
-#ifdef FIXED_WAVETABLE
-        oscillators[index].phase_index = malloc(sizeof(uint16_t) * frame_data_count);
-#else
-        oscillators[index].phase_index = malloc(sizeof(unsigned int) * frame_data_count);
-#endif
-
-        for (int i = 0; i < frame_data_count; i += 1) {
-            oscillators[index].phase_index[i] = rand() / (double)RAND_MAX * fas_wavetable_size;
-        }
-
-        oscillators[index].phase_step = phase_step;
-    }
-
-    return oscillators;
-}
-
-struct oscillator *freeOscillators(struct oscillator *oscs, unsigned int n) {
-    if (oscs == NULL) {
-        return NULL;
-    }
-
-    int y = 0;
-    for (y = 0; y < n; y += 1) {
-        free(oscs[y].phase_index);
-    }
-
-    free(oscs);
-
-    return NULL;
-}
-
-void resetNorm(struct osc_norm *_osc_norm) {
-    _osc_norm->indexes_len = 16;
-    _osc_norm->indexes_curr = 0;
-    _osc_norm->divisor = 0;
-
-    _osc_norm->indexes = malloc(sizeof(unsigned int) * _osc_norm->indexes_len);
-}
-
-// fill the notes buffer for each output channels
-// data argument is the raw RGBA values received with the channels count indicated as the first entry
-void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_length, unsigned char *prev_data, unsigned char *data) {
-    double pvl = 0, pvr = 0, pl, pr;
-    unsigned int i, j, frame_data_index = 8;
-    unsigned int l, r;
-    unsigned int li = 0, ri = 1;
-    unsigned int index = 0, note_osc_index = 0, osc_count = 0;
-    double volume_l, volume_r;
-    static double inv_full_brightness = 1.0 / 255.0;
-
-    static unsigned int channels[1];
-    static unsigned int monophonic[1];
-
-    memcpy(&channels, &((char *) data)[0], sizeof(channels));
-    memcpy(&monophonic, &((char *) data)[4], sizeof(monophonic));
-
-    if ((*monophonic) == 1) {
-        li = 3;
-        ri = 3;
-    }
-
-    for (j = 0; j < (*channels); j += 1) {
-        note_osc_index = index;
-        index += 1;
-        osc_count = 0;
-
-        unsigned int y = h - 1;
-
-        for (i = 0; i < data_length; i += 4) {
-            pl = prev_data[frame_data_index + li];
-            pr = prev_data[frame_data_index + ri];
-
-            l = data[frame_data_index + li];
-            r = data[frame_data_index + ri];
-
-            frame_data_index += 4;
-
-            struct note *_note = &note_buffer[index];
-            _note->osc_index = y;
-
-            if (l > 0 ) {
-                volume_l = l * inv_full_brightness;
-                pvl = pl * inv_full_brightness;
-                _note->previous_volume_l = pvl;
-                _note->diff_volume_l = volume_l - pvl;
-            } else {
-                if (pl > 0) {
-                    pvl = pl * inv_full_brightness;
-
-                    _note->previous_volume_l = pvl;
-                    _note->diff_volume_l = -pvl;
-                } else {
-                    _note->previous_volume_l = 0;
-                    _note->diff_volume_l = 0;
-
-                    if (r == 0 && pr == 0) {
-                        y -= 1;
-                        continue;
-                    }
-                }
-            }
-
-            if (r > 0) {
-                volume_r = r * inv_full_brightness;
-                pvr = pr * inv_full_brightness;
-                _note->previous_volume_r = pvr;
-                _note->diff_volume_r = volume_r - pvr;
-            } else {
-                if (pr > 0) {
-                    pvr = pr * inv_full_brightness;
-
-                    _note->previous_volume_r = pvr;
-                    _note->diff_volume_r = -pvr;
-                } else {
-                    _note->previous_volume_r = 0;
-                    _note->diff_volume_r = 0;
-
-                    if (l == 0 && pl == 0) {
-                        y -= 1;
-                        continue;
-                    }
-                }
-            }
-
-            index += 1;
-
-            osc_count += 1;
-
-            y -= 1;
-        }
-
-        note_buffer[note_osc_index].osc_index = osc_count;
-
-#ifdef DEBUG
-    if ((*monophonic) == 1) {
-        printf("Channel l/r (mono) %u : %i oscillators \n", (j + 1), osc_count);
-    } else {
-        printf("Channel l/r %u : %i oscillators \n", (j + 1), osc_count);
-    }
-#endif
-    }
 }
 
 void change_height(unsigned int new_height) {
@@ -1005,9 +473,9 @@ if (remaining_payload != 0) {
                     change_height(usd->synth_h);
 
                     usd->synth->oscillators = createOscillators(usd->synth->settings->h,
-                        usd->synth->settings->base_frequency, usd->synth->settings->octave);
+                        usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
 
-                    usd->synth->grains = createGrains(usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave);
+                    usd->synth->grains = createGrains(samples, samples_count, usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate);
 
                     if (lfds711_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
                         printf("Skipping packet, the synth commands queue is full.\n");
@@ -1215,158 +683,6 @@ int start_server(void) {
     return 0;
 }
 
-void load_grains() {
-    size_t path_len;
-
-    const char *grains_directory = "./grains/";
-
-    SF_INFO sfinfo;
-    memset(&sfinfo, 0, sizeof(sfinfo));
-
-    tinydir_dir dir;
-    tinydir_open(&dir, grains_directory);
-
-    samples = malloc(sizeof(struct sample) * 1);
-
-    while (dir.has_next) {
-        tinydir_file file;
-        tinydir_readfile(&dir, &file);
-
-        if (file.is_reg) {
-/*
-            if (strcmp(file.extension, "wav") == 0 ||
-                strcmp(file.extension, "flac") == 0 ||
-                strcmp(file.extension, "ogg") == 0 ||
-                strcmp(file.extension, "aiff") == 0 ||
-                strcmp(file.extension, "raw") == 0 ||
-                strcmp(file.extension, "au") == 0 ||
-                strcmp(file.extension, "voc") == 0 ||
-                strcmp(file.extension, "ircam") == 0 ||
-                strcmp(file.extension, "sds") == 0) {
-*/
-                size_t filepath_len = strlen(grains_directory) + strlen(file.name);
-
-                char *filepath = (char *)malloc(filepath_len + 1);
-                filepath[0] = '\0';
-                strcat(filepath, grains_directory);
-                strcat(filepath, file.name);
-                filepath[filepath_len] = '\0';
-
-                SNDFILE *audio_file;
-                if (!(audio_file = sf_open(filepath, SFM_READ, &sfinfo))) {
-                    printf ("libsdnfile: Not able to open input file %s.\nlibsndfile: %s", filepath, sf_strerror(NULL));
-
-                    free(filepath);
-
-                    continue;
-                }
-
-                free(filepath);
-
-                //printf("%i\n", sfinfo.frames);
-                //printf("%i\n", sfinfo.channels);
-
-                samples_count++;
-
-                samples = (struct sample *)realloc(samples, sizeof(struct sample) * samples_count);
-
-                // insert into samples data structure
-                struct sample *smp = &samples[samples_count - 1];
-                smp->chn = sfinfo.channels - 1;
-                smp->len = sfinfo.frames * sfinfo.channels;
-                smp->frames = sfinfo.frames;
-                smp->samplerate = sfinfo.samplerate;
-                smp->data = (float *)malloc(smp->len * sizeof(float));
-                sf_read_float(audio_file, smp->data, smp->len);
-
-                sf_seek(audio_file, 0, SEEK_SET);
-
-                // pitch detection
-                int16_t *st_samples = (int16_t *)malloc(smp->len * sizeof(int16_t));
-                sf_read_short(audio_file, st_samples, smp->len);
-
-                int16_t *yin_samples = (int16_t *)malloc(smp->frames * sizeof(int16_t));
-                for(int i = 0; i < smp->frames; i++) { // convert to mono for pitch detection
-                    yin_samples[i] = 0;
-                    for(int j = 0; j < sfinfo.channels; j++) {
-                        yin_samples[i] += st_samples[i * sfinfo.channels + j];
-                    }
-                    yin_samples[i] /= sfinfo.channels;
-                }
-
-                Yin *yin = (Yin *)malloc(sizeof(struct _Yin));
-
-                Yin_init(yin, 4096, 0.05);
-                smp->pitch = Yin_getPitch(yin, yin_samples);
-
-                if (smp->pitch == -1) {
-                  smp->pitch = 440.0;
-                }
-
-                printf("Sample '%s' loaded, detected fundamental pitch is %fhz\n", file.name, smp->pitch);
-
-                free(yin_samples);
-                free(st_samples);
-                free(yin);
-
-                sf_close(audio_file);
-            }
-//        }
-
-        tinydir_next(&dir);
-    }
-
-    tinydir_close(&dir);
-}
-
-void print_usage() {
-    printf("Usage: fas [list_of_settings]\n");
-    printf(" possible settings with associated default value:\n");
-    printf("  --i\n");
-    printf("  --sample_rate %u\n", FAS_SAMPLE_RATE);
-    printf("  --frames %u\n", FAS_FRAMES_PER_BUFFER);
-    printf("  --noise_amount %f\n", FAS_NOISE_AMOUNT);
-    //printf("  --wavetable %u\n", FAS_WAVETABLE);
-#ifndef FIXED_WAVETABLE
-    printf("  --wavetable_size %u\n", FAS_WAVETABLE_SIZE);
-#endif
-    printf("  --fps %u\n", FAS_FPS);
-    printf("  --ssl %u\n", FAS_SSL);
-    printf("  --deflate %u\n", FAS_DEFLATE);
-    printf("  --rx_buffer_size %u\n", FAS_RX_BUFFER_SIZE);
-    printf("  --port %u\n", FAS_PORT);
-    printf("  --iface 127.0.0.1\n");
-    printf("  --device -1\n");
-    printf("  --output_channels %u\n", FAS_OUTPUT_CHANNELS);
-#ifdef __unix__
-    printf("  --alsa_realtime_scheduling %u\n", FAS_REALTIME);
-#endif
-    printf("  --frames_queue_size %u\n", FAS_FRAMES_QUEUE_SIZE);
-    printf("  --commands_queue_size %u\n", FAS_COMMANDS_QUEUE_SIZE);
-}
-
-int fas_wavetable_init() {
-    int i = 0;
-
-    fas_sine_wavetable = (float*)calloc(fas_wavetable_size, sizeof(float));
-
-    if (fas_sine_wavetable == NULL) {
-        return -1;
-    }
-
-    for (i = 0; i < fas_wavetable_size; i += 1) {
-        fas_sine_wavetable[i] = (float)sin(((double)i/(double)fas_wavetable_size) * M_PI * 2.0);
-    }
-
-    fas_white_noise_table = (float*)calloc(65536, sizeof(float));
-
-    for (i = 0; i < 65536; i += 1) {
-        fas_white_noise_table[i] = 1. + randf(-fas_noise_amount, fas_noise_amount);
-    }
-
-    return 0;
-}
-
 int main(int argc, char **argv)
 {
     int print_infos = 0;
@@ -1523,7 +839,7 @@ int main(int argc, char **argv)
         printf("Warning: One of the specified program option is out of range and was set to its maximal value.\n");
     }
 
-    load_grains();
+    samples_count = load_samples(samples, "./grains/");
 
     // fas setup
     note_time = 1 / (double)fas_fps;
@@ -1531,14 +847,23 @@ int main(int argc, char **argv)
     lerp_t_step = 1 / note_time_samples;
 
     if (fas_wavetable) {
-        if (fas_wavetable_init() < 0) {
-            fprintf(stderr, "fas_wavetable_init() failed.\n");
+        fas_sine_wavetable = sine_wavetable_init(fas_wavetable_size);
+        if (fas_sine_wavetable == NULL) {
+            fprintf(stderr, "sine_wavetable_init() failed.\n");
+
+            return EXIT_FAILURE;
+        }
+
+        fas_white_noise_table = wnoise_wavetable_init(65536, fas_noise_amount);
+        if (fas_white_noise_table == NULL) {
+            fprintf(stderr, "wnoise_wavetable_init() failed.\n");
+            free(fas_sine_wavetable);
 
             return EXIT_FAILURE;
         }
     }
 
-    grain_envelope = createGrainsEnvelope(FAS_ENVS_SIZE);
+    grain_envelope = createEnvelopes(FAS_ENVS_SIZE);
 
     // PortAudio related
     PaStreamParameters outputParameters;
@@ -1745,11 +1070,7 @@ quit:
         lfds711_queue_bss_cleanup(&synth_commands_queue_state, q_element_cleanup_callback);
         free(synth_commands_queue_element);
     }
-/*
-    if (osc_norms) {
-        free(osc_norms);
-    }
-*/
+
     printf("Bye.\n");
 
     return err;
@@ -1767,7 +1088,7 @@ error:
         fprintf(stderr, "Error message: %s\n", Pa_GetErrorText(err));
     }
 
-    freeGrainsEnvelope(grain_envelope);
+    freeEnvelopes(grain_envelope);
 
     free(fas_sine_wavetable);
     free(fas_white_noise_table);

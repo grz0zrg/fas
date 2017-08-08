@@ -5,9 +5,9 @@ Raw additive/granular synthesizer built for the [Fragment Synthesizer](https://g
 
 This program should compile on most platforms!
 
-This program collect Fragment settings and RGBA notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, it can also interpret the data for granular synthesis, it is a generic image synth, this serve as a fast and independent alternative to output audio for the Fragment Synthesizer.
+This program collect Fragment settings and RGBA (8-bit or 32-bit float) notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, it can also interpret the data for granular synthesis, it is a generic image synth, this serve as a fast and independent alternative to output audio for the Fragment Synthesizer.
 
-This can be run on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
+This can be executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
 
 Only one client is supported at the moment (altough many can connect, not tested but it may result in a big audio mess and likely a crash!)
 
@@ -21,33 +21,35 @@ Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at 
 
 **Can be used as a raw generic additive/granular synthesizer if you feed it correctly! :)**
 
-The granular synthesis part is being actively developed (and was quickly hacker into FAS :P), you can't have additive and granular synthesis at the same time, both need a different version of FAS (compile with the -DGRANULAR for granular synthesis), all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment, this feature is WIP and many things may change, it is a very simple granular synthesis right now.
+The granular synthesis part is being actively developed (and was quickly hacked into FAS :P), you can't have additive and granular synthesis at the same time at the moment, both need a different version of FAS (compile with the -DGRANULAR for granular synthesis), all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment, this feature is WIP and many things may change, it is a very simple granular synthesis right now.
 
 ### Packets
 
 To communicate with FAS, there is only three type of packets, the first byte is the packet identifier, below is the expected data for each packets :
 
-Synth settings, packet identifier 0 : 
+Synth settings, packet identifier 0 :
 ```c
 struct _synth_settings {
     unsigned int h;
     unsigned int octave;
+    unsigned int data_type; // the frame data type length (1 for 8-bit/4 for 32-bit pixels value)
     double base_frequency;
 };
 ```
 
-Frame data, packet identifier 1 : 
+Frame data, packet identifier 1 :
 ```c
 struct _frame_data {
     unsigned int channels;
     unsigned int monophonic;
-    // Note : the expected data length is computed by : (4 * sizeof(unsigned char) * _synth_settings.h) * (fas_output_channels / 2)
-    // Example with one output channel (L/R) and an image height of 400 pixels : (4 * sizeof(unsigned char) * 400)
-    char *rgba_data;
+    unsigned int synthesis_type; // 0 = additive, 1 = granular (not implemented for now)
+    // Note : the expected data length is computed by : (4 * _synth_settings.data_type * _synth_settings.h) * (fas_output_channels / 2)
+    // Example with one output channel (L/R) and a 8-bit image with height of 400 pixels : (4 * sizeof(unsigned char) * 400)
+    void *rgba_data;
 };
 ```
 
-Synth gain, packet identifier 2 : 
+Synth gain, packet identifier 2 :
 ```c
 struct _synth_gain {
     double gain_lr;
@@ -96,7 +98,7 @@ Copy the \*.a into "fas" root directory then compile by using one of the rule be
 Recommended launch parameters with HiFiBerry DAC+ :
     ./fas --alsa_realtime_scheduling 1 --frames_queue_size 63 --sample_rate 48000 --device 2
 
-Bit depth is fixed to 32 bits float at the moment. (16/24 bits may be implemented soon as an option)
+Bit depth is fixed to 32 bits float at the moment.
 
 #### Makefile rules
 
@@ -126,6 +128,8 @@ Granular Release Statically linked : **make granular-release-static**
 
 You can tweak this program by passing parameters to its arguments, for command-line help : **fas --h**
 
+A wxWidget user-friendly launcher is also available [here](https://github.com/grz0zrg/fas_launcher)
+
 Usage: fas [list_of_settings]
  * --i **print audio device infos**
  * --sample_rate 44100
@@ -135,7 +139,7 @@ Usage: fas [list_of_settings]
  * --fps 60 **you can experiment with this but this may have strange effects**
  * --ssl 0
  * --deflate 0
- * --rx_buffer_size 4096 **this is how much data is accepted in one single packet**
+ * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**
  * --iface 127.0.0.1 **the listening adress**
  * --device -1 **PortAudio audio device index (informations about audio devices are displayed when the app. start)**

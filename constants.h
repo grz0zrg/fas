@@ -26,7 +26,7 @@
     #define FAS_WAVETABLE_SIZE 8192
     #define FAS_FPS 60
     #define FAS_PORT 3003
-    #define FAS_RX_BUFFER_SIZE 4096
+    #define FAS_RX_BUFFER_SIZE 8192
     #define FAS_REALTIME 0
     #define FAS_FRAMES_QUEUE_SIZE 7
     #define FAS_COMMANDS_QUEUE_SIZE 16

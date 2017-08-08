@@ -61,18 +61,6 @@ void flf_element_cleanup_callback(struct lfds711_freelist_state *fs, struct lfds
     free(freelist_frames_data->data);
 }
 
-// uneeded
-void q_element_cleanup_callback(struct lfds711_queue_bss_state *qbsss, void *key, void *value) {
-
-}
-
-void rb_element_cleanup_callback(struct lfds711_ringbuffer_state *rs, void *key, void *value, enum lfds711_misc_flag unread_flag) {
-    if (unread_flag == LFDS711_MISC_FLAG_RAISED) {
-
-    }
-}
-// -
-
 static int paCallback( const void *inputBuffer, void *outputBuffer,
                             unsigned long framesPerBuffer,
                             const PaStreamCallbackTimeInfo* timeInfo,
@@ -217,7 +205,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                     float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
                     float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
-
+                    
                     output_l += vl * s;
                     output_r += vr * s;
 
@@ -455,18 +443,24 @@ if (remaining_payload != 0) {
 
                     usd->synth->gain = NULL;
 
-                    memcpy(usd->synth->settings, &((char *) usd->packet)[PACKET_HEADER_LENGTH], 16);
+                    memcpy(usd->synth->settings, &((char *) usd->packet)[PACKET_HEADER_LENGTH], 24);
 
 #ifdef DEBUG
-    printf("SYNTH_SETTINGS : %u, %u, %f\n", usd->synth->settings->h,
-        usd->synth->settings->octave, usd->synth->settings->base_frequency);
+    printf("SYNTH_SETTINGS : %u, %u, %u, %f\n", usd->synth->settings->h,
+        usd->synth->settings->octave, usd->synth->settings->data_type, usd->synth->settings->base_frequency);
 #endif
 
-                    usd->expected_frame_length = 4 * sizeof(unsigned char) * usd->synth->settings->h;
-                    usd->expected_max_frame_length = 4 * sizeof(unsigned char) * usd->synth->settings->h * frame_data_count;
-                    size_t max_frame_data_len = usd->expected_frame_length * frame_data_count + sizeof(unsigned int);
+                    usd->frame_data_size = sizeof(unsigned char);
+                    unsigned int frame_data_size = sizeof(unsigned char);
+                    if (usd->synth->settings->data_type) {
+                        usd->frame_data_size = sizeof(float);
+                    }
+
+                    usd->expected_frame_length = 4 * usd->frame_data_size * usd->synth->settings->h;
+                    usd->expected_max_frame_length = 4 * usd->frame_data_size * usd->synth->settings->h * frame_data_count;
+                    size_t max_frame_data_len = usd->expected_frame_length * frame_data_count + sizeof(unsigned int) * 4;
                     usd->frame_data = malloc(max_frame_data_len);
-                    usd->prev_frame_data = calloc(max_frame_data_len, sizeof(unsigned char));
+                    usd->prev_frame_data = calloc(max_frame_data_len, usd->frame_data_size);
 
                     usd->synth_h = usd->synth->settings->h;
 
@@ -537,7 +531,7 @@ if (remaining_payload != 0) {
 
                     memset(freelist_frames_data->data, 0, sizeof(struct note) * (usd->synth_h + 1) * frame_data_count + sizeof(unsigned int));
 
-                    fillNotesBuffer(freelist_frames_data->data, usd->synth_h, usd->expected_frame_length, (unsigned char *)usd->prev_frame_data, (unsigned char *)usd->frame_data);
+                    fillNotesBuffer(usd->frame_data_size, freelist_frames_data->data, usd->synth_h, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
 
                     struct _freelist_frames_data *overwritten_notes = NULL;
                     lfds711_ringbuffer_write(&rs, (void *) (lfds711_pal_uint_t) freelist_frames_data, NULL, &overwrite_occurred_flag, (void *)&overwritten_notes, NULL);
@@ -840,7 +834,6 @@ int main(int argc, char **argv)
     }
 
     samples_count = load_samples(&samples, "./grains/");
-    printf("%i", samples);
 
     // fas setup
     note_time = 1 / (double)fas_fps;

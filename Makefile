@@ -20,7 +20,7 @@ all:
 debug-o:
 	$(compiler) $(source) ${debug_options} ${adv_optimization_options} ${standard_options} $(libs) -o $(output)
 
-debug-static:
+debug-o-static:
 	$(compiler) $(source) ${debug_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
 
 granular-debug:

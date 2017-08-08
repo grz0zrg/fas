@@ -9,6 +9,6 @@
         float diff_volume_r;
     };
 
-    extern void fillNotesBuffer(struct note *note_buffer, unsigned int h, size_t data_length, unsigned char *prev_data, unsigned char *data);
+    extern void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, unsigned int h, size_t data_length, void *prev_data, void *data);
 
 #endif

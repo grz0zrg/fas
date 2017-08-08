@@ -6,6 +6,7 @@
     struct _synth_settings {
         unsigned int h;
         unsigned int octave;
+        unsigned int data_type;
         double base_frequency;
     };
 
@@ -37,6 +38,8 @@
         char *prev_frame_data;
         size_t expected_frame_length;
         size_t expected_max_frame_length;
+
+        unsigned int frame_data_size;
 
         // contain user session related synth. data
         struct _synth *synth;

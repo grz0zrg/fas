@@ -89,4 +89,14 @@
     struct _freelist_frames_data *curr_freelist_frames_data = NULL;
     unsigned long frames_read = 0;
 
+    void q_element_cleanup_callback(struct lfds711_queue_bss_state *qbsss, void *key, void *value) {
+
+    }
+
+    void rb_element_cleanup_callback(struct lfds711_ringbuffer_state *rs, void *key, void *value, enum lfds711_misc_flag unread_flag) {
+        if (unread_flag == LFDS711_MISC_FLAG_RAISED) {
+
+        }
+    }
+
 #endif

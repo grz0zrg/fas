@@ -205,7 +205,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                     float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
                     float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
-                    
+
                     output_l += vl * s;
                     output_r += vr * s;
 
@@ -508,10 +508,6 @@ if (remaining_payload != 0) {
                         goto free_packet;
                     }
 
-                    memcpy(usd->prev_frame_data, &usd->frame_data[0], usd->expected_max_frame_length);
-
-                    memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->packet_len - PACKET_HEADER_LENGTH);
-
 #ifdef DEBUG
     lfds711_pal_uint_t frames_data_freelist_count;
     lfds711_freelist_query(&freelist_frames, LFDS711_FREELIST_QUERY_SINGLETHREADED_GET_COUNT, NULL, (void *)&frames_data_freelist_count);
@@ -522,10 +518,17 @@ if (remaining_payload != 0) {
                     struct _freelist_frames_data *freelist_frames_data;
                     int pop_result = lfds711_freelist_pop(&freelist_frames, &fe, NULL);
                     if (pop_result == 0) {
+#ifdef DEBUG
                         printf("Skipping a frame, notes buffer freelist is empty.\n");
                         fflush(stdout);
+#endif
+
                         goto free_packet;
                     }
+
+                    memcpy(usd->prev_frame_data, &usd->frame_data[0], usd->expected_max_frame_length);
+
+                    memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->packet_len - PACKET_HEADER_LENGTH);
 
                     freelist_frames_data = LFDS711_FREELIST_GET_VALUE_FROM_ELEMENT(*fe);
 

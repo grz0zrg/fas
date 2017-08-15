@@ -7,6 +7,7 @@
     #include <errno.h>
     #include <string.h>
     #include <strings.h>
+    #include <stdatomic.h>
 
     #if defined(_WIN32) || defined(_WIN64)
         #include <conio.h>
@@ -64,6 +65,8 @@
     double note_time;
     double note_time_samples;
     double lerp_t_step;
+
+    atomic_int audio_thread_state;
 
     PaStream *stream;
 

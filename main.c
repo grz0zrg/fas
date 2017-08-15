@@ -48,7 +48,6 @@
     License : Simplified BSD License
 
     TODO : data coming from the network for notes etc. should NOT be handled like it is right now (it should instead come with IEEE 754 representation or something...)
-    TODO : thread-safe memory deallocation for synth. parameters change
 */
 
 #include "fas.h"
@@ -93,14 +92,34 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         if (queue_synth->grains) {
             curr_synth.grains = queue_synth->grains;
         }
+
+        audio_thread_state = FAS_AUDIO_PLAY;
     }
 
     unsigned int i, j, k, s, e;
 
+    int read_status = 0;
+    void *key;
+
+    if (audio_thread_state == FAS_AUDIO_DO_PAUSE) {
+        while(lfds711_ringbuffer_read(&rs, &key, NULL));
+
+        if (curr_notes) {
+            LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
+            lfds711_freelist_push(&freelist_frames, &curr_freelist_frames_data->fe, NULL);
+        }
+
+        audio_thread_state = FAS_AUDIO_PAUSE;
+    } else if (audio_thread_state == FAS_AUDIO_DO_PLAY) {
+        audio_thread_state = FAS_AUDIO_PLAY;
+    }
+
     if (curr_synth.oscillators == NULL ||
         curr_synth.grains == NULL ||
-           curr_synth.settings == NULL ||
-               curr_synth.gain == NULL) {
+        curr_synth.settings == NULL ||
+        curr_synth.gain == NULL ||
+        audio_thread_state == FAS_AUDIO_PAUSE ||
+        audio_thread_state == FAS_AUDIO_DO_WAIT_SETTINGS) {
         for (i = 0; i < framesPerBuffer; i += 1) {
             for (j = 0; j < frame_data_count; j += 1) {
                 *out++ = 0.0f;
@@ -116,12 +135,9 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         return paContinue;
     }
 
-    void *key;
     struct note *_notes;
     struct _freelist_frames_data *freelist_frames_data;
     unsigned int note_buffer_len = 0, pv_note_buffer_len = 0;
-
-    int read_status = 0;
 
     for (i = 0; i < framesPerBuffer; i += 1) {
         note_buffer_len = 0;
@@ -297,6 +313,20 @@ void change_height(unsigned int new_height) {
   }
 }
 
+void audioPause() {
+    audio_thread_state = FAS_AUDIO_DO_PAUSE;
+
+    while (audio_thread_state != FAS_AUDIO_PAUSE);
+}
+
+void audioPlay() {
+    audio_thread_state = FAS_AUDIO_DO_PLAY;
+}
+
+void audioWaitSettings() {
+    audio_thread_state = FAS_AUDIO_DO_WAIT_SETTINGS;
+}
+
 int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
                         void *user, void *in, size_t len)
 {
@@ -407,7 +437,14 @@ if (remaining_payload != 0) {
     printf("Packet id: %u\n", pid);
 #endif
 
+                // don't accept packets when the audio thread is busy at doing something else than playing audio
+                if (audio_thread_state != FAS_AUDIO_PLAY) {
+                    goto free_packet;
+                }
+
                 if (pid == SYNTH_SETTINGS) {
+                    audioPause();
+
                     unsigned int h = 0;
                     if (usd->synth == NULL) {
                         usd->synth = (struct _synth*)malloc(sizeof(struct _synth));
@@ -487,6 +524,9 @@ if (remaining_payload != 0) {
                     }
 
                     usd->synth = NULL;
+
+                    audioWaitSettings();
+                    audioPlay();
                 } else if (pid == FRAME_DATA) {
 #ifdef DEBUG
     printf("FRAME_DATA\n");

@@ -5,7 +5,7 @@ Raw additive/granular synthesizer built for the [Fragment Synthesizer](https://g
 
 This program should compile on most platforms!
 
-This program collect Fragment settings and RGBA (8-bit or 32-bit float) notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, it can also interpret the data for granular synthesis, it is a generic image synth, this serve as a fast and independent alternative to output audio for the Fragment Synthesizer.
+This program collect Fragment settings and RGBA (8-bit or 32-bit float) notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, it can also interpret the data for granular synthesis and support OSC output of converted pixels data, it is a generic image synth, this serve as a fast and independent alternative to output audio for the Fragment Synthesizer.
 
 This can be executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
 
@@ -65,6 +65,7 @@ Requirements :
  * [PortAudio](http://www.portaudio.com/download.html)
  * [liblfds](http://liblfds.org/)
  * [libwebsockets](https://libwebsockets.org/)
+ * [liblo](http://liblo.sourceforge.net/)
 
 The granular synthesis part make use of [libsndfile](https://github.com/erikd/libsndfile) and [tinydir](https://github.com/cxong/tinydir)
 
@@ -139,9 +140,11 @@ Usage: fas [list_of_settings]
  * --fps 60 **you can experiment with this but this may have strange effects**
  * --ssl 0
  * --deflate 0
+ * --osc_out 0 **you can enable OSC output of notes by setting this argument to 1**
+ * --osc_addr 127.0.0.1 **the OSC server address**
  * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**
- * --iface 127.0.0.1 **the listening adress**
+ * --iface 127.0.0.1 **the listening address**
  * --device -1 **PortAudio audio device index (informations about audio devices are displayed when the app. start)**
  * --output_channels 2 **stereo pair**
  * --alsa_realtime_scheduling 0 **Linux only**

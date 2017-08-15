@@ -1,7 +1,7 @@
 compiler = gcc
 source = main.c tools.c samples.c grains.c oscillators.c wavetables.c note.c usage.c Yin.c
-libs = liblfds711.a -lportaudio -lwebsockets -lrt -lm -lasound -ljack -pthread -lsndfile
-static_libs = liblfds711.a libportaudio.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread -lsndfile
+libs = liblfds711.a -lportaudio -lwebsockets -lrt -lm -lasound -ljack -pthread -lsndfile liblo.so.7.3.0
+static_libs = liblfds711.a libportaudio.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread -lsndfile liblo.so.7.3.0
 ssl_libs = -lssl -lcrypto
 win_ssl_libs = -lssl -lcrypto -lws2_32 -lgdi32
 win_static_libs = liblfds711.a libwebsockets_static.a libportaudio.a -lm -lz -lws2_32
@@ -11,62 +11,63 @@ standard_options = -std=c11 -pedantic -D_POSIX_SOURCE
 win_static_options = -static -static-libgcc
 adv_optimization_options = -DFIXED_WAVETABLE
 debug_options = -g -DDEBUG
+include_path = -I lo
 ui_options = -DWITH_UI `pkg-config --cflags gtk+-3.0` `pkg-config --libs gtk+-3.0`
 release_options = -O2
 
 all:
-	$(compiler) $(source) ${debug_options} ${standard_options} $(libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${debug_options} ${standard_options} $(libs) -o $(output)
 
 debug-o:
-	$(compiler) $(source) ${debug_options} ${adv_optimization_options} ${standard_options} $(libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${debug_options} ${adv_optimization_options} ${standard_options} $(libs) -o $(output)
 
 debug-o-static:
-	$(compiler) $(source) ${debug_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${debug_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
 
 granular-debug:
-	$(compiler) $(source) ${debug_options} -DGRANULAR ${standard_options} $(libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${debug_options} -DGRANULAR ${standard_options} $(libs) -o $(output)
 
 granular-release:
-	$(compiler) $(source) ${release_options} -DGRANULAR ${adv_optimization_options} ${standard_options} $(libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} -DGRANULAR ${adv_optimization_options} ${standard_options} $(libs) -o $(output)
 
 granular-release-static:
-	$(compiler) $(source) ${release_options} -DGRANULAR ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} -DGRANULAR ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
 
 profile:
-	$(compiler) $(source) ${release_options} ${standard_options} -DPROFILE $(libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} ${standard_options} -DPROFILE $(libs) -o $(output)
 
 release:
-	$(compiler) $(source) ${release_options} ${standard_options} $(libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} ${standard_options} $(libs) -o $(output)
 
 release-static:
-	$(compiler) $(source) ${release_options} ${standard_options} $(static_libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} ${standard_options} $(static_libs) -o $(output)
 
 release-static-o:
-	$(compiler) $(source) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
 
 release-static-ui-o:
-	$(compiler) $(source) ${release_options} ${adv_optimization_options} ${standard_options} ${ui_options} $(static_libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} ${ui_options} $(static_libs) -o $(output)
 
 release-static-o-profile:
-	$(compiler) $(source) ${release_options} ${adv_optimization_options} -DPROFILE ${standard_options} $(static_libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} -DPROFILE ${standard_options} $(static_libs) -o $(output)
 
 ssl-release-static-o:
-	$(compiler) $(source) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) $(ssl_libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) $(ssl_libs) -o $(output)
 
 win-release-static:
-	$(compiler) $(source) ${release_options} ${standard_options} ${win_static_options} ${compat_options} $(win_static_libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} ${standard_options} ${win_static_options} ${compat_options} $(win_static_libs) -o $(output)
 
 win-release-static-o:
-	$(compiler) $(source) ${release_options} ${standard_options} ${win_static_options} ${adv_optimization_options} ${compat_options} $(win_static_libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} ${standard_options} ${win_static_options} ${adv_optimization_options} ${compat_options} $(win_static_libs) -o $(output)
 
 ssl-win-release-static-o:
-	$(compiler) $(source) ${release_options} ${standard_options} ${win_static_options} ${adv_optimization_options} ${compat_options} $(win_static_libs) $(win_ssl_libs) -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} ${standard_options} ${win_static_options} ${adv_optimization_options} ${compat_options} $(win_static_libs) $(win_ssl_libs) -o $(output)
 
 32:
-	$(compiler) -m32 $(source) ${release_options} ${standard_options} $(libs) -o $(output)
+	$(compiler) -m32 $(source) $(include_path) ${release_options} ${standard_options} $(libs) -o $(output)
 
 64:
-	$(compiler) -m64 $(source) ${release_options} ${standard_options} $(libs) -o $(output)
+	$(compiler) -m64 $(source) $(include_path) ${release_options} ${standard_options} $(libs) -o $(output)
 
 run: all
 	./fas

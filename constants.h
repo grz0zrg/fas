@@ -34,10 +34,11 @@
     #define FAS_SSL 0
     #define FAS_NOISE_AMOUNT 0.1
     #define FAS_ENVS_SIZE 8192
+    #define FAS_OSC_OUT 0
 
     // audio thread state&commands
-    #define FAS_AUDIO_PAUSE 0
-    #define FAS_AUDIO_PLAY 1
+    #define FAS_AUDIO_PLAY 0
+    #define FAS_AUDIO_PAUSE 1
 
     // audio threa commands
     #define FAS_AUDIO_DO_PAUSE 10

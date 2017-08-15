@@ -5,6 +5,8 @@
         unsigned int osc_index;
         float previous_volume_l;
         float previous_volume_r;
+        float volume_l;
+        float volume_r;
         float diff_volume_l;
         float diff_volume_r;
     };

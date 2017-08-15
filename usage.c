@@ -18,6 +18,8 @@ void print_usage() {
     printf("  --port %u\n", FAS_PORT);
     printf("  --iface 127.0.0.1\n");
     printf("  --device -1\n");
+    printf("  --osc_out 0\n");
+    printf("  --osc_addr 127.0.0.1\n");
     printf("  --output_channels %u\n", FAS_OUTPUT_CHANNELS);
 #ifdef __unix__
     printf("  --alsa_realtime_scheduling %u\n", FAS_REALTIME);

@@ -72,6 +72,7 @@ void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, uns
                 volume_l = l * inv_full_brightness;
                 pvl = pl * inv_full_brightness;
                 _note->previous_volume_l = pvl;
+                _note->volume_l = volume_l;
                 _note->diff_volume_l = volume_l - pvl;
             } else {
                 if (pl > 0) {
@@ -79,9 +80,11 @@ void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, uns
 
                     _note->previous_volume_l = pvl;
                     _note->diff_volume_l = -pvl;
+                    _note->volume_l = 0;
                 } else {
                     _note->previous_volume_l = 0;
                     _note->diff_volume_l = 0;
+                    _note->volume_l = 0;
 
                     if (r == 0 && pr == 0) {
                         y -= 1;
@@ -94,6 +97,7 @@ void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, uns
                 volume_r = r * inv_full_brightness;
                 pvr = pr * inv_full_brightness;
                 _note->previous_volume_r = pvr;
+                _note->volume_r = volume_r;
                 _note->diff_volume_r = volume_r - pvr;
             } else {
                 if (pr > 0) {
@@ -101,9 +105,11 @@ void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, uns
 
                     _note->previous_volume_r = pvr;
                     _note->diff_volume_r = -pvr;
+                    _note->volume_r = 0;
                 } else {
                     _note->previous_volume_r = 0;
                     _note->diff_volume_r = 0;
+                    _note->volume_r = 0;
 
                     if (l == 0 && pl == 0) {
                         y -= 1;

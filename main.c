@@ -327,6 +327,32 @@ void audioWaitSettings() {
     audio_thread_state = FAS_AUDIO_DO_WAIT_SETTINGS;
 }
 
+void oscSend(struct oscillator *oscillators, struct note *data) {
+    if (!fas_osc_out) {
+        return;
+    }
+
+    struct note *_notes;
+    unsigned int note_buffer_len = 0, pv_note_buffer_len = 0;
+    unsigned int i, j, k, s, e;
+
+    for (k = 0; k < frame_data_count; k += 1) {
+        pv_note_buffer_len += note_buffer_len;
+        note_buffer_len = data[pv_note_buffer_len].osc_index;
+        pv_note_buffer_len += 1;
+        s = pv_note_buffer_len;
+        e = s + note_buffer_len;
+
+        for (j = s; j < e; j += 1) {
+            struct note *n = &data[j];
+
+            struct oscillator *osc = &oscillators[n->osc_index];
+
+            lo_send(fas_lo_addr, "/fragment", "idff", n->osc_index, osc->freq, n->volume_l, n->volume_r);
+        }
+    }
+}
+
 int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
                         void *user, void *in, size_t len)
 {
@@ -437,11 +463,6 @@ if (remaining_payload != 0) {
     printf("Packet id: %u\n", pid);
 #endif
 
-                // don't accept packets when the audio thread is busy at doing something else than playing audio
-                if (audio_thread_state != FAS_AUDIO_PLAY) {
-                    goto free_packet;
-                }
-
                 if (pid == SYNTH_SETTINGS) {
                     audioPause();
 
@@ -525,7 +546,7 @@ if (remaining_payload != 0) {
 
                     usd->synth = NULL;
 
-                    audioWaitSettings();
+                    //audioWaitSettings();
                     audioPlay();
                 } else if (pid == FRAME_DATA) {
 #ifdef DEBUG
@@ -535,6 +556,12 @@ if (remaining_payload != 0) {
     memcpy(&frame_data_length, &((char *) usd->packet)[PACKET_HEADER_LENGTH], sizeof(frame_data_length));
     printf("Number of channels in the frame: %u\n", *frame_data_length);
 #endif
+
+                    // don't accept packets when the audio thread is busy at doing something else than playing audio
+                    if (audio_thread_state != FAS_AUDIO_PLAY) {
+                        goto free_packet;
+                    }
+
                     //size_t frame_length = usd->packet_len - PACKET_HEADER_LENGTH - FRAME_HEADER_LENGTH;
                     //if (frame_length != usd->expected_frame_length) {
                     //    printf("Skipping a frame, the frame length %zu does not match the expected frame length %zu.\n", frame_length, usd->expected_frame_length);
@@ -575,6 +602,8 @@ if (remaining_payload != 0) {
                     memset(freelist_frames_data->data, 0, sizeof(struct note) * (usd->synth_h + 1) * frame_data_count + sizeof(unsigned int));
 
                     fillNotesBuffer(usd->frame_data_size, freelist_frames_data->data, usd->synth_h, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
+
+                    oscSend(usd->synth->oscillators, freelist_frames_data->data);
 
                     struct _freelist_frames_data *overwritten_notes = NULL;
                     lfds711_ringbuffer_write(&rs, (void *) (lfds711_pal_uint_t) freelist_frames_data, NULL, &overwrite_occurred_flag, (void *)&overwritten_notes, NULL);
@@ -746,6 +775,8 @@ int main(int argc, char **argv)
         { "output_channels",          required_argument, 0, 14 },
         { "i",                              no_argument, 0, 15 },
         { "noise_amount",             required_argument, 0, 16 },
+        { "osc_out",                  required_argument, 0, 17 },
+        { "osc_addr",                 required_argument, 0, 18 },
         { 0, 0, 0, 0 }
     };
 
@@ -804,6 +835,12 @@ int main(int argc, char **argv)
                 break;
             case 16:
                 fas_noise_amount = strtof(optarg, NULL);
+                break;
+            case 17:
+                fas_osc_out = strtoul(optarg, NULL, 0);
+                break;
+            case 18:
+                fas_osc_addr = optarg;
                 break;
             default: print_usage();
                  return EXIT_FAILURE;
@@ -901,6 +938,11 @@ int main(int argc, char **argv)
     }
 
     grain_envelope = createEnvelopes(FAS_ENVS_SIZE);
+
+    // osc - http://liblo.sourceforge.net
+    if (fas_osc_out) {
+        fas_lo_addr = lo_address_new(fas_osc_addr, "7770");
+    }
 
     // PortAudio related
     PaStreamParameters outputParameters;
@@ -1118,6 +1160,10 @@ ws_error:
     lws_context_destroy(context);
 
 error:
+    if (fas_osc_out) {
+        lo_address_free(fas_lo_addr);
+    }
+
     Pa_Terminate();
 
     if (err != paNoError) {

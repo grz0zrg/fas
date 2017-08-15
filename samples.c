@@ -14,7 +14,13 @@ unsigned int load_samples(struct sample **s, char *directory) {
     memset(&sfinfo, 0, sizeof(sfinfo));
 
     tinydir_dir dir;
-    tinydir_open(&dir, directory);
+    int ret = tinydir_open(&dir, directory);
+
+    if (ret == -1) {
+        printf("tinydir_open failed for directory '%s'.\n", directory);
+
+        return 0;
+    }
 
     samples = malloc(sizeof(struct sample) * 1);
 
@@ -33,7 +39,7 @@ unsigned int load_samples(struct sample **s, char *directory) {
 
             SNDFILE *audio_file;
             if (!(audio_file = sf_open(filepath, SFM_READ, &sfinfo))) {
-                printf ("libsdnfile: Not able to open input file %s.\nlibsndfile: %s", filepath, sf_strerror(NULL));
+                printf ("libsdnfile: Not able to open input file %s.\nlibsndfile: %s\n", filepath, sf_strerror(NULL));
 
                 free(filepath);
 

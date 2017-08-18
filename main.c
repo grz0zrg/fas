@@ -328,7 +328,7 @@ void audioWaitSettings() {
 }
 
 void oscSend(struct oscillator *oscillators, struct note *data) {
-    if (!fas_osc_out && !oscillators) {
+    if (!fas_osc_out || !oscillators) {
         return;
     }
 

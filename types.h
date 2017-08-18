@@ -44,6 +44,8 @@
         // contain user session related synth. data
         struct _synth *synth;
 
+        struct oscillator *oscillators;
+
         unsigned int synth_h;
     };
 #endif

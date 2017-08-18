@@ -102,13 +102,13 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     void *key;
 
     if (audio_thread_state == FAS_AUDIO_DO_PAUSE) {
-        while(lfds711_ringbuffer_read(&rs, &key, NULL));
+/*        while(lfds711_ringbuffer_read(&rs, &key, NULL));
 
         if (curr_notes) {
             LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
             lfds711_freelist_push(&freelist_frames, &curr_freelist_frames_data->fe, NULL);
         }
-
+*/
         audio_thread_state = FAS_AUDIO_PAUSE;
     } else if (audio_thread_state == FAS_AUDIO_DO_PLAY) {
         audio_thread_state = FAS_AUDIO_PLAY;
@@ -328,7 +328,7 @@ void audioWaitSettings() {
 }
 
 void oscSend(struct oscillator *oscillators, struct note *data) {
-    if (!fas_osc_out) {
+    if (!fas_osc_out && !oscillators) {
         return;
     }
 
@@ -527,6 +527,15 @@ if (remaining_payload != 0) {
                     usd->synth->oscillators = createOscillators(usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
 
+                    // create a global copy of the oscillators for the user
+                    if (usd->oscillators) {
+                        usd->oscillators = freeOscillators(&usd->oscillators, h);
+                    }
+
+                    usd->oscillators = createOscillators(usd->synth->settings->h,
+                        usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
+                    //
+
                     usd->synth->grains = createGrains(&samples, samples_count, usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate);
 
                     if (lfds711_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
@@ -546,7 +555,7 @@ if (remaining_payload != 0) {
 
                     usd->synth = NULL;
 
-                    //audioWaitSettings();
+                    audioWaitSettings();
                     audioPlay();
                 } else if (pid == FRAME_DATA) {
 #ifdef DEBUG
@@ -557,7 +566,7 @@ if (remaining_payload != 0) {
     printf("Number of channels in the frame: %u\n", *frame_data_length);
 #endif
 
-                    // don't accept packets when the audio thread is busy at doing something else than playing audio
+                    // don't accept frame packets when the audio thread is busy at doing something else than playing audio
                     if (audio_thread_state != FAS_AUDIO_PLAY) {
                         goto free_packet;
                     }
@@ -603,7 +612,7 @@ if (remaining_payload != 0) {
 
                     fillNotesBuffer(usd->frame_data_size, freelist_frames_data->data, usd->synth_h, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
 
-                    oscSend(usd->synth->oscillators, freelist_frames_data->data);
+                    oscSend(usd->oscillators, freelist_frames_data->data);
 
                     struct _freelist_frames_data *overwritten_notes = NULL;
                     lfds711_ringbuffer_write(&rs, (void *) (lfds711_pal_uint_t) freelist_frames_data, NULL, &overwrite_occurred_flag, (void *)&overwritten_notes, NULL);
@@ -677,6 +686,11 @@ free_packet:
                 free(usd->synth->settings);
                 free(usd->synth);
             }
+
+            if (usd->oscillators) {
+                usd->oscillators = freeOscillators(&usd->oscillators, usd->synth_h);
+            }
+
             free(usd->prev_frame_data);
             free(usd->frame_data);
             free(usd->packet);
@@ -777,6 +791,7 @@ int main(int argc, char **argv)
         { "noise_amount",             required_argument, 0, 16 },
         { "osc_out",                  required_argument, 0, 17 },
         { "osc_addr",                 required_argument, 0, 18 },
+        { "osc_port",                 required_argument, 0, 18 },
         { 0, 0, 0, 0 }
     };
 
@@ -841,6 +856,9 @@ int main(int argc, char **argv)
                 break;
             case 18:
                 fas_osc_addr = optarg;
+                break;
+            case 19:
+                fas_osc_port = optarg;
                 break;
             default: print_usage();
                  return EXIT_FAILURE;
@@ -941,7 +959,11 @@ int main(int argc, char **argv)
 
     // osc - http://liblo.sourceforge.net
     if (fas_osc_out) {
-        fas_lo_addr = lo_address_new(fas_osc_addr, "7770");
+        fas_lo_addr = lo_address_new(fas_osc_addr, fas_osc_port);
+
+        if (fas_lo_addr) {
+            printf("\nOSC: Ready to send data to '%s:%s'\n", fas_osc_addr, fas_osc_port);
+        }
     }
 
     // PortAudio related

@@ -20,6 +20,7 @@ void print_usage() {
     printf("  --device -1\n");
     printf("  --osc_out 0\n");
     printf("  --osc_addr 127.0.0.1\n");
+    printf("  --osc_port 57120\n");
     printf("  --output_channels %u\n", FAS_OUTPUT_CHANNELS);
 #ifdef __unix__
     printf("  --alsa_realtime_scheduling %u\n", FAS_REALTIME);

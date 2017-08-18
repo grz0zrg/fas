@@ -15,7 +15,7 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
 
     int y = 0;
     int index = 0;
-    double octave_length = n / octaves;
+    double octave_length = (double)n / octaves;
     double frequency;
     uint64_t phase_step;
     int nmo = n - 1;

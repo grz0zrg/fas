@@ -21,6 +21,10 @@ Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at 
 
 **Can be used as a raw generic additive/granular synthesizer if you feed it correctly! :)**
 
+This support OSC output of pixels data on the channel "/fragment" with data type "idff" and data (in order) "osc index", "osc frequency", "osc amplitude L value", "osc amplitude R value"
+
+With OSC you can basically do whatever you want, feeding SuperCollider synths or other parameters (fx etc.) for example.
+
 The granular synthesis part is being actively developed (and was quickly hacked into FAS :P), you can't have additive and granular synthesis at the same time at the moment, both need a different version of FAS (compile with the -DGRANULAR for granular synthesis), all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment, this feature is WIP and many things may change, it is a very simple granular synthesis right now.
 
 ### Packets
@@ -142,6 +146,7 @@ Usage: fas [list_of_settings]
  * --deflate 0
  * --osc_out 0 **you can enable OSC output of notes by setting this argument to 1**
  * --osc_addr 127.0.0.1 **the OSC server address**
+ * --osc_port 57120 **the OSC server port**
  * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**
  * --iface 127.0.0.1 **the listening address**

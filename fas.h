@@ -59,7 +59,8 @@
     float fas_noise_amount = FAS_NOISE_AMOUNT;
     int fas_audio_device = -1;
     char *fas_iface = NULL;
-    char *fas_osc_addr = NULL;
+    char *fas_osc_addr = "127.0.0.1";
+    char *fas_osc_port = "57120";
 
     lo_address fas_lo_addr;
 

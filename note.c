@@ -11,7 +11,7 @@ void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, uns
     unsigned int i, j, frame_data_index = 16;
     unsigned int li = 0, ri = 1;
     unsigned int index = 0, note_osc_index = 0, osc_count = 0;
-    double volume_l, volume_r;
+    double volume_l, volume_r, noise_multiplier;
     double inv_full_brightness = 1.0 / 255.0;
 
     unsigned int channels[1];
@@ -52,6 +52,8 @@ void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, uns
 
                 l = cdata[frame_data_index + li];
                 r = cdata[frame_data_index + ri];
+
+                noise_multiplier = cdata[frame_data_index + 2];
             } else {
                 unsigned char *pdata = (unsigned char *)prev_data;
                 unsigned char *cdata = (unsigned char *)data;
@@ -61,12 +63,16 @@ void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, uns
 
                 l = cdata[frame_data_index + li];
                 r = cdata[frame_data_index + ri];
+
+                noise_multiplier = cdata[frame_data_index + 2] * inv_full_brightness;
             }
 
             frame_data_index += 4;
 
             struct note *_note = &note_buffer[index];
             _note->osc_index = y;
+
+            _note->noise_multiplier = noise_multiplier;
 
             if (l > 0 ) {
                 volume_l = l * inv_full_brightness;

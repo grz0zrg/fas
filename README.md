@@ -5,9 +5,9 @@ Raw additive/granular synthesizer built for the [Fragment Synthesizer](https://g
 
 This program should compile on most platforms!
 
-This program collect Fragment settings and RGBA (8-bit or 32-bit float) notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, it can also interpret the data for granular synthesis and support OSC output of converted pixels data, it is a generic image synth, this serve as a fast and independent alternative to output audio for the Fragment Synthesizer.
+This program collect Fragment settings and RGBA (8-bit or 32-bit float) notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, it can also interpret the data for granular synthesis, it is a generic image synth, this serve as a fast and independent alternative to output audio for the Fragment Synthesizer.
 
-This can be executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
+This was tailored for performances and can be executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
 
 Only one client is supported at the moment (altough many can connect, not tested but it may result in a big audio mess and likely a crash!)
 
@@ -19,13 +19,17 @@ A free list data structure is used to handle data reuse, the program pre-allocat
 
 Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping)
 
-**Can be used as a raw generic additive/granular synthesizer if you feed it correctly! :)**
+For additive synthesis and in stereophonic mode the pixels data channel R and G is the amplitude value of the oscillators (for L/R) while the B channel is the band-limited noise multiplier, if you set B to 0, no noise will added to the oscillator while a value of 1 will apply the global noise amount.
+
+In monophonic mode the Alpha channel value is the amplitude value.
 
 This support OSC output of pixels data on the channel "/fragment" with data type "idff" and data (in order) "osc index", "osc frequency", "osc amplitude L value", "osc amplitude R value"
 
 With OSC you can basically do whatever you want, feeding SuperCollider synths or other parameters (fx etc.) for example.
 
 The granular synthesis part is being actively developed (and was quickly hacked into FAS :P), you can't have additive and granular synthesis at the same time at the moment, both need a different version of FAS (compile with the -DGRANULAR for granular synthesis), all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment, this feature is WIP and many things may change, it is a very simple granular synthesis right now.
+
+**Can be used as a raw generic additive/granular synthesizer if you feed it correctly! :)**
 
 ### Packets
 

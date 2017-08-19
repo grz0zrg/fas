@@ -225,7 +225,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                     output_l += vl * s;
                     output_r += vr * s;
 
-                    osc->phase_index[k] += osc->phase_step * fas_white_noise_table[noise_index++];
+                    osc->phase_index[k] += osc->phase_step * (1. + fas_white_noise_table[noise_index++] * n->noise_multiplier);
 
     #ifndef FIXED_WAVETABLE
                     if (osc->phase_index[k] >= fas_wavetable_size) {

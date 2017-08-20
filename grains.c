@@ -7,7 +7,7 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
     for (int i = 0; i < n; i += 1) {
         struct sample *smp = &samples[i%samples_count];
 
-        double octave_length = n / octaves;
+        double octave_length = (double)n / octaves;
         double frequency;
         frequency = base_frequency * pow(2, (n-i) / octave_length);
 
@@ -20,6 +20,7 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
         }
         g[i].env_step = FAS_ENVS_SIZE / (g[i].frames / g[i].speed);
         g[i].env_index = 0;
+        g[i].index %= (smp->frames - g[i].frames);
     }
 
     return g;

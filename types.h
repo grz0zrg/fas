@@ -16,6 +16,7 @@
 
     struct _synth_chn_settings {
         unsigned int synthesis_method;
+        int env_type;
     };
 
     struct _synth {

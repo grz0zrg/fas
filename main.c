@@ -159,6 +159,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 s = pv_note_buffer_len;
                 e = s + note_buffer_len;
 
+                int env_type = curr_synth.chn_settings[k].env_type;
+
                 if (curr_synth.chn_settings[k].synthesis_method == FAS_ADDITIVE) {
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
@@ -189,6 +191,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
 
+                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
                         unsigned int sample_index = (double)samples_count_m1 * n->noise_multiplier;
 
                         struct sample *smp = &samples[sample_index];
@@ -197,8 +201,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
                         float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
 
-                        output_l += vl * (smp->data[((unsigned int)gr->frame) * (smp->chn + 1) + gr->index] * grain_envelope[gr->env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE]);
-                        output_r += vr * (smp->data[((unsigned int)gr->frame) * (smp->chn + 1) + gr->index + smp->chn] * grain_envelope[gr->env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE]);
+                        output_l += vl * (smp->data[((unsigned int)gr->frame) * smp->chn + gr->index] * grain_envelope[env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE]);
+                        output_r += vr * (smp->data[((unsigned int)gr->frame) * smp->chn + gr->index + smp->chn_m1] * grain_envelope[env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE]);
 
                         gr->frame+=gr->speed;
 
@@ -206,9 +210,9 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         if (gr->frame >= gr->frames) {
                             gr->index += round(gr->frames * n->alpha) * (smp->chn + 1);
-                            gr->frames = randf(0.02f, 1.0f) * fas_sample_rate; //* fas_sample_rate; // 1ms - 100ms
-                            gr->env_step = /*floor(gr->frames / */FAS_ENVS_SIZE / (gr->frames / gr->speed)/*)*/;
-                            //gr->env_index = rand()%FAS_ENVS_SIZE;
+                            gr->frames = randf(0.02f, 0.1f) * smp->samplerate; // 1ms - 100ms
+                            gr->speed = osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
+                            gr->env_step = FAS_ENVS_SIZE / (gr->frames / gr->speed);
                             gr->env_index = 0;
                             gr->frame = 0;
 
@@ -610,6 +614,10 @@ if (remaining_payload != 0) {
                     } else if ((*channels) < frame_data_count) {
                         memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->packet_len - PACKET_HEADER_LENGTH);
                         memset(&usd->frame_data[usd->expected_frame_length * (*channels)], 0, usd->expected_frame_length * (frame_data_count - (*channels)));
+                        printf("Frame channels < Output channels.\n");
+                        fflush(stdout);
+                    } else {
+                        memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->packet_len - PACKET_HEADER_LENGTH);
                     }
 
                     freelist_frames_data = LFDS711_FREELIST_GET_VALUE_FROM_ELEMENT(*fe);
@@ -698,12 +706,16 @@ if (remaining_payload != 0) {
 printf("CHN_SETTINGS : chn count %i\n", *channels_count);
 #endif
                     int *data = (int *)usd->packet;
+                    int i = 0;
                     for (n = 0; n < (*channels_count); n += 1) {
-                        usd->synth->chn_settings[n].synthesis_method = data[4 + n];
+                        usd->synth->chn_settings[n].synthesis_method = data[4 + i];
+                        usd->synth->chn_settings[n].env_type = data[4 + i + 1];
 
-#ifdef DEBUG
-printf("chn %i data : %i\n", n, usd->synth->chn_settings[n].synthesis_method);
-#endif
+//#ifdef DEBUG
+printf("chn %i data : %i, %i\n", n, usd->synth->chn_settings[n].synthesis_method, usd->synth->chn_settings[n].env_type);
+//#endif
+
+                        i += 2;
                     }
 
                     usd->synth->oscillators = NULL;

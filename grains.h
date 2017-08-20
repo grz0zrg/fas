@@ -11,7 +11,7 @@
         float frame; // current position
         unsigned int frames; // duration
         unsigned int index; // grain position
-        unsigned int env_type; // envelope type
+        unsigned int env_type; // envelope type (unused, this is per channels instead)
         float speed;
         float env_index;
         float env_step;

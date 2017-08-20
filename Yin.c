@@ -41,6 +41,7 @@ void Yin_difference(Yin *yin, int16_t* buffer){
 void Yin_cumulativeMeanNormalizedDifference(Yin *yin){
 	int16_t tau;
 	float runningSum = 0;
+
 	yin->yinBuffer[0] = 1;
 
 	/* Sum all the values in the autocorellation buffer and nomalise the result, replacing
@@ -166,7 +167,7 @@ float Yin_parabolicInterpolation(Yin *yin, int16_t tauEstimate) {
  * @param bufferSize Length of the audio buffer to analyse
  * @param threshold  Allowed uncertainty (e.g 0.05 will return a pitch with ~95% probability)
  */
-void Yin_init(Yin *yin, int16_t bufferSize, float threshold){
+int Yin_init(Yin *yin, int16_t bufferSize, float threshold){
 	/* Initialise the fields of the Yin structure passed in */
 	yin->bufferSize = bufferSize;
 	yin->halfBufferSize = bufferSize / 2;
@@ -175,11 +176,16 @@ void Yin_init(Yin *yin, int16_t bufferSize, float threshold){
 
 	/* Allocate the autocorellation buffer and initialise it to zero */
 	yin->yinBuffer = (float *) malloc(sizeof(float)* yin->halfBufferSize);
+  if (!yin->yinBuffer) {
+      return 0;
+  }
 
 	int16_t i;
 	for(i = 0; i < yin->halfBufferSize; i++){
 		yin->yinBuffer[i] = 0;
 	}
+
+  return 1;
 }
 
 /**

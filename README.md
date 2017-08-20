@@ -70,6 +70,7 @@ Synth channels settings, packet identifier 3 :
 ```c
 struct _synth_gain {
     unsigned int synthesis_method;
+    int env_type; // granular envelope type for this channel (there is 9 types of envelopes)
 };
 ```
 

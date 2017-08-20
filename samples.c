@@ -57,7 +57,8 @@ unsigned int load_samples(struct sample **s, char *directory) {
 
             // insert into samples data structure
             struct sample *smp = &samples[samples_count - 1];
-            smp->chn = sfinfo.channels - 1;
+            smp->chn_m1 = sfinfo.channels - 1;
+            smp->chn = sfinfo.channels;
             smp->len = sfinfo.frames * sfinfo.channels;
             smp->frames = sfinfo.frames;
             smp->samplerate = sfinfo.samplerate;
@@ -79,20 +80,51 @@ unsigned int load_samples(struct sample **s, char *directory) {
                 yin_samples[i] /= sfinfo.channels;
             }
 
+            smp->pitch = 0;
+            double uncertainty = 0.05;
+
             Yin *yin = (Yin *)malloc(sizeof(struct _Yin));
+            while (uncertainty <= 0.75) { // max uncertainty before giving up is 75%
+                int p = 2;
+                int buffer_length = pow(2, p);
 
-            Yin_init(yin, 4096, 0.05);
-            smp->pitch = Yin_getPitch(yin, yin_samples);
+                while (smp->pitch < 8) {
+                    int yin_status = Yin_init(yin, buffer_length, uncertainty);
 
-            if (smp->pitch == -1) {
-              smp->pitch = 440.0;
+                    p++;
+                    buffer_length = pow(2, p);
+
+                    if (buffer_length > (smp->frames / 8 / 2)) {
+                        break;
+                    }
+
+                    if (!yin_status) {
+                        continue;
+                    }
+
+                    smp->pitch = Yin_getPitch(yin, yin_samples);
+                    Yin_free(yin);
+
+                    if (smp->pitch > 8) {
+                        goto next; // ;)
+                    }
+                }
+
+                uncertainty += 0.05; // increase uncertainty by 5%
             }
+    next:
 
-            printf("Sample '%s' loaded, detected fundamental pitch is %fhz\n", file.name, smp->pitch);
+            free(yin);
+
+            if (smp->pitch < 8) {
+                smp->pitch = 440. * 4.;
+                printf("Sample '%s' loaded, fundamental pitch was not detected, 440hz as default.\n", file.name);
+            } else {
+                printf("Sample '%s' loaded, fundamental pitch is %fhz with %i%% uncertainty\n", file.name, smp->pitch / 4, (int)(100 * uncertainty));
+            }
 
             free(yin_samples);
             free(st_samples);
-            free(yin);
 
             sf_close(audio_file);
         }

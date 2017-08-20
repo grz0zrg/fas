@@ -23,8 +23,9 @@ typedef struct _Yin {
  * @param yin        Yin pitch detection object to initialise
  * @param bufferSize Length of the audio buffer to analyse
  * @param threshold  Allowed uncertainty (e.g 0.05 will return a pitch with ~95% probability)
+ * @return     Returns 0 if initialization failed, 1 otherwise
  */
-void Yin_init(Yin *yin, int16_t bufferSize, float threshold);
+int Yin_init(Yin *yin, int16_t bufferSize, float threshold);
 
 /**
  * Runs the Yin pitch detection algortihm

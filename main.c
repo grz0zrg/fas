@@ -922,6 +922,10 @@ int main(int argc, char **argv)
             case 19:
                 fas_osc_port = optarg;
                 break;
+
+            case 20:
+                fas_grains_path = optarg;
+                break;
             default: print_usage();
                  return EXIT_FAILURE;
         }
@@ -993,7 +997,7 @@ int main(int argc, char **argv)
         printf("Warning: One of the specified program option is out of range and was set to its maximal value.\n");
     }
 
-    samples_count = load_samples(&samples, "./grains/");
+    samples_count = load_samples(&samples, fas_grains_path);
     samples_count_m1 = samples_count - 1;
 
     // fas setup

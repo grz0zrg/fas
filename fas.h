@@ -61,6 +61,7 @@
     char *fas_iface = NULL;
     char *fas_osc_addr = "127.0.0.1";
     char *fas_osc_port = "57120";
+    char *fas_grains_path = "./grains/";
 
     lo_address fas_lo_addr;
 

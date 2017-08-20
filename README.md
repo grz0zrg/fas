@@ -142,7 +142,7 @@ You can tweak this program by passing parameters to its arguments, for command-l
 
 A wxWidget user-friendly launcher is also available [here](https://github.com/grz0zrg/fas_launcher)
 
-Usage: fas [list_of_settings]
+Usage: fas [list_of_parameters]
  * --i **print audio device infos**
  * --sample_rate 44100
  * --noise_amount 0.1 **the amount of band-limited noise**
@@ -154,6 +154,7 @@ Usage: fas [list_of_settings]
  * --osc_out 0 **you can enable OSC output of notes by setting this argument to 1**
  * --osc_addr 127.0.0.1 **the OSC server address**
  * --osc_port 57120 **the OSC server port**
+ * --grains_folder ./grains/
  * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**
  * --iface 127.0.0.1 **the listening address**

@@ -93,6 +93,10 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             curr_synth.grains = queue_synth->grains;
         }
 
+        if (queue_synth->chn_settings) {
+            curr_synth.chn_settings = queue_synth->chn_settings;
+        }
+
         audio_thread_state = FAS_AUDIO_PLAY;
     }
 
@@ -118,6 +122,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         curr_synth.grains == NULL ||
         curr_synth.settings == NULL ||
         curr_synth.gain == NULL ||
+        curr_synth.chn_settings == NULL ||
         audio_thread_state == FAS_AUDIO_PAUSE ||
         audio_thread_state == FAS_AUDIO_DO_WAIT_SETTINGS) {
         for (i = 0; i < framesPerBuffer; i += 1) {
@@ -154,85 +159,62 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 s = pv_note_buffer_len;
                 e = s + note_buffer_len;
 
-                for (j = s; j < e; j += 1) {
-                    struct note *n = &curr_notes[j];
+                if (curr_synth.chn_settings[k].synthesis_method == FAS_ADDITIVE) {
+                    for (j = s; j < e; j += 1) {
+                        struct note *n = &curr_notes[j];
 
-#ifdef GRANULAR
-                    struct sample *smp = &samples[n->osc_index%samples_count];
-                    struct grain *gr = &curr_synth.grains[n->osc_index];
+                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                    float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
-                    float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
-
-                    output_l += vl * (smp->data[((unsigned int)gr->frame) * (smp->chn + 1) + gr->index] * grain_envelope[gr->env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE]);
-                    output_r += vr * (smp->data[((unsigned int)gr->frame) * (smp->chn + 1) + gr->index + smp->chn] * grain_envelope[gr->env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE]);
-
-                    gr->frame+=gr->speed;
-
-                    gr->env_index+=gr->env_step;
-
-                    if (gr->frame >= gr->frames) {
-                        /*gr->index -= (gr->frames / 2) * (smp->chn + 1);//floor(randf(0, smp->len - gr->frames - 1));
-                        if (gr->index < 0) {
-                            gr->index = gr->frames + gr->index;
-                        }*/
-                        gr->index += (gr->frames / 2) * (smp->chn + 1);
-                        gr->frames = randf(0.002f, 0.1f) * fas_sample_rate; //* fas_sample_rate; // 1ms - 100ms
-                        //gr->index = ((int)(floor(randf(0, gr->frames / 2)))%gr->frames) * (smp->chn + 1);//floor(randf(0, smp->len - gr->frames - 1));
-                        gr->env_step = /*floor(gr->frames / */FAS_ENVS_SIZE / (gr->frames / gr->speed)/*)*/;
-                        //gr->env_index = rand()%FAS_ENVS_SIZE;
-                        gr->env_index = 0;
-                        gr->frame = 0;
-                        gr->env_type = rand()%FAS_ENVS_COUNT;
-                        //gr->index = floor(randf(gr->frames + 8, smp->frames - gr->frames - 8));
-                        if (rand()%100 == 1) {
-                          gr->index = ((int)(floor(randf(0, gr->frames)))%gr->frames) * (smp->chn + 1);
-                        }
-
-                        if (gr->index > (smp->frames - gr->frames)) {
-                          gr->index %= (smp->frames - gr->frames);
-                        }
-
-/*
-                        if (rand()%2 == 1) {
-                          gr->frame = 0;
-
-                          if (gr->speed < 0) {
-                            gr->speed = -gr->speed;
-                          }
-                        } else {
-                          gr->frame = gr->frames;
-
-                          if (gr->speed > 0) {
-                            gr->speed = -gr->speed;
-                          }
-                        }
-*/
-                    }
-
+#ifndef FIXED_WAVETABLE
+                        float s = fas_sine_wavetable[osc->phase_index[k]];
 #else
-                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-    #ifndef FIXED_WAVETABLE
-                    float s = fas_sine_wavetable[osc->phase_index[k]];
-    #else
-                    float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
-    #endif
-
-                    float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
-                    float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
-
-                    output_l += vl * s;
-                    output_r += vr * s;
-
-                    osc->phase_index[k] += osc->phase_step * (1. + fas_white_noise_table[noise_index++] * n->noise_multiplier);
-
-    #ifndef FIXED_WAVETABLE
-                    if (osc->phase_index[k] >= fas_wavetable_size) {
-                        osc->phase_index[k] -= fas_wavetable_size;
-                    }
-    #endif
+                        float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
 #endif
+
+                        float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
+                        float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
+
+                        output_l += vl * s;
+                        output_r += vr * s;
+
+                        osc->phase_index[k] += osc->phase_step * (1. + fas_white_noise_table[noise_index++] * n->noise_multiplier);
+
+#ifndef FIXED_WAVETABLE
+                        if (osc->phase_index[k] >= fas_wavetable_size) {
+                            osc->phase_index[k] -= fas_wavetable_size;
+                        }
+#endif
+                    }
+                } else if (curr_synth.chn_settings[k].synthesis_method == FAS_GRANULAR) {
+                    for (j = s; j < e; j += 1) {
+                        struct note *n = &curr_notes[j];
+
+                        unsigned int sample_index = (double)samples_count_m1 * n->noise_multiplier;
+
+                        struct sample *smp = &samples[sample_index];
+                        struct grain *gr = &curr_synth.grains[n->osc_index];
+
+                        float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
+                        float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
+
+                        output_l += vl * (smp->data[((unsigned int)gr->frame) * (smp->chn + 1) + gr->index] * grain_envelope[gr->env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE]);
+                        output_r += vr * (smp->data[((unsigned int)gr->frame) * (smp->chn + 1) + gr->index + smp->chn] * grain_envelope[gr->env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE]);
+
+                        gr->frame+=gr->speed;
+
+                        gr->env_index+=gr->env_step;
+
+                        if (gr->frame >= gr->frames) {
+                            gr->index += round(gr->frames * n->alpha) * (smp->chn + 1);
+                            gr->frames = randf(0.02f, 1.0f) * fas_sample_rate; //* fas_sample_rate; // 1ms - 100ms
+                            gr->env_step = /*floor(gr->frames / */FAS_ENVS_SIZE / (gr->frames / gr->speed)/*)*/;
+                            //gr->env_index = rand()%FAS_ENVS_SIZE;
+                            gr->env_index = 0;
+                            gr->frame = 0;
+
+                            gr->index %= (smp->frames - gr->frames);
+                        }
+                    }
                 }
             }
 
@@ -491,22 +473,23 @@ if (remaining_payload != 0) {
 
                         usd->synth->oscillators = NULL;
                         usd->synth->grains = NULL;
+                        usd->synth->chn_settings = NULL;
                     } else {
                         h = usd->synth->settings->h;
                     }
+
+                    memcpy(usd->synth->settings, &((char *) usd->packet)[PACKET_HEADER_LENGTH], 24);
+
+                    #ifdef DEBUG
+                        printf("SYNTH_SETTINGS : %u, %u, %u, %f\n", usd->synth->settings->h,
+                            usd->synth->settings->octave, usd->synth->settings->data_type, usd->synth->settings->base_frequency);
+                    #endif
 
                     freeGrains(&usd->synth->grains, h);
 
                     usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, h);
 
                     usd->synth->gain = NULL;
-
-                    memcpy(usd->synth->settings, &((char *) usd->packet)[PACKET_HEADER_LENGTH], 24);
-
-#ifdef DEBUG
-    printf("SYNTH_SETTINGS : %u, %u, %u, %f\n", usd->synth->settings->h,
-        usd->synth->settings->octave, usd->synth->settings->data_type, usd->synth->settings->base_frequency);
-#endif
 
                     usd->frame_data_size = sizeof(unsigned char);
                     unsigned int frame_data_size = sizeof(unsigned char);
@@ -516,7 +499,7 @@ if (remaining_payload != 0) {
 
                     usd->expected_frame_length = 4 * usd->frame_data_size * usd->synth->settings->h;
                     usd->expected_max_frame_length = 4 * usd->frame_data_size * usd->synth->settings->h * frame_data_count;
-                    size_t max_frame_data_len = usd->expected_frame_length * frame_data_count + sizeof(unsigned int) * 4;
+                    size_t max_frame_data_len = usd->expected_frame_length * frame_data_count + sizeof(unsigned int) * 2;
                     usd->frame_data = malloc(max_frame_data_len);
                     usd->prev_frame_data = calloc(max_frame_data_len, usd->frame_data_size);
 
@@ -527,7 +510,7 @@ if (remaining_payload != 0) {
                     usd->synth->oscillators = createOscillators(usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
 
-                    // create a global copy of the oscillators for the user
+                    // create a global copy of the oscillators for the user (for OSC)
                     if (usd->oscillators) {
                         usd->oscillators = freeOscillators(&usd->oscillators, h);
                     }
@@ -538,10 +521,18 @@ if (remaining_payload != 0) {
 
                     usd->synth->grains = createGrains(&samples, samples_count, usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate);
 
+                    usd->synth->chn_settings = (struct _synth_chn_settings*)malloc(sizeof(struct _synth_chn_settings) * frame_data_count);
+                    if (usd->synth->chn_settings == NULL) {
+                        printf("chn_settings alloc. error.");
+                        fflush(stdout);
+                    }
+                    memset(usd->synth->chn_settings, 0, sizeof(struct _synth_chn_settings) * frame_data_count);
+
                     if (lfds711_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
                         printf("Skipping packet, the synth commands queue is full.\n");
                         fflush(stdout);
 
+                        free(usd->synth->chn_settings);
                         free(usd->synth->settings);
                         usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, usd->synth->settings->h);
 
@@ -579,7 +570,7 @@ if (remaining_payload != 0) {
                     //}
 
                     if (usd->frame_data == NULL) {
-                        printf("Skipping a frame (alloc. error) until a synth. settings change happen.\n");
+                        printf("Skipping a frame until a synth. settings change happen.\n");
                         fflush(stdout);
                         goto free_packet;
                     }
@@ -604,13 +595,28 @@ if (remaining_payload != 0) {
 
                     memcpy(usd->prev_frame_data, &usd->frame_data[0], usd->expected_max_frame_length);
 
-                    memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->packet_len - PACKET_HEADER_LENGTH);
+                    unsigned int channels[1];
+                    memcpy(&channels, &usd->packet[PACKET_HEADER_LENGTH], sizeof(channels));
+
+                    if ((*channels) > frame_data_count) {
+#ifdef DEBUG
+                        printf("Frame channels > Output channels. (%i chn ignored)\n", (*channels) - frame_data_count);
+                        fflush(stdout);
+#endif
+
+                        (*channels) = frame_data_count;
+
+                        memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->expected_frame_length * (*channels) - PACKET_HEADER_LENGTH);
+                    } else if ((*channels) < frame_data_count) {
+                        memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->packet_len - PACKET_HEADER_LENGTH);
+                        memset(&usd->frame_data[usd->expected_frame_length * (*channels)], 0, usd->expected_frame_length * (frame_data_count - (*channels)));
+                    }
 
                     freelist_frames_data = LFDS711_FREELIST_GET_VALUE_FROM_ELEMENT(*fe);
 
                     memset(freelist_frames_data->data, 0, sizeof(struct note) * (usd->synth_h + 1) * frame_data_count + sizeof(unsigned int));
 
-                    fillNotesBuffer(usd->frame_data_size, freelist_frames_data->data, usd->synth_h, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
+                    fillNotesBuffer((*channels), usd->frame_data_size, freelist_frames_data->data, usd->synth_h, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
 
                     oscSend(usd->oscillators, freelist_frames_data->data);
 
@@ -645,6 +651,8 @@ if (remaining_payload != 0) {
 
                     usd->synth->oscillators = NULL;
                     usd->synth->settings = NULL;
+                    usd->synth->grains = NULL;
+                    usd->synth->chn_settings = NULL;
 
                     memcpy(usd->synth->gain, &((char *) usd->packet)[PACKET_HEADER_LENGTH], 8);
 #ifdef DEBUG
@@ -655,6 +663,59 @@ if (remaining_payload != 0) {
                         fflush(stdout);
 
                         free(usd->synth->gain);
+                        free(usd->synth);
+                        usd->synth = NULL;
+
+                        goto free_packet;
+                    }
+
+                    usd->synth = NULL;
+                } else if (pid == CHN_SETTINGS) {
+                    static unsigned int channels_count[1];
+                    memcpy(&channels_count, &((char *) usd->packet)[PACKET_HEADER_LENGTH], sizeof(channels_count));
+
+                    if (usd->synth == NULL) {
+                        usd->synth = (struct _synth*)malloc(sizeof(struct _synth));
+                        if (usd->synth == NULL) {
+                            printf("Skipping packet due to synth data alloc. error.\n");
+                            fflush(stdout);
+
+                            goto free_packet;
+                        }
+
+                        usd->synth->chn_settings = (struct _synth_chn_settings*)malloc(sizeof(struct _synth_chn_settings) * (*channels_count));
+                        if (usd->synth->chn_settings == NULL) {
+                            printf("Skipping packet due to synth chn_settings alloc. error.\n");
+                            fflush(stdout);
+
+                            free(usd->synth);
+                            usd->synth = NULL;
+
+                            goto free_packet;
+                        }
+                    }
+#ifdef DEBUG
+printf("CHN_SETTINGS : chn count %i\n", *channels_count);
+#endif
+                    int *data = (int *)usd->packet;
+                    for (n = 0; n < (*channels_count); n += 1) {
+                        usd->synth->chn_settings[n].synthesis_method = data[4 + n];
+
+#ifdef DEBUG
+printf("chn %i data : %i\n", n, usd->synth->chn_settings[n].synthesis_method);
+#endif
+                    }
+
+                    usd->synth->oscillators = NULL;
+                    usd->synth->settings = NULL;
+                    usd->synth->gain = NULL;
+                    usd->synth->grains = NULL;
+
+                    if (lfds711_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
+                        printf("Skipping packet, the synth commands queue is full.\n");
+                        fflush(stdout);
+
+                        free(usd->synth->chn_settings);
                         free(usd->synth);
                         usd->synth = NULL;
 
@@ -683,6 +744,7 @@ free_packet:
 
                 freeGrains(&usd->synth->grains, usd->synth->settings->h);
 
+                free(usd->synth->chn_settings);
                 free(usd->synth->settings);
                 free(usd->synth);
             }
@@ -932,6 +994,7 @@ int main(int argc, char **argv)
     }
 
     samples_count = load_samples(&samples, "./grains/");
+    samples_count_m1 = samples_count - 1;
 
     // fas setup
     note_time = 1 / (double)fas_fps;

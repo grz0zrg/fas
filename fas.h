@@ -80,6 +80,7 @@
 
     struct sample *samples = NULL;
     unsigned int samples_count = 0;
+    unsigned int samples_count_m1 = 0;
 
     float **grain_envelope;
 

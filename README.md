@@ -7,7 +7,7 @@ This program should compile on most platforms!
 
 This program collect Fragment settings and RGBA (8-bit or 32-bit float) notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, it can also interpret the data for granular synthesis, it is a generic image synth, this serve as a fast and independent alternative to output audio for the Fragment Synthesizer.
 
-This was tailored for performances and can be executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
+This program is tailored for performances and can be executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
 
 Only one client is supported at the moment (altough many can connect, not tested but it may result in a big audio mess and likely a crash!)
 
@@ -27,13 +27,15 @@ This support OSC output of pixels data on the channel "/fragment" with data type
 
 With OSC you can basically do whatever you want, feeding SuperCollider synths or other parameters (fx etc.) for example.
 
-The granular synthesis part is being actively developed (and was quickly hacked into FAS :P), you can't have additive and granular synthesis at the same time at the moment, both need a different version of FAS (compile with the -DGRANULAR for granular synthesis), all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment, this feature is WIP and many things may change, it is a very simple granular synthesis right now.
+The granular synthesis part is being actively developed, you can have additive and granular synthesis at the same time with different output channel, all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment, this feature is WIP and many things may change.
+
+With granular synthesis method, Blue pixel value is mapped to sample index and Alpha value is mapped to grain index, this is a WIP mapping.
 
 **Can be used as a raw generic additive/granular synthesizer if you feed it correctly! :)**
 
 ### Packets
 
-To communicate with FAS, there is only three type of packets, the first byte is the packet identifier, below is the expected data for each packets :
+To communicate with FAS, there is only four type of packets, the first byte is the packet identifier, below is the expected data for each packets :
 
 Synth settings, packet identifier 0 :
 ```c
@@ -61,6 +63,13 @@ Synth gain, packet identifier 2 :
 ```c
 struct _synth_gain {
     double gain_lr;
+};
+```
+
+Synth channels settings, packet identifier 3 :
+```c
+struct _synth_gain {
+    unsigned int synthesis_method;
 };
 ```
 
@@ -126,12 +135,6 @@ Statically linked, advanced optimizations and profiling: **make release-static-o
 With MinGW (Statically linked) :  **make win-release-static**
 
 With MinGW (Statically linked + advanced optimizations, default build) :  **make win-release-static-o**
-
-Granular debug : **make granular-debug**
-
-Granular Release : **make granular-release**
-
-Granular Release Statically linked : **make granular-release-static**
 
 ### Usage
 

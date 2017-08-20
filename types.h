@@ -14,11 +14,16 @@
         double gain_lr;
     };
 
+    struct _synth_chn_settings {
+        unsigned int synthesis_method;
+    };
+
     struct _synth {
         struct _synth_settings *settings;
         struct _synth_gain *gain;
         struct oscillator *oscillators;
         struct grain *grains;
+        struct _synth_chn_settings *chn_settings;
 
         float lerp_t;
         unsigned long curr_sample;

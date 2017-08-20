@@ -17,6 +17,7 @@
     #define SYNTH_SETTINGS 0
     #define FRAME_DATA 1
     #define GAIN_CHANGE 2
+    #define CHN_SETTINGS 3
 
     // program settings constants
     #define FAS_SAMPLE_RATE 44100
@@ -44,5 +45,9 @@
     #define FAS_AUDIO_DO_PAUSE 10
     #define FAS_AUDIO_DO_PLAY 11
     #define FAS_AUDIO_DO_WAIT_SETTINGS 12
+
+    // synthesis method
+    #define FAS_ADDITIVE 0
+    #define FAS_GRANULAR 1
 
 #endif

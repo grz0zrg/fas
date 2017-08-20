@@ -6,26 +6,22 @@
 
 // fill the notes buffer for each output channels
 // data argument is the raw RGBA values received with the channels count indicated as the first entry
-void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, unsigned int h, size_t data_length, void *prev_data, void *data) {
+void fillNotesBuffer(unsigned int channels, unsigned int data_frame_size, struct note *note_buffer, unsigned int h, size_t data_length, void *prev_data, void *data) {
     double pvl = 0, pvr = 0, pl, pr, l, r;
-    unsigned int i, j, frame_data_index = 16;
+    unsigned int i, j, frame_data_index = 8;
     unsigned int li = 0, ri = 1;
     unsigned int index = 0, note_osc_index = 0, osc_count = 0;
-    double volume_l, volume_r, noise_multiplier;
+    double volume_l, volume_r, noise_multiplier, alpha;
     double inv_full_brightness = 1.0 / 255.0;
 
-    unsigned int channels[1];
     unsigned int monophonic[1];
-    unsigned int synthesis_type[1];
 
-    memcpy(&channels, &((char *) data)[0], sizeof(channels));
     memcpy(&monophonic, &((char *) data)[4], sizeof(monophonic));
-    memcpy(&synthesis_type, &((char *) data)[8], sizeof(synthesis_type));
 
     if (data_frame_size == sizeof(float)) {
         inv_full_brightness = 1.;
 
-        frame_data_index = 4;
+        frame_data_index = 2;
 
         data_length /= data_frame_size;
     }
@@ -35,7 +31,7 @@ void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, uns
         ri = 3;
     }
 
-    for (j = 0; j < (*channels); j += 1) {
+    for (j = 0; j < channels; j += 1) {
         note_osc_index = index;
         index += 1;
         osc_count = 0;
@@ -54,6 +50,7 @@ void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, uns
                 r = cdata[frame_data_index + ri];
 
                 noise_multiplier = cdata[frame_data_index + 2];
+                alpha = cdata[frame_data_index + 3];
             } else {
                 unsigned char *pdata = (unsigned char *)prev_data;
                 unsigned char *cdata = (unsigned char *)data;
@@ -65,6 +62,7 @@ void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, uns
                 r = cdata[frame_data_index + ri];
 
                 noise_multiplier = cdata[frame_data_index + 2] * inv_full_brightness;
+                alpha = cdata[frame_data_index + 3] * inv_full_brightness;
             }
 
             frame_data_index += 4;
@@ -73,6 +71,7 @@ void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, uns
             _note->osc_index = y;
 
             _note->noise_multiplier = noise_multiplier;
+            _note->alpha = alpha;
 
             if (l > 0 ) {
                 volume_l = l * inv_full_brightness;
@@ -135,9 +134,9 @@ void fillNotesBuffer(unsigned int data_frame_size, struct note *note_buffer, uns
 
 #ifdef DEBUG
     if ((*monophonic) == 1) {
-        printf("Channel l/r (mono, %u) %u : %i oscillators \n", *synthesis_type, (j + 1), osc_count);
+        printf("Channel l/r (mono) %u : %i oscillators \n", (j + 1), osc_count);
     } else {
-        printf("Channel l/r (%u) %u : %i oscillators \n", *synthesis_type, (j + 1), osc_count);
+        printf("Channel l/r (stereo) %u : %i oscillators \n", (j + 1), osc_count);
     }
 #endif
     }

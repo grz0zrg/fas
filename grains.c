@@ -1,6 +1,10 @@
 #include "grains.h"
 
 struct grain *createGrains(struct sample **s, unsigned int samples_count, unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate) {
+    if (samples_count == 0) {
+        return NULL;
+    }
+
     struct sample *samples = *s;
 
     struct grain *g = (struct grain *)malloc(n * sizeof(struct grain));

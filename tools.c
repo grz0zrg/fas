@@ -122,8 +122,10 @@ float **createEnvelopes(unsigned int n) {
 }
 
 void freeEnvelopes(float **envs) {
-    for (int i = 0; i < FAS_ENVS_COUNT; i++) {
-        free(envs[i]);
+    if (envs) {
+        for (int i = 0; i < FAS_ENVS_COUNT; i++) {
+            free(envs[i]);
+        }
+        free(envs);
     }
-    free(envs);
 }

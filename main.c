@@ -73,6 +73,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
     float *out = (float*)outputBuffer;
 
+    unsigned int i, j, k, s, e;
+
     void *queue_synth_void;
     if (lfds711_queue_bss_dequeue(&synth_commands_queue_state, NULL, &queue_synth_void) == 1) {
         struct _synth *queue_synth = (struct _synth *)queue_synth_void;
@@ -99,8 +101,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
         audio_thread_state = FAS_AUDIO_PLAY;
     }
-
-    unsigned int i, j, k, s, e;
 
     int read_status = 0;
     void *key;
@@ -173,13 +173,17 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
 #endif
 
-                        float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
-                        float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
+                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         output_l += vl * s;
                         output_r += vr * s;
 
-                        osc->phase_index[k] += osc->phase_step * (1. + fas_white_noise_table[noise_index++] * n->noise_multiplier);
+#ifdef BANDLIMITED_NOISE
+                        osc->phase_index[k] += osc->phase_step * (1.0f + fas_white_noise_table[osc->phase_index[k]] * n->noise_multiplier);
+#else
+                        osc->phase_index[k] += osc->phase_step;
+#endif
 
 #ifndef FIXED_WAVETABLE
                         if (osc->phase_index[k] >= fas_wavetable_size) {
@@ -219,8 +223,51 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             gr->index %= (smp->frames - gr->frames);
                         }
                     }
+                } else if (curr_synth.chn_settings[k].synthesis_method == FAS_EXP) {
+                    for (j = s; j < e; j += 1) {
+                        struct note *n = &curr_notes[j];
+
+                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                        struct grain *gr = &curr_synth.grains[n->osc_index];
+
+                        unsigned int sample_index = (double)samples_count_m1 * n->noise_multiplier;
+                        unsigned int sample_index_2 = ((double)samples_count_m1 * n->noise_multiplier) + 1;
+
+                        struct sample *smp = &samples[sample_index];
+                        struct sample *smp2 = &samples[sample_index_2%samples_count_m1];
+
+                        uint16_t phi = (float)osc->phase_index[k];
+
+                        float s = smp->data[phi * smp->chn];//osc->noise_wavetable[phi];
+                        float s2 = smp->data[phi * smp->chn + smp->chn_m1];//osc->noise_wavetable[phi + 1];
+
+                        float savg = (s + s2) * 0.5f * n->alpha * grain_envelope[env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE];
+                        //osc->noise_wavetable[phi] = savg;
+
+                        //if (fmod(acb_time, 1000.0) < n->alpha) {
+                        //    osc->noise_wavetable[phi] = (1. + randf(-fas_noise_amount, fas_noise_amount)) * n->noise_multiplier;
+                        //    osc->noise_wavetable[phi + 1] = (1. + randf(-fas_noise_amount, fas_noise_amount)) * n->noise_multiplier;
+                        //}
+
+                        float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
+                        float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
+
+                        output_l += vl * savg;
+                        output_r += vr * savg;
+
+                        gr->env_index += gr->env_step;
+
+                        osc->phase_index[k] += osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
+                        if (osc->phase_index[k] >= smp->frames) {
+                            osc->phase_index[k] -= smp->frames;
+                            gr->env_step = FAS_ENVS_SIZE / (smp->frames / gr->speed);
+                            gr->env_index = 0;
+                        }
+                    }
                 }
             }
+
 
             //output_l /= (e-s);
             //output_r /= (e-s);
@@ -285,6 +332,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         }
     }
 
+    acb_time += (double)fas_frames_per_buffer / fas_sample_rate;
+
     return paContinue;
 }
 
@@ -321,7 +370,10 @@ void oscSend(struct oscillator *oscillators, struct note *data) {
     struct note *_notes;
     unsigned int note_buffer_len = 0, pv_note_buffer_len = 0;
     unsigned int i, j, k, s, e;
-
+/*
+    lo_bundle bundle = lo_bundle_new(LO_TT_IMMEDIATE);
+    lo_message msg = lo_message_new();
+*/
     for (k = 0; k < frame_data_count; k += 1) {
         pv_note_buffer_len += note_buffer_len;
         note_buffer_len = data[pv_note_buffer_len].osc_index;
@@ -333,15 +385,24 @@ void oscSend(struct oscillator *oscillators, struct note *data) {
             struct note *n = &data[j];
 
             struct oscillator *osc = &oscillators[n->osc_index];
-
-            lo_send(fas_lo_addr, "/fragment", "idff", n->osc_index, osc->freq, n->volume_l, n->volume_r);
+/*
+            lo_message_add_int32(msg, n->osc_index);
+            lo_message_add_double(msg, osc->freq);
+            lo_message_add_float(msg, n->volume_l);
+            lo_message_add_float(msg, n->volume_r);
+            lo_message_add_float(msg, n->alpha);
+*/
+            //if (n->volume_l > 0 && n->volume_r > 0) {
+                lo_send(fas_lo_addr, "/fragment", "idfff", n->osc_index, osc->freq, n->volume_l, n->volume_r, n->alpha);
+            //}
         }
     }
+
+    //lo_send_bundle(fas_lo_addr, bundle);
 }
 
 int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
-                        void *user, void *in, size_t len)
-{
+                        void *user, void *in, size_t len) {
     LFDS711_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_LOGICAL_CORE;
 
     struct user_session_data *usd = (struct user_session_data *)user;
@@ -450,8 +511,6 @@ if (remaining_payload != 0) {
 #endif
 
                 if (pid == SYNTH_SETTINGS) {
-                    audioPause();
-
                     unsigned int h = 0;
                     if (usd->synth == NULL) {
                         usd->synth = (struct _synth*)malloc(sizeof(struct _synth));
@@ -518,6 +577,7 @@ if (remaining_payload != 0) {
                     if (usd->oscillators) {
                         usd->oscillators = freeOscillators(&usd->oscillators, h);
                     }
+                    usd->oscillators = (struct oscillator*)malloc(n * sizeof(struct oscillator));
 
                     usd->oscillators = createOscillators(usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
@@ -549,9 +609,6 @@ if (remaining_payload != 0) {
                     }
 
                     usd->synth = NULL;
-
-                    audioWaitSettings();
-                    audioPlay();
                 } else if (pid == FRAME_DATA) {
 #ifdef DEBUG
     printf("FRAME_DATA\n");
@@ -704,6 +761,7 @@ if (remaining_payload != 0) {
                     }
 #ifdef DEBUG
 printf("CHN_SETTINGS : chn count %i\n", *channels_count);
+fflush(stdout);
 #endif
                     int *data = (int *)usd->packet;
                     int i = 0;
@@ -711,9 +769,10 @@ printf("CHN_SETTINGS : chn count %i\n", *channels_count);
                         usd->synth->chn_settings[n].synthesis_method = data[4 + i];
                         usd->synth->chn_settings[n].env_type = data[4 + i + 1];
 
-//#ifdef DEBUG
+#ifdef DEBUG
 printf("chn %i data : %i, %i\n", n, usd->synth->chn_settings[n].synthesis_method, usd->synth->chn_settings[n].env_type);
-//#endif
+fflush(stdout);
+#endif
 
                         i += 2;
                     }
@@ -865,7 +924,8 @@ int main(int argc, char **argv)
         { "noise_amount",             required_argument, 0, 16 },
         { "osc_out",                  required_argument, 0, 17 },
         { "osc_addr",                 required_argument, 0, 18 },
-        { "osc_port",                 required_argument, 0, 18 },
+        { "osc_port",                 required_argument, 0, 19 },
+        { "grains_folder",            required_argument, 0, 20 },
         { 0, 0, 0, 0 }
     };
 
@@ -934,7 +994,6 @@ int main(int argc, char **argv)
             case 19:
                 fas_osc_port = optarg;
                 break;
-
             case 20:
                 fas_grains_path = optarg;
                 break;
@@ -1009,39 +1068,41 @@ int main(int argc, char **argv)
         printf("Warning: One of the specified program option is out of range and was set to its maximal value.\n");
     }
 
-    samples_count = load_samples(&samples, fas_grains_path);
-    samples_count_m1 = samples_count - 1;
+    if (print_infos != 1) {
+        samples_count = load_samples(&samples, fas_grains_path);
+        samples_count_m1 = samples_count - 1;
 
-    // fas setup
-    note_time = 1 / (double)fas_fps;
-    note_time_samples = round(note_time * fas_sample_rate);
-    lerp_t_step = 1 / note_time_samples;
+        // fas setup
+        note_time = 1 / (double)fas_fps;
+        note_time_samples = round(note_time * fas_sample_rate);
+        lerp_t_step = 1 / note_time_samples;
 
-    if (fas_wavetable) {
-        fas_sine_wavetable = sine_wavetable_init(fas_wavetable_size);
-        if (fas_sine_wavetable == NULL) {
-            fprintf(stderr, "sine_wavetable_init() failed.\n");
+        if (fas_wavetable) {
+            fas_sine_wavetable = sine_wavetable_init(fas_wavetable_size);
+            if (fas_sine_wavetable == NULL) {
+                fprintf(stderr, "sine_wavetable_init() failed.\n");
 
-            return EXIT_FAILURE;
+                return EXIT_FAILURE;
+            }
+
+            fas_white_noise_table = wnoise_wavetable_init(65536, fas_noise_amount);
+            if (fas_white_noise_table == NULL) {
+                fprintf(stderr, "wnoise_wavetable_init() failed.\n");
+                free(fas_sine_wavetable);
+
+                return EXIT_FAILURE;
+            }
         }
 
-        fas_white_noise_table = wnoise_wavetable_init(65536, fas_noise_amount);
-        if (fas_white_noise_table == NULL) {
-            fprintf(stderr, "wnoise_wavetable_init() failed.\n");
-            free(fas_sine_wavetable);
+        grain_envelope = createEnvelopes(FAS_ENVS_SIZE);
 
-            return EXIT_FAILURE;
-        }
-    }
+        // osc - http://liblo.sourceforge.net
+        if (fas_osc_out) {
+            fas_lo_addr = lo_address_new(fas_osc_addr, fas_osc_port);
 
-    grain_envelope = createEnvelopes(FAS_ENVS_SIZE);
-
-    // osc - http://liblo.sourceforge.net
-    if (fas_osc_out) {
-        fas_lo_addr = lo_address_new(fas_osc_addr, fas_osc_port);
-
-        if (fas_lo_addr) {
-            printf("\nOSC: Ready to send data to '%s:%s'\n", fas_osc_addr, fas_osc_port);
+            if (fas_lo_addr) {
+                printf("\nOSC: Ready to send data to '%s:%s'\n", fas_osc_addr, fas_osc_port);
+            }
         }
     }
 
@@ -1082,12 +1143,6 @@ int main(int argc, char **argv)
     if (print_infos == 1) {
         goto error;
     }
-
-    curr_synth.settings = NULL;
-    curr_synth.gain = NULL;
-    curr_synth.oscillators = NULL;
-    curr_synth.lerp_t = 0.0;
-    curr_synth.curr_sample = 0;
 
     int device_max_output_channels;
     if (fas_audio_device >= num_devices || fas_audio_device < 0) {
@@ -1144,7 +1199,7 @@ int main(int argc, char **argv)
               &outputParameters,
               fas_sample_rate,
               fas_frames_per_buffer,
-              paNoFlag,
+              paDitherOff,
               paCallback,
               NULL );
     if (err != paNoError) goto error;
@@ -1261,7 +1316,7 @@ ws_error:
     lws_context_destroy(context);
 
 error:
-    if (fas_osc_out) {
+    if (fas_osc_out && fas_lo_addr) {
         lo_address_free(fas_lo_addr);
     }
 

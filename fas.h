@@ -18,6 +18,7 @@
     #include "libwebsockets.h"
     #include "inc/liblfds711.h"
     #include "lo/lo.h"
+    #include "essentia_wrapper.h"
 
     // fas
     #include "tools.h"
@@ -46,6 +47,7 @@
     unsigned int fas_wavetable_size = FAS_WAVETABLE_SIZE;
     unsigned int fas_wavetable_size_m1 = FAS_WAVETABLE_SIZE - 1;
     #endif
+    unsigned int fas_audio = FAS_AUDIO;
     unsigned int fas_fps = FAS_FPS;
     unsigned int fas_port = FAS_PORT;
     unsigned int fas_rx_buffer_size = FAS_RX_BUFFER_SIZE;
@@ -68,6 +70,8 @@
     float *fas_sine_wavetable = NULL;
     float *fas_white_noise_table = NULL;
     uint16_t noise_index = 0.;
+
+    double acb_time = 0.;
 
     double note_time;
     double note_time_samples;

@@ -17,7 +17,7 @@ There is a generic lock-free thread-safe commands queue for synth. parameters ch
 
 A free list data structure is used to handle data reuse, the program pre-allocate a pool of notes buffer that is reused.
 
-Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping)
+Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping), bandlimited-noise can also be disabled for lightning fast additive synthesis.
 
 For additive synthesis and in stereophonic mode the pixels data channel R and G is the amplitude value of the oscillators (for L/R) while the B channel is the band-limited noise multiplier, if you set B to 0, no noise will added to the oscillator while a value of 1 will apply the global noise amount.
 
@@ -25,11 +25,13 @@ In monophonic mode the Alpha channel value is the amplitude value.
 
 This support OSC output of pixels data on the channel "/fragment" with data type "idff" and data (in order) "osc index", "osc frequency", "osc amplitude L value", "osc amplitude R value"
 
-With OSC you can basically do whatever you want, feeding SuperCollider synths or other parameters (fx etc.) for example.
+With OSC you can basically do whatever you want with the pixels data, feeding SuperCollider synths for example, sending the data as an OSC bundle is WIP.
 
 The granular synthesis part is being actively developed, you can have additive and granular synthesis at the same time with different output channel, all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment, this feature is WIP and many things may change.
 
 With granular synthesis method, Blue pixel value is mapped to sample index and Alpha value is mapped to grain index, this is a WIP mapping.
+
+The ongoing development is to add more synthesis methods with the help of the essentia framework. (a C essentia wrapper is available)
 
 **Can be used as a raw generic additive/granular synthesizer if you feed it correctly! :)**
 
@@ -52,7 +54,6 @@ Frame data, packet identifier 1 :
 struct _frame_data {
     unsigned int channels;
     unsigned int monophonic;
-    unsigned int synthesis_type; // 0 = additive, 1 = granular (not implemented for now)
     // Note : the expected data length is computed by : (4 * _synth_settings.data_type * _synth_settings.h) * (fas_output_channels / 2)
     // Example with one output channel (L/R) and a 8-bit image with height of 400 pixels : (4 * sizeof(unsigned char) * 400)
     void *rgba_data;
@@ -123,15 +124,21 @@ Bit depth is fixed to 32 bits float at the moment.
 
 Debug : **make**
 
+Debug (with libessentia) : **make debug-essentia**
+
 Profile (benchmark) : **make profile**
 
 Release : **make release**
 
 Statically linked : **make release-static**
 
-Statically linked and advanced optimizations (default build): **make release-static-o**
+Statically linked and advanced optimizations : **make release-static-o**
+
+Statically linked with bandlimited-noise, advanced optimizations (default build) : **make release-bln-static-o**
 
 Statically linked, advanced optimizations and profiling: **make release-static-o-profile**
+
+Statically linked (with libessentia) : **make release-essentia-static**
 
 With MinGW (Statically linked) :  **make win-release-static**
 

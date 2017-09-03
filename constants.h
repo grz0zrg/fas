@@ -36,6 +36,7 @@
     #define FAS_NOISE_AMOUNT 0.1
     #define FAS_ENVS_SIZE 8192
     #define FAS_OSC_OUT 0
+    #define FAS_AUDIO 1
 
     // audio thread state&commands
     #define FAS_AUDIO_PLAY 0
@@ -49,5 +50,6 @@
     // synthesis method
     #define FAS_ADDITIVE 0
     #define FAS_GRANULAR 1
+    #define FAS_EXP 2 // experiments
 
 #endif

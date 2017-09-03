@@ -44,6 +44,40 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
     return oscillators;
 }
 
+struct oscillator *copyOscillators(struct oscillator **oscs, unsigned int n, unsigned int frame_data_count) {
+    struct oscillator *o = *oscs;
+
+    if (o == NULL) {
+        return NULL;
+    }
+
+    struct oscillator *new_oscillators = (struct oscillator*)malloc(n * sizeof(struct oscillator));
+
+    if (new_oscillators == NULL) {
+        printf("copyOscillators alloc. error.");
+        fflush(stdout);
+        return NULL;
+    }
+
+    int y = 0;
+    for (y = 0; y < n; y += 1) {
+        new_oscillators[y].freq = o[y].freq;
+        new_oscillators[y].phase_step = o[y].phase_step;
+
+        #ifdef FIXED_WAVETABLE
+            new_oscillators[y].phase_index = malloc(sizeof(uint16_t) * frame_data_count);
+        #else
+            new_oscillators[y].phase_index = malloc(sizeof(unsigned int) * frame_data_count);
+        #endif
+
+        for (int i = 0; i < frame_data_count; i += 1) {
+            new_oscillators[y].phase_index[i] = o[y].phase_index[i];
+        }
+    }
+
+    return new_oscillators;
+}
+
 struct oscillator *freeOscillators(struct oscillator **o, unsigned int n) {
     struct oscillator *oscs = *o;
 

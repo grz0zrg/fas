@@ -11,7 +11,7 @@ void fillNotesBuffer(unsigned int channels, unsigned int data_frame_size, struct
     unsigned int i, j, frame_data_index = 8;
     unsigned int li = 0, ri = 1;
     unsigned int index = 0, note_osc_index = 0, osc_count = 0;
-    double volume_l, volume_r, noise_multiplier, alpha;
+    double volume_l, volume_r, noise_multiplier, alpha, palpha;
     double inv_full_brightness = 1.0 / 255.0;
 
     unsigned int monophonic[1];
@@ -50,6 +50,7 @@ void fillNotesBuffer(unsigned int channels, unsigned int data_frame_size, struct
                 r = cdata[frame_data_index + ri];
 
                 noise_multiplier = cdata[frame_data_index + 2];
+                palpha = pdata[frame_data_index + 3];
                 alpha = cdata[frame_data_index + 3];
             } else {
                 unsigned char *pdata = (unsigned char *)prev_data;
@@ -62,6 +63,7 @@ void fillNotesBuffer(unsigned int channels, unsigned int data_frame_size, struct
                 r = cdata[frame_data_index + ri];
 
                 noise_multiplier = cdata[frame_data_index + 2] * inv_full_brightness;
+                palpha = pdata[frame_data_index + 3] * inv_full_brightness;
                 alpha = cdata[frame_data_index + 3] * inv_full_brightness;
             }
 
@@ -72,6 +74,9 @@ void fillNotesBuffer(unsigned int channels, unsigned int data_frame_size, struct
 
             _note->noise_multiplier = noise_multiplier;
             _note->alpha = alpha;
+
+            _note->previous_a = palpha;
+            _note->diff_a = abs(alpha - palpha);
 
             if (l > 0 ) {
                 volume_l = l * inv_full_brightness;

@@ -49,7 +49,8 @@
 
     // synthesis method
     #define FAS_ADDITIVE 0
-    #define FAS_GRANULAR 1
-    #define FAS_EXP 2 // experiments
+    #define FAS_SPECTRAL 1
+    #define FAS_GRANULAR 2
+    #define FAS_EXP 3 // experiments
 
 #endif

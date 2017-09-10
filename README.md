@@ -157,6 +157,7 @@ Usage: fas [list_of_parameters]
  * --frames 512 **audio buffer**
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
  * --fps 60 **you can experiment with this but this may have strange effects**
+ * --smooth_factor 8.0 **this is the samples interpolation factor between frames**
  * --ssl 0
  * --deflate 0
  * --osc_out 0 **you can enable OSC output of notes by setting this argument to 1**

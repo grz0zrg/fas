@@ -50,7 +50,7 @@ release-bln-static-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} -DBANDLIMITED_NOISE ${standard_options} $(static_libs) -o $(output)
 
 release-essentia-static:
-	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} -c
+	$(compiler) $(source) $(include_path) ${release_options} -DBANDLIMITED_NOISE ${adv_optimization_options} ${standard_options} -c
 	$(cppcompiler) $(cpp_source) -DWITH_ESSENTIA $(cpp_options) $(include_path) ${release_options} -c
 	$(cppcompiler) $(obj) $(cpp_obj) $(static_libs) $(essentia_libs) -o $(output)
 

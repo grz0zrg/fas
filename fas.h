@@ -58,6 +58,7 @@
     unsigned int fas_osc_out = FAS_OSC_OUT;
     unsigned int fas_output_channels = FAS_OUTPUT_CHANNELS;
     unsigned int frame_data_count = FAS_OUTPUT_CHANNELS / 2;
+    double fas_smooth_factor = FAS_SMOOTH_FACTOR;
     float fas_noise_amount = FAS_NOISE_AMOUNT;
     int fas_audio_device = -1;
     char *fas_iface = NULL;
@@ -70,6 +71,9 @@
     float *fas_sine_wavetable = NULL;
     float *fas_white_noise_table = NULL;
     uint16_t noise_index = 0.;
+
+    unsigned int window_size = 8192;
+    unsigned int hop_size = 2048;
 
     double acb_time = 0.;
 

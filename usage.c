@@ -11,6 +11,7 @@ void print_usage() {
 #ifndef FIXED_WAVETABLE
     printf("  --wavetable_size %u\n", FAS_WAVETABLE_SIZE);
 #endif
+    printf("  --smooth_factor %f\n", FAS_SMOOTH_FACTOR);
     printf("  --fps %u\n", FAS_FPS);
     printf("  --ssl %u\n", FAS_SSL);
     printf("  --deflate %u\n", FAS_DEFLATE);

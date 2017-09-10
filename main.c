@@ -279,7 +279,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             *out++ = last_sample_r;
         }
 
-        curr_synth.lerp_t += lerp_t_step;
+        curr_synth.lerp_t += lerp_t_step * fas_smooth_factor;
+        curr_synth.lerp_t = fmin(curr_synth.lerp_t, 1.0);
 
         curr_synth.curr_sample += 1;
 
@@ -997,6 +998,9 @@ int main(int argc, char **argv)
             case 20:
                 fas_grains_path = optarg;
                 break;
+            case 21:
+                fas_smooth_factor = strtod(optarg, NULL);
+              break;
             default: print_usage();
                  return EXIT_FAILURE;
         }
@@ -1062,6 +1066,12 @@ int main(int argc, char **argv)
         printf("Warning: noise_amount program option argument is invalid, should be >= 0, the default value (%f) will be used.\n", FAS_NOISE_AMOUNT);
 
         fas_noise_amount = FAS_NOISE_AMOUNT;
+    }
+
+    if (fas_smooth_factor < 1.) {
+        printf("Warning: smooth_factor program option argument is invalid, should be >= 1, the default value (%f) will be used.\n", FAS_SMOOTH_FACTOR);
+
+        fas_noise_amount = FAS_SMOOTH_FACTOR;
     }
 
     if (errno == ERANGE) {

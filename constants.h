@@ -37,12 +37,13 @@
     #define FAS_ENVS_SIZE 8192
     #define FAS_OSC_OUT 0
     #define FAS_AUDIO 1
+    #define FAS_SMOOTH_FACTOR 8.0
 
     // audio thread state&commands
     #define FAS_AUDIO_PLAY 0
     #define FAS_AUDIO_PAUSE 1
 
-    // audio threa commands
+    // audio thread commands
     #define FAS_AUDIO_DO_PAUSE 10
     #define FAS_AUDIO_DO_PLAY 11
     #define FAS_AUDIO_DO_WAIT_SETTINGS 12

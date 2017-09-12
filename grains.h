@@ -13,8 +13,8 @@
         unsigned int index; // grain position
         unsigned int env_type; // envelope type (unused, this is per channels instead)
         float speed;
-        float env_index;
-        float env_step;
+        uint16_t env_index;
+        uint16_t env_step;
     };
 
     extern struct grain *createGrains(struct sample **samples, unsigned int samples_count, unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate);

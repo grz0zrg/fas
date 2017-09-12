@@ -19,6 +19,8 @@
             vector<complex<Real> >  sfftframe;
             vector<Real> ifftframe;
             vector<Real> audioOutput;
+unsigned long s = 0;
+            double d = 0;
 
             Algorithm* sinemodelsynth = 0;
             Algorithm* ifft = 0;
@@ -68,7 +70,15 @@
             Real* computeSineModel(Real* m, Real* f, Real* p, unsigned int len) {
                 frequencies.assign(f, f + len);
                 magnitudes.assign(m, m + len);
-                phases.assign(p, p + len);
+                //phases.assign(p, p + len);
+
+/*magnitudes.clear();
+frequencies.clear();
+phases.clear();
+magnitudes.push_back(-2.);
+frequencies.push_back(440.);*/
+//phases.push_back(d);
+//d = d + (3.141592 * (440. + 440.) / 96000.) * 2048.;
 
                 sinemodelsynth->compute();
 

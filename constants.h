@@ -34,10 +34,10 @@
     #define FAS_OUTPUT_CHANNELS 2
     #define FAS_SSL 0
     #define FAS_NOISE_AMOUNT 0.1
-    #define FAS_ENVS_SIZE 8192
+    #define FAS_ENVS_SIZE 65536 // do not change (optimizations)
     #define FAS_OSC_OUT 0
     #define FAS_AUDIO 1
-    #define FAS_SMOOTH_FACTOR 8.0
+    #define FAS_SMOOTH_FACTOR 12.0
 
     // audio thread state&commands
     #define FAS_AUDIO_PLAY 0
@@ -53,5 +53,8 @@
     #define FAS_SPECTRAL 1
     #define FAS_GRANULAR 2
     #define FAS_EXP 3 // experiments
+
+    // granular constants
+    #define GRAIN_MIN_DURATION 0.01 // 1 ms
 
 #endif

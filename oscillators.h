@@ -12,6 +12,8 @@
         unsigned int *phase_index;
         unsigned int phase_step;
 #endif
+
+        uint16_t *noise_index;
     };
 
     extern struct oscillator *createOscillators(unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int wavetable_size, unsigned int frame_data_count);

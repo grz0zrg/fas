@@ -72,13 +72,36 @@ unsigned int load_samples(struct sample **s, char *directory) {
             sf_read_short(audio_file, st_samples, smp->len);
 
             int16_t *yin_samples = (int16_t *)malloc(smp->frames * sizeof(int16_t));
-            for(int i = 0; i < smp->frames; i++) { // convert to mono for pitch detection
+
+            unsigned int index = 0;
+            float value = 0;
+            float *max_value = (float *)malloc(sfinfo.channels * sizeof(float));
+            int i, j;
+
+            // for samples normalization
+            for(i = 0; i < smp->frames; i++) {
+                for(j = 0; j < sfinfo.channels; j++) {
+                    index = i * sfinfo.channels + j;
+
+                    max_value[j] = fmax(max_value[j], fabs(smp->data[index]));
+                }
+            }
+
+            // convert to mono for pitch detection
+            for(i = 0; i < smp->frames; i++) {
                 yin_samples[i] = 0;
-                for(int j = 0; j < sfinfo.channels; j++) {
-                    yin_samples[i] += st_samples[i * sfinfo.channels + j];
+                for(j = 0; j < sfinfo.channels; j++) {
+                    index = i * sfinfo.channels + j;
+
+                    // normalize samples at the same time
+                    smp->data[index] = smp->data[index] * (1.0f / max_value[j]);
+
+                    yin_samples[i] += st_samples[index];
                 }
                 yin_samples[i] /= sfinfo.channels;
             }
+
+            free(max_value);
 
             smp->pitch = 0;
             double uncertainty = 0.05;

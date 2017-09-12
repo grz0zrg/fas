@@ -52,6 +52,8 @@
 
 #include "fas.h"
 
+CEssentia cessentia;
+
 // liblfds data structures cleanup callbacks
 void flf_element_cleanup_callback(struct lfds711_freelist_state *fs, struct lfds711_freelist_element *fe) {
     struct _freelist_frames_data *freelist_frames_data;
@@ -59,6 +61,11 @@ void flf_element_cleanup_callback(struct lfds711_freelist_state *fs, struct lfds
 
     free(freelist_frames_data->data);
 }
+
+unsigned int smp_s = 0;
+
+float phase = 0.;
+float *b = 0;
 
 static int paCallback( const void *inputBuffer, void *outputBuffer,
                             unsigned long framesPerBuffer,
@@ -147,7 +154,24 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     for (i = 0; i < framesPerBuffer; i += 1) {
         note_buffer_len = 0;
         pv_note_buffer_len = 0;
+/*
+        if (curr_synth.chn_settings[0].env_type == FAS_SPECTRAL) {
+            smp_s = smp_s % hop_size;
+            if (smp_s == 0 && curr_notes != NULL) {
+                b = computeSineModelCEssentia(cessentia, curr_notes[0].mag, curr_notes[0].frq, curr_notes[0].pha, curr_notes[0].osc_index);
+                //aubio_pvoc_rdo(pv, curr_notes[0].fftgrain, ifft_out);
+            }
 
+            if(b && curr_notes != NULL){
+                    if (!isnan(b[smp_s])) {
+                      *out++ = b[smp_s] * curr_synth.gain->gain_lr;//ifft_out->data[smp_s];
+                      *out++ = b[smp_s] * curr_synth.gain->gain_lr;//ifft_out->data[smp_s];
+                    }
+            }
+
+                    smp_s++;
+        }
+*/
         for (k = 0; k < frame_data_count; k += 1) {
             float output_l = 0.0f;
             float output_r = 0.0f;
@@ -158,8 +182,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 pv_note_buffer_len += 1;
                 s = pv_note_buffer_len;
                 e = s + note_buffer_len;
-
-                int env_type = curr_synth.chn_settings[k].env_type;
 
                 if (curr_synth.chn_settings[k].synthesis_method == FAS_ADDITIVE) {
                     for (j = s; j < e; j += 1) {
@@ -180,7 +202,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_r += vr * s;
 
 #ifdef BANDLIMITED_NOISE
-                        osc->phase_index[k] += osc->phase_step * (1.0f + fas_white_noise_table[osc->phase_index[k]] * n->noise_multiplier);
+                        osc->phase_index[k] += osc->phase_step * (1.0f + fas_white_noise_table[osc->noise_index[k]++] * n->noise_multiplier);
 #else
                         osc->phase_index[k] += osc->phase_step;
 #endif
@@ -192,38 +214,50 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
                     }
                 } else if (curr_synth.chn_settings[k].synthesis_method == FAS_GRANULAR) {
+                    int env_type = curr_synth.chn_settings[k].env_type;
+                    float *gr_env = grain_envelope[env_type];
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        unsigned int sample_index = (double)samples_count_m1 * n->noise_multiplier;
-
-                        struct sample *smp = &samples[sample_index];
+                        struct sample *smp = &samples[n->smp_index];
                         struct grain *gr = &curr_synth.grains[n->osc_index];
 
                         float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
                         float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
 
-                        output_l += vl * (smp->data[((unsigned int)gr->frame) * smp->chn + gr->index] * grain_envelope[env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE]);
-                        output_r += vr * (smp->data[((unsigned int)gr->frame) * smp->chn + gr->index + smp->chn_m1] * grain_envelope[env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE]);
+                        output_l += vl * (smp->data[((unsigned int)gr->frame) * smp->chn + gr->index] * gr_env[gr->env_index]);
+                        output_r += vr * (smp->data[((unsigned int)gr->frame) * smp->chn + gr->index + smp->chn_m1] * gr_env[gr->env_index]);
 
-                        gr->frame+=gr->speed;
+                        gr->frame += gr->speed;
 
-                        gr->env_index+=gr->env_step;
+                        gr->env_index += gr->env_step;
 
-                        if (gr->frame >= gr->frames) {
-                            gr->index += round(gr->frames * n->alpha) * (smp->chn + 1);
-                            gr->frames = randf(0.02f, 0.1f) * smp->samplerate; // 1ms - 100ms
+                        if (gr->frame >= gr->frames || gr->frame < 0.0f) {
+                            gr->index = round(gr->frames * fabs(n->alpha)) * smp->chn;
+                            gr->frames = fmax(randf(GRAIN_MIN_DURATION, 0.5f), GRAIN_MIN_DURATION) * ((smp->frames - 1 * smp->chn) / smp->chn);
                             gr->speed = osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
                             gr->env_step = FAS_ENVS_SIZE / (gr->frames / gr->speed);
                             gr->env_index = 0;
                             gr->frame = 0;
 
                             gr->index %= (smp->frames - gr->frames);
+
+                            if (n->alpha < 0.0f) {
+                                if (gr->speed >= 0.0f) {
+                                    gr->speed = -gr->speed;
+                                }
+
+                                gr->frame = gr->frames;
+                            } else {
+                                gr->speed = fabs(gr->speed);
+                            }
                         }
                     }
                 } else if (curr_synth.chn_settings[k].synthesis_method == FAS_EXP) {
+                    int env_type = curr_synth.chn_settings[k].env_type;
+                    float *gr_env = grain_envelope[env_type];
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
 
@@ -242,13 +276,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float s = smp->data[phi * smp->chn];//osc->noise_wavetable[phi];
                         float s2 = smp->data[phi * smp->chn + smp->chn_m1];//osc->noise_wavetable[phi + 1];
 
-                        float savg = (s + s2) * 0.5f * n->alpha * grain_envelope[env_type][((unsigned int)gr->env_index)%FAS_ENVS_SIZE];
-                        //osc->noise_wavetable[phi] = savg;
-
-                        //if (fmod(acb_time, 1000.0) < n->alpha) {
-                        //    osc->noise_wavetable[phi] = (1. + randf(-fas_noise_amount, fas_noise_amount)) * n->noise_multiplier;
-                        //    osc->noise_wavetable[phi + 1] = (1. + randf(-fas_noise_amount, fas_noise_amount)) * n->noise_multiplier;
-                        //}
+                        float savg = (s + s2) * 0.5f * n->alpha * gr_env[gr->env_index];
 
                         float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
                         float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
@@ -672,8 +700,10 @@ if (remaining_payload != 0) {
                     } else if ((*channels) < frame_data_count) {
                         memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->packet_len - PACKET_HEADER_LENGTH);
                         memset(&usd->frame_data[usd->expected_frame_length * (*channels)], 0, usd->expected_frame_length * (frame_data_count - (*channels)));
+#ifdef DEBUG
                         printf("Frame channels < Output channels.\n");
                         fflush(stdout);
+#endif
                     } else {
                         memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->packet_len - PACKET_HEADER_LENGTH);
                     }
@@ -681,8 +711,18 @@ if (remaining_payload != 0) {
                     freelist_frames_data = LFDS711_FREELIST_GET_VALUE_FROM_ELEMENT(*fe);
 
                     memset(freelist_frames_data->data, 0, sizeof(struct note) * (usd->synth_h + 1) * frame_data_count + sizeof(unsigned int));
+/*
+                    if (freelist_frames_data->data[0].mag == NULL) {
+                        freelist_frames_data->data[0].mag = (float *)malloc(sizeof(float) * hop_size);
+                        freelist_frames_data->data[0].pha = (float *)malloc(sizeof(float) * hop_size);
+                        freelist_frames_data->data[0].frq = (float *)malloc(sizeof(float) * hop_size);
 
-                    fillNotesBuffer((*channels), usd->frame_data_size, freelist_frames_data->data, usd->synth_h, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
+                        memset(freelist_frames_data->data[0].mag, 0, sizeof(float) * hop_size);
+                        memset(freelist_frames_data->data[0].pha, 0, sizeof(float) * hop_size);
+                        memset(freelist_frames_data->data[0].frq, 0, sizeof(float) * hop_size);
+                    }
+*/
+                    fillNotesBuffer(samples_count_m1, (*channels), usd->frame_data_size, freelist_frames_data->data, usd->synth_h, &usd->oscillators, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
 
                     oscSend(usd->oscillators, freelist_frames_data->data);
 
@@ -927,6 +967,7 @@ int main(int argc, char **argv)
         { "osc_addr",                 required_argument, 0, 18 },
         { "osc_port",                 required_argument, 0, 19 },
         { "grains_folder",            required_argument, 0, 20 },
+        { "smooth_factor",            required_argument, 0, 21 },
         { 0, 0, 0, 0 }
     };
 
@@ -1115,6 +1156,11 @@ int main(int argc, char **argv)
             }
         }
     }
+
+#ifdef WITH_ESSENTIA
+    cessentia = newCEssentia();
+    initializeSineModelCEssentia(cessentia, fas_sample_rate, window_size, hop_size);
+#endif
 
     // PortAudio related
     PaStreamParameters outputParameters;
@@ -1336,6 +1382,11 @@ error:
         fprintf(stderr, "Error number: %d\n", err);
         fprintf(stderr, "Error message: %s\n", Pa_GetErrorText(err));
     }
+
+#ifdef WITH_ESSENTIA
+    freeSineModelCEssentia(cessentia);
+    delCEssentia(cessentia);
+#endif
 
     freeEnvelopes(grain_envelope);
 

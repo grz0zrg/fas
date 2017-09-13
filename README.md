@@ -27,9 +27,9 @@ This support OSC output of pixels data on the channel "/fragment" with data type
 
 With OSC you can basically do whatever you want with the pixels data, feeding SuperCollider synths for example, sending the data as an OSC bundle is WIP.
 
-The granular synthesis part is being actively developed, you can have additive and granular synthesis at the same time with different output channel, all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment, this feature is WIP and many things may change.
+The granular synthesis part is being actively developed, you can have additive and granular synthesis at the same time with different output channel, all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment.
 
-With granular synthesis method, Blue pixel value is mapped to sample index and Alpha value is mapped to grain index, this is a WIP mapping.
+With granular synthesis method, the Blue pixel value is mapped to sample index and the Alpha value is mapped to sample index, the Alpha value can be used to play the sample backward as well when less than zero.
 
 The ongoing development is to add more synthesis methods with the help of the essentia framework. (a C essentia wrapper is available)
 

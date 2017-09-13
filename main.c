@@ -237,7 +237,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         gr->env_index += gr->env_step;
 
                         if (gr->frame >= gr->frames || gr->frame < 0.0f) {
-                            gr->index = round(gr->frames * fabs(n->alpha)) * smp->chn;
+                            gr->index = round(smp->frames * fabs(n->alpha)) * smp->chn;
                             gr->frames = fmax(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * ((smp->frames - 1 * smp->chn) / smp->chn);
                             gr->speed = osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
                             gr->env_step = FAS_ENVS_SIZE / (gr->frames / gr->speed);
@@ -594,7 +594,7 @@ if (remaining_payload != 0) {
                     usd->expected_frame_length = 4 * usd->frame_data_size * usd->synth->settings->h;
                     usd->expected_max_frame_length = 4 * usd->frame_data_size * usd->synth->settings->h * frame_data_count;
                     size_t max_frame_data_len = usd->expected_frame_length * frame_data_count + sizeof(unsigned int) * 2;
-                    usd->frame_data = malloc(max_frame_data_len);
+                    usd->frame_data = calloc(max_frame_data_len, usd->frame_data_size);
                     usd->prev_frame_data = calloc(max_frame_data_len, usd->frame_data_size);
 
                     usd->synth_h = usd->synth->settings->h;
@@ -808,20 +808,21 @@ fflush(stdout);
 #endif
 
                     int *data = (int *)usd->packet;
-                    double *ddata = (double *)&usd->packet[PACKET_HEADER_LENGTH + 16];
-                    int i = 0;
+                    double *data_double = (double *)&usd->packet[PACKET_HEADER_LENGTH + 16];
+                    int i = 0, i2 = 0;
                     for (n = 0; n < (*channels_count); n += 1) {
                         usd->synth->chn_settings[n].synthesis_method = data[4 + i];
                         usd->synth->chn_settings[n].env_type = data[4 + i + 1];
-                        usd->synth->chn_settings[n].gmin_size = ddata[n];
-                        usd->synth->chn_settings[n].gmax_size = ddata[n + 1];
+                        usd->synth->chn_settings[n].gmin_size = data_double[i2];
+                        usd->synth->chn_settings[n].gmax_size = data_double[i2 + 1];
 
-//#ifdef DEBUG
+#ifdef DEBUG
 printf("chn %i data : %i, %i, %f, %f\n", n, usd->synth->chn_settings[n].synthesis_method, usd->synth->chn_settings[n].env_type, usd->synth->chn_settings[n].gmin_size, usd->synth->chn_settings[n].gmax_size);
 fflush(stdout);
-//#endif
+#endif
 
                         i += 6;
+                        i2 += 3;
                     }
 
                     usd->synth->oscillators = NULL;

@@ -183,7 +183,9 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 s = pv_note_buffer_len;
                 e = s + note_buffer_len;
 
-                if (curr_synth.chn_settings[k].synthesis_method == FAS_ADDITIVE) {
+                struct _synth_chn_settings *chn_settings = &curr_synth.chn_settings[k];
+
+                if (chn_settings->synthesis_method == FAS_ADDITIVE) {
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
 
@@ -213,8 +215,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         }
 #endif
                     }
-                } else if (curr_synth.chn_settings[k].synthesis_method == FAS_GRANULAR) {
-                    int env_type = curr_synth.chn_settings[k].env_type;
+                } else if (chn_settings->synthesis_method == FAS_GRANULAR) {
+                    int env_type = chn_settings->env_type;
                     float *gr_env = grain_envelope[env_type];
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
@@ -236,7 +238,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         if (gr->frame >= gr->frames || gr->frame < 0.0f) {
                             gr->index = round(gr->frames * fabs(n->alpha)) * smp->chn;
-                            gr->frames = fmax(randf(GRAIN_MIN_DURATION, 0.5f), GRAIN_MIN_DURATION) * ((smp->frames - 1 * smp->chn) / smp->chn);
+                            gr->frames = fmax(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * ((smp->frames - 1 * smp->chn) / smp->chn);
                             gr->speed = osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
                             gr->env_step = FAS_ENVS_SIZE / (gr->frames / gr->speed);
                             gr->env_index = 0;
@@ -255,8 +257,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             }
                         }
                     }
-                } else if (curr_synth.chn_settings[k].synthesis_method == FAS_EXP) {
-                    int env_type = curr_synth.chn_settings[k].env_type;
+                } else if (chn_settings->synthesis_method == FAS_EXP) {
+                    int env_type = chn_settings->env_type;
                     float *gr_env = grain_envelope[env_type];
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
@@ -804,18 +806,22 @@ if (remaining_payload != 0) {
 printf("CHN_SETTINGS : chn count %i\n", *channels_count);
 fflush(stdout);
 #endif
+
                     int *data = (int *)usd->packet;
+                    double *ddata = (double *)&usd->packet[PACKET_HEADER_LENGTH + 16];
                     int i = 0;
                     for (n = 0; n < (*channels_count); n += 1) {
                         usd->synth->chn_settings[n].synthesis_method = data[4 + i];
                         usd->synth->chn_settings[n].env_type = data[4 + i + 1];
+                        usd->synth->chn_settings[n].gmin_size = ddata[n];
+                        usd->synth->chn_settings[n].gmax_size = ddata[n + 1];
 
-#ifdef DEBUG
-printf("chn %i data : %i, %i\n", n, usd->synth->chn_settings[n].synthesis_method, usd->synth->chn_settings[n].env_type);
+//#ifdef DEBUG
+printf("chn %i data : %i, %i, %f, %f\n", n, usd->synth->chn_settings[n].synthesis_method, usd->synth->chn_settings[n].env_type, usd->synth->chn_settings[n].gmin_size, usd->synth->chn_settings[n].gmax_size);
 fflush(stdout);
-#endif
+//#endif
 
-                        i += 2;
+                        i += 6;
                     }
 
                     usd->synth->oscillators = NULL;

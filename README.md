@@ -37,7 +37,7 @@ The ongoing development is to add more synthesis methods with the help of the es
 
 ### Packets
 
-To communicate with FAS, there is only four type of packets, the first byte is the packet identifier, below is the expected data for each packets :
+To communicate with FAS, there is only four type of packets, the first byte is the packet identifier, below is the expected data for each packets (you must send settings before sending any frames!) :
 
 Synth settings, packet identifier 0 :
 ```c
@@ -72,6 +72,8 @@ Synth channels settings, packet identifier 3 :
 struct _synth_gain {
     unsigned int synthesis_method;
     int env_type; // granular envelope type for this channel (there is 9 types of envelopes)
+    double gmin_size; // granular grain duration (min. bound)
+    double gmax_size; // granular grain duration (max. bound)
 };
 ```
 

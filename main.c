@@ -237,13 +237,14 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         gr->env_index += gr->env_step;
 
                         if (gr->frame >= gr->frames || gr->frame < 0.0f) {
-                            gr->index = round(smp->frames * fabs(n->alpha)) * smp->chn;
+                            gr->index = round((smp->frames - smp->chn) * fabs(n->alpha)) * smp->chn;
                             gr->frames = fmax(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * ((smp->frames - 1 * smp->chn) / smp->chn);
                             gr->speed = osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
                             gr->env_step = FAS_ENVS_SIZE / (gr->frames / gr->speed);
                             gr->env_index = 0;
                             gr->frame = 0;
 
+                            gr->index = abs(gr->index);
                             gr->index %= (smp->frames - gr->frames);
 
                             if (n->alpha < 0.0f) {
@@ -257,7 +258,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             }
                         }
                     }
-                } else if (chn_settings->synthesis_method == FAS_EXP) {
+                } else if (chn_settings->synthesis_method == FAS_SAMPLER) {
                     int env_type = chn_settings->env_type;
                     float *gr_env = grain_envelope[env_type];
                     for (j = s; j < e; j += 1) {
@@ -275,13 +276,13 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         uint16_t phi = (float)osc->phase_index[k];
 
-                        float s = smp->data[phi * smp->chn];//osc->noise_wavetable[phi];
-                        float s2 = smp->data[phi * smp->chn + smp->chn_m1];//osc->noise_wavetable[phi + 1];
+                        float s = smp->data[phi * smp->chn];
+                        float s2 = smp->data[phi * smp->chn + smp->chn_m1];
 
-                        float savg = (s + s2) * 0.5f * n->alpha * gr_env[gr->env_index];
+                        float savg = (s + s2) * 0.5f * gr_env[gr->env_index];
 
-                        float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
-                        float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
+                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         output_l += vl * savg;
                         output_r += vr * savg;
@@ -290,7 +291,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         osc->phase_index[k] += osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
                         if (osc->phase_index[k] >= smp->frames) {
-                            osc->phase_index[k] -= smp->frames;
+                            osc->phase_index[k] = abs(round((smp->frames - smp->chn) * fabs(n->alpha)) * smp->chn);
                             gr->env_step = FAS_ENVS_SIZE / (smp->frames / gr->speed);
                             gr->env_index = 0;
                         }

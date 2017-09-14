@@ -17,7 +17,7 @@ There is a generic lock-free thread-safe commands queue for synth. parameters ch
 
 A free list data structure is used to handle data reuse, the program pre-allocate a pool of notes buffer that is reused.
 
-Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping), bandlimited-noise can also be disabled for lightning fast additive synthesis.
+Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping), bandwidth enhanced sines can also be disabled for lightning fast additive synthesis.
 
 For additive synthesis and in stereophonic mode the pixels data channel R and G is the amplitude value of the oscillators (for L/R) while the B channel is the band-limited noise multiplier, if you set B to 0, no noise will added to the oscillator while a value of 1 will apply the global noise amount.
 

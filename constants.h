@@ -52,7 +52,7 @@
     #define FAS_ADDITIVE 0
     #define FAS_SPECTRAL 1
     #define FAS_GRANULAR 2
-    #define FAS_EXP 3 // experiments
+    #define FAS_SAMPLER 3 // experiments
 
     // granular constants
     #define GRAIN_MIN_DURATION 0.01 // 1 ms

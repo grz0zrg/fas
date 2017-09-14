@@ -83,7 +83,10 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int channels, unsigned
             _note->diff_a = abs(alpha - palpha);
 
             // for granular synthesis, samples and related
-            _note->smp_index = round((double)samples_count * blue);
+            _note->smp_index = abs(round((double)samples_count * blue));
+            if (_note->smp_index >= samples_count) {
+                _note->smp_index = samples_count;
+            }
 
             if (l > 0 ) {
                 volume_l = l * inv_full_brightness;

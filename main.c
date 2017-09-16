@@ -106,7 +106,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             curr_synth.chn_settings = queue_synth->chn_settings;
         }
 
-        audio_thread_state = FAS_AUDIO_PLAY;
+        //audio_thread_state = FAS_AUDIO_PLAY;
     }
 
     int read_status = 0;
@@ -296,7 +296,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float s = smp->data[phi * smp->chn];
                         float s2 = smp->data[phi * smp->chn + smp->chn_m1];
 
-                        float savg = /*(s + s2) * 0.5f*/ * gr_env[gr->env_index[k]];
+                        float savg = /*(s + s2) * 0.5f*/s * gr_env[gr->env_index[k]];
 
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
@@ -390,17 +390,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     return paContinue;
 }
 
-void change_height(unsigned int new_height) {
-  lfds711_freelist_cleanup(&freelist_frames, flf_element_cleanup_callback);
-
-  for (int i = 0; i < fas_frames_queue_size; i += 1) {
-      ffd[i].data = malloc(sizeof(struct note) * (new_height + 1) * frame_data_count + sizeof(unsigned int));
-
-      LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(ffd[i].fe, &ffd[i]);
-      lfds711_freelist_push(&freelist_frames, &ffd[i].fe, NULL);
-  }
-}
-
 void audioPause() {
     audio_thread_state = FAS_AUDIO_DO_PAUSE;
 
@@ -411,8 +400,23 @@ void audioPlay() {
     audio_thread_state = FAS_AUDIO_DO_PLAY;
 }
 
-void audioWaitSettings() {
-    audio_thread_state = FAS_AUDIO_DO_WAIT_SETTINGS;
+void change_height(unsigned int new_height) {
+    //lfds711_freelist_cleanup(&freelist_frames, flf_element_cleanup_callback);
+    struct lfds711_freelist_element *fe;
+    struct _freelist_frames_data *freelist_frames_data;
+
+    while (lfds711_freelist_pop(&freelist_frames, &fe, NULL)) {
+        freelist_frames_data = LFDS711_FREELIST_GET_VALUE_FROM_ELEMENT(*fe);
+
+        free(freelist_frames_data->data);
+    }
+
+    for (int i = 0; i < fas_frames_queue_size; i += 1) {
+        ffd[i].data = malloc(sizeof(struct note) * (new_height + 1) * frame_data_count + sizeof(unsigned int));
+
+        LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(ffd[i].fe, &ffd[i]);
+        lfds711_freelist_push(&freelist_frames, &ffd[i].fe, NULL);
+    }
 }
 
 void oscSend(struct oscillator *oscillators, struct note *data) {
@@ -452,6 +456,39 @@ void oscSend(struct oscillator *oscillators, struct note *data) {
     }
 
     //lo_send_bundle(fas_lo_addr, bundle);
+}
+
+void freeSynth(struct _synth **s) {
+    struct _synth *synth = *s;
+    if (synth) {
+        if (synth->oscillators && synth->settings) {
+            synth->oscillators = freeOscillators(&synth->oscillators, synth->settings->h);
+        }
+
+        freeGrains(&synth->grains, synth->settings->h, fas_granular_max_density);
+
+        free(synth->chn_settings);
+        free(synth->settings);
+        free(synth);
+    }
+}
+
+void clearQueues() {
+    void *key;
+    struct _freelist_frames_data *freelist_frames_data;
+    while (lfds711_ringbuffer_read(&rs, &key, NULL)) {
+        freelist_frames_data = (struct _freelist_frames_data *)key;
+
+        LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(freelist_frames_data->fe, freelist_frames_data);
+        lfds711_freelist_push(&freelist_frames, &freelist_frames_data->fe, NULL);
+    }
+
+    void *queue_synth_void;
+    while(lfds711_queue_bss_dequeue(&synth_commands_queue_state, NULL, &queue_synth_void)) {
+        struct _synth *queue_synth = (struct _synth *)queue_synth_void;
+
+        freeSynth(&queue_synth);
+    }
 }
 
 int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
@@ -564,6 +601,8 @@ if (remaining_payload != 0) {
 #endif
 
                 if (pid == SYNTH_SETTINGS) {
+                    audioPause();
+
                     unsigned int h = 0;
                     if (usd->synth == NULL) {
                         usd->synth = (struct _synth*)malloc(sizeof(struct _synth));
@@ -593,6 +632,8 @@ if (remaining_payload != 0) {
                     } else {
                         h = usd->synth->settings->h;
                     }
+
+                    clearQueues();
 
                     memcpy(usd->synth->settings, &((char *) usd->packet)[PACKET_HEADER_LENGTH], 24);
 
@@ -662,6 +703,8 @@ if (remaining_payload != 0) {
                     }
 
                     usd->synth = NULL;
+
+                    audioPlay();
                 } else if (pid == FRAME_DATA) {
 #ifdef DEBUG
     printf("FRAME_DATA\n");
@@ -878,17 +921,11 @@ free_packet:
             break;
 
         case LWS_CALLBACK_WS_PEER_INITIATED_CLOSE:
-            if (usd->synth) {
-                if (usd->synth->oscillators && usd->synth->settings) {
-                    usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, usd->synth->settings->h);
-                }
+            audioPause();
 
-                freeGrains(&usd->synth->grains, usd->synth->settings->h, fas_granular_max_density);
+            clearQueues();
 
-                free(usd->synth->chn_settings);
-                free(usd->synth->settings);
-                free(usd->synth);
-            }
+            freeSynth(&usd->synth);
 
             if (usd->oscillators) {
                 usd->oscillators = freeOscillators(&usd->oscillators, usd->synth_h);
@@ -900,6 +937,8 @@ free_packet:
 
             printf("Connection from %s (%s) closed.\n", usd->peer_name, usd->peer_ip);
             fflush(stdout);
+
+            audioPlay();
             break;
 
         default:

@@ -15,6 +15,7 @@
         float noise_multiplier;
         float previous_a;
         float diff_a;
+        float blue;
         float alpha;
 
         float *mag;

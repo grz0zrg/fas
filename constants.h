@@ -38,6 +38,7 @@
     #define FAS_OSC_OUT 0
     #define FAS_AUDIO 1
     #define FAS_SMOOTH_FACTOR 12.0
+    #define FAS_GRANULAR_MAX_DENSITY 128
 
     // audio thread state&commands
     #define FAS_AUDIO_PLAY 0

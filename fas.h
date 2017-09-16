@@ -57,6 +57,7 @@
     unsigned int fas_ssl = FAS_SSL;
     unsigned int fas_osc_out = FAS_OSC_OUT;
     unsigned int fas_output_channels = FAS_OUTPUT_CHANNELS;
+    unsigned int fas_granular_max_density = FAS_GRANULAR_MAX_DENSITY;
     unsigned int frame_data_count = FAS_OUTPUT_CHANNELS / 2;
     double fas_smooth_factor = FAS_SMOOTH_FACTOR;
     float fas_noise_amount = FAS_NOISE_AMOUNT;

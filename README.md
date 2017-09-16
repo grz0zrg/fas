@@ -29,7 +29,7 @@ With OSC you can basically do whatever you want with the pixels data, feeding Su
 
 The granular synthesis part is being actively developed, you can have additive and granular synthesis at the same time with different output channel, all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment.
 
-With granular synthesis method, the Blue pixel value is mapped to sample index and the Alpha value is mapped to sample index, the Alpha value can be used to play the sample backward as well when less than zero.
+With granular synthesis method, the Blue pixel value is mapped to sample index (bounded to [0, 1]) and granular density when higher than 2, the Alpha value is mapped to sample index, the Alpha value can be used to play the sample backward as well when less than zero.
 
 The ongoing development is to add more synthesis methods with the help of the essentia framework. (a C essentia wrapper is available)
 
@@ -166,6 +166,7 @@ Usage: fas [list_of_parameters]
  * --osc_addr 127.0.0.1 **the OSC server address**
  * --osc_port 57120 **the OSC server port**
  * --grains_folder ./grains/
+ * --granular_max_density 128 **this control how dense grains can be**
  * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**
  * --iface 127.0.0.1 **the listening address**

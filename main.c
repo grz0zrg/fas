@@ -80,7 +80,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
     float *out = (float*)outputBuffer;
 
-    unsigned int i, j, k, s, e;
+    unsigned int i, j, k, d, s, e;
 
     void *queue_synth_void;
     if (lfds711_queue_bss_dequeue(&synth_commands_queue_state, NULL, &queue_synth_void) == 1) {
@@ -223,38 +223,56 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        struct sample *smp = &samples[n->smp_index];
-                        struct grain *gr = &curr_synth.grains[n->osc_index];
-
                         float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
                         float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
 
-                        output_l += vl * (smp->data[((unsigned int)gr->frame) * smp->chn + gr->index] * gr_env[gr->env_index]);
-                        output_r += vr * (smp->data[((unsigned int)gr->frame) * smp->chn + gr->index + smp->chn_m1] * gr_env[gr->env_index]);
+                        struct grain *gr = &curr_synth.grains[n->osc_index];
+                        struct sample *smp = &samples[gr->smp_index[k]];
 
-                        gr->frame += gr->speed;
+                        for (d = 0; d < gr->density[k]; d += 1) {
+                            gr = &curr_synth.grains[n->osc_index + d * curr_synth.settings->h];
 
-                        gr->env_index += gr->env_step;
+                            unsigned int sample_index_l = ((unsigned int)gr->frame[k]) * smp->chn + gr->index[k];
+                            unsigned int sample_index_r = ((unsigned int)gr->frame[k]) * smp->chn + gr->index[k] + smp->chn_m1;
 
-                        if (gr->frame >= gr->frames || gr->frame < 0.0f) {
-                            gr->index = round((smp->frames - smp->chn) * fabs(n->alpha)) * smp->chn;
-                            gr->frames = fmax(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * ((smp->frames - 1 * smp->chn) / smp->chn);
-                            gr->speed = osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
-                            gr->env_step = FAS_ENVS_SIZE / (gr->frames / gr->speed);
-                            gr->env_index = 0;
-                            gr->frame = 0;
+                            output_l += vl * (smp->data[sample_index_l] * gr_env[gr->env_index[k]]);
+                            output_r += vr * (smp->data[sample_index_r] * gr_env[gr->env_index[k]]);
 
-                            gr->index = abs(gr->index);
-                            gr->index %= (smp->frames - gr->frames);
+                            gr->frame[k] += gr->speed;
 
-                            if (n->alpha < 0.0f) {
-                                if (gr->speed >= 0.0f) {
-                                    gr->speed = -gr->speed;
+                            gr->env_index[k] += gr->env_step[k];
+
+                            if (gr->frame[k] >= gr->frames[k] || gr->frame[k] < 0.0f) {
+                                gr->smp_index[k] = n->smp_index;
+
+                                smp = &samples[n->smp_index];
+
+                                gr->index[k] = round((smp->frames/* - 1*/) * (fabs(n->alpha + randf(0.0, 1.0 * (d / fas_granular_max_density))) / 2)) * smp->chn;
+                                gr->frames[k] = fmax(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * (smp->frames/* - 1*/);
+                                gr->speed = osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
+                                gr->env_step[k] = FAS_ENVS_SIZE / (gr->frames[k] / gr->speed);
+                                gr->env_index[k] = 0;
+                                gr->frame[k] = 0;
+                                gr->density[k] = fabs(round(n->blue));
+                                if (gr->density[k] < 1) {
+                                    gr->density[k] = 1;
                                 }
 
-                                gr->frame = gr->frames;
-                            } else {
-                                gr->speed = fabs(gr->speed);
+                                if (gr->density[k] >= fas_granular_max_density) {
+                                    gr->density[k] = 1;
+                                }
+
+                                gr->index[k] %= (smp->frames - gr->frames[k]);
+
+                                if (n->alpha < 0.0f) {
+                                    if (gr->speed >= 0.0f) {
+                                        gr->speed = -gr->speed;
+                                    }
+
+                                    gr->frame[k] = gr->frames[k];
+                                } else {
+                                    gr->speed = fabs(gr->speed);
+                                }
                             }
                         }
                     }
@@ -268,18 +286,17 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         struct grain *gr = &curr_synth.grains[n->osc_index];
 
-                        unsigned int sample_index = (double)samples_count_m1 * n->noise_multiplier;
-                        unsigned int sample_index_2 = ((double)samples_count_m1 * n->noise_multiplier) + 1;
+                        unsigned int sample_index = gr->smp_index[k];
 
                         struct sample *smp = &samples[sample_index];
-                        struct sample *smp2 = &samples[sample_index_2%samples_count_m1];
+                        struct sample *smp2 = &samples[(sample_index + 1)%samples_count_m1];
 
                         uint16_t phi = (float)osc->phase_index[k];
 
                         float s = smp->data[phi * smp->chn];
                         float s2 = smp->data[phi * smp->chn + smp->chn_m1];
 
-                        float savg = (s + s2) * 0.5f * gr_env[gr->env_index];
+                        float savg = /*(s + s2) * 0.5f*/ * gr_env[gr->env_index[k]];
 
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
@@ -287,13 +304,17 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_l += vl * savg;
                         output_r += vr * savg;
 
-                        gr->env_index += gr->env_step;
+                        gr->env_index[k] += gr->env_step[k];
 
                         osc->phase_index[k] += osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
                         if (osc->phase_index[k] >= smp->frames) {
-                            osc->phase_index[k] = abs(round((smp->frames - smp->chn) * fabs(n->alpha)) * smp->chn);
-                            gr->env_step = FAS_ENVS_SIZE / (smp->frames / gr->speed);
-                            gr->env_index = 0;
+                            gr->smp_index[k] = n->smp_index;
+
+                            smp = &samples[n->smp_index];
+
+                            osc->phase_index[k] = 0;//abs(round((smp->frames - smp->chn) * fabs(n->alpha)) * smp->chn);
+                            gr->env_step[k] = FAS_ENVS_SIZE / (smp->frames / gr->speed);
+                            gr->env_index[k] = 0;
                         }
                     }
                 }
@@ -580,7 +601,7 @@ if (remaining_payload != 0) {
                             usd->synth->settings->octave, usd->synth->settings->data_type, usd->synth->settings->base_frequency);
                     #endif
 
-                    freeGrains(&usd->synth->grains, h);
+                    freeGrains(&usd->synth->grains, h, fas_granular_max_density);
 
                     usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, h);
 
@@ -615,7 +636,7 @@ if (remaining_payload != 0) {
                         usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
                     //
 
-                    usd->synth->grains = createGrains(&samples, samples_count, usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate);
+                    usd->synth->grains = createGrains(&samples, samples_count, usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, frame_data_count, fas_granular_max_density);
 
                     usd->synth->chn_settings = (struct _synth_chn_settings*)malloc(sizeof(struct _synth_chn_settings) * frame_data_count);
                     if (usd->synth->chn_settings == NULL) {
@@ -632,7 +653,7 @@ if (remaining_payload != 0) {
                         free(usd->synth->settings);
                         usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, usd->synth->settings->h);
 
-                        freeGrains(&usd->synth->grains, usd->synth->settings->h);
+                        freeGrains(&usd->synth->grains, usd->synth->settings->h, fas_granular_max_density);
 
                         free(usd->synth);
                         usd->synth = NULL;
@@ -862,7 +883,7 @@ free_packet:
                     usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, usd->synth->settings->h);
                 }
 
-                freeGrains(&usd->synth->grains, usd->synth->settings->h);
+                freeGrains(&usd->synth->grains, usd->synth->settings->h, fas_granular_max_density);
 
                 free(usd->synth->chn_settings);
                 free(usd->synth->settings);
@@ -1050,6 +1071,9 @@ int main(int argc, char **argv)
             case 21:
                 fas_smooth_factor = strtod(optarg, NULL);
               break;
+            case 22:
+                fas_granular_max_density = strtoul(optarg, NULL, 0);
+              break;
             default: print_usage();
                  return EXIT_FAILURE;
         }
@@ -1121,6 +1145,12 @@ int main(int argc, char **argv)
         printf("Warning: smooth_factor program option argument is invalid, should be >= 1, the default value (%f) will be used.\n", FAS_SMOOTH_FACTOR);
 
         fas_noise_amount = FAS_SMOOTH_FACTOR;
+    }
+
+    if (fas_granular_max_density < 1.) {
+        printf("Warning: granular_max_density program option argument is invalid, should be >= 1, the default value (%i) will be used.\n", FAS_GRANULAR_MAX_DENSITY);
+
+        fas_noise_amount = FAS_GRANULAR_MAX_DENSITY;
     }
 
     if (errno == ERANGE) {

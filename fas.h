@@ -8,6 +8,7 @@
     #include <string.h>
     #include <strings.h>
     #include <stdatomic.h>
+    #include <time.h>
 
     #if defined(_WIN32) || defined(_WIN64)
         #include <conio.h>
@@ -59,6 +60,7 @@
     unsigned int fas_output_channels = FAS_OUTPUT_CHANNELS;
     unsigned int fas_granular_max_density = FAS_GRANULAR_MAX_DENSITY;
     unsigned int frame_data_count = FAS_OUTPUT_CHANNELS / 2;
+    unsigned int fas_stream_load_send_delay = FAS_STREAM_LOAD_SEND_DELAY;
     double fas_smooth_factor = FAS_SMOOTH_FACTOR;
     float fas_noise_amount = FAS_NOISE_AMOUNT;
     int fas_audio_device = -1;
@@ -83,6 +85,8 @@
     double lerp_t_step;
 
     atomic_int audio_thread_state = FAS_AUDIO_PLAY;
+
+    time_t stream_load_begin;
 
     PaStream *stream;
 

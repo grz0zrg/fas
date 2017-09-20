@@ -11,6 +11,8 @@ This program is tailored for performances and can be executed on a [Raspberry Pi
 
 Only one client is supported at the moment (altough many can connect, not tested but it may result in a big audio mess and likely a crash!)
 
+The server only send the CPU load of the stream at regular interval (adjustable) to the client (double type).
+
 The audio callback contain its own synth. data structure, the data structure is filled from data coming from a lock-free ring buffer to ensure thread safety for the incoming notes data.
 
 There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, oscillators etc.).
@@ -175,6 +177,7 @@ Usage: fas [list_of_parameters]
  * --alsa_realtime_scheduling 0 **Linux only**
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio will be delayed**
  * --commands_queue_size 16 **should be a positive integer power of 2**
+ * --stream_load_send_delay 2 **FAS will send the stream CPU load every seconds**
 
 Self-signed certificates are provided in case you compile/run it with SSL. (Note: This is useless for many reasons and HTTP should _**ALWAYS**_ be the prefered protocol for online Fragment application, this is explained in [this issue](https://github.com/grz0zrg/fas/issues/1).)
 

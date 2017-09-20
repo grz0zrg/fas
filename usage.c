@@ -23,7 +23,8 @@ void print_usage() {
     printf("  --osc_addr 127.0.0.1\n");
     printf("  --osc_port 57120\n");
     printf("  --grains_folder ./grains/\n");
-    printf("  --granular_max_density 128\n");
+    printf("  --granular_max_density %u\n", FAS_GRANULAR_MAX_DENSITY);
+    printf("  --stream_load_send_delay %u\n", FAS_STREAM_LOAD_SEND_DELAY);
     printf("  --output_channels %u\n", FAS_OUTPUT_CHANNELS);
 #ifdef __unix__
     printf("  --alsa_realtime_scheduling %u\n", FAS_REALTIME);

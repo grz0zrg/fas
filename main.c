@@ -247,8 +247,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                                 smp = &samples[n->smp_index];
 
-                                gr->index[k] = round((smp->frames/* - 1*/) * (fabs(n->alpha + randf(0.0, 1.0 * (d / fas_granular_max_density))) / 2)) * smp->chn;
-                                gr->frames[k] = fmax(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * (smp->frames/* - 1*/);
+                                gr->index[k] = round((smp->frames - 1) * (fabs(n->alpha + randf(0.0, 1.0 * (d / fas_granular_max_density))) / 2)) * smp->chn;
+                                gr->frames[k] = fmax(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * (smp->frames - 1);
                                 gr->speed = osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
                                 gr->env_step[k] = FAS_ENVS_SIZE / (gr->frames[k] / gr->speed);
                                 gr->env_index[k] = 0;
@@ -275,6 +275,18 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 }
                             }
                         }
+                    }
+
+                    if (isnan(output_l)) {
+                      printf("output_l == NaN\n");
+                      fflush(stdout);
+                        output_l = 0;
+                    }
+
+                    if (isnan(output_r)) {
+                      printf("output_r == NaN\n");
+                      fflush(stdout);
+                        output_r = 0;
                     }
                 } else if (chn_settings->synthesis_method == FAS_SAMPLER) {
                     int env_type = chn_settings->env_type;
@@ -800,6 +812,20 @@ if (remaining_payload != 0) {
                         LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(overwritten_notes->fe, overwritten_notes);
                         lfds711_freelist_push(&freelist_frames, &overwritten_notes->fe, NULL);
                     }
+
+                    // check & send stream load
+                    time_t stream_load_end;
+                    time(&stream_load_end);
+                    double stream_load_time = difftime(stream_load_end,stream_load_begin);
+                    if (stream_load_time > fas_stream_load_send_delay) {
+                        static unsigned char p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(double) + LWS_SEND_BUFFER_POST_PADDING];
+                        p_load[LWS_SEND_BUFFER_PRE_PADDING] = 0;
+                        double stream_load = Pa_GetStreamCpuLoad(stream);
+                        memcpy(&p_load[LWS_SEND_BUFFER_PRE_PADDING], &stream_load, sizeof(double));
+                        lws_write(wsi, &p_load[LWS_SEND_BUFFER_PRE_PADDING], sizeof(double), LWS_WRITE_BINARY);
+
+                        time(&stream_load_begin);
+                    }
                 } else if (pid == GAIN_CHANGE) {
                     if (usd->synth == NULL) {
                         usd->synth = (struct _synth*)malloc(sizeof(struct _synth));
@@ -1036,6 +1062,8 @@ int main(int argc, char **argv)
         { "osc_port",                 required_argument, 0, 19 },
         { "grains_folder",            required_argument, 0, 20 },
         { "smooth_factor",            required_argument, 0, 21 },
+        { "granular_max_density",     required_argument, 0, 22 },
+        { "stream_load_send_delay",   required_argument, 0, 23 },
         { 0, 0, 0, 0 }
     };
 
@@ -1112,6 +1140,9 @@ int main(int argc, char **argv)
               break;
             case 22:
                 fas_granular_max_density = strtoul(optarg, NULL, 0);
+              break;
+            case 23:
+                fas_stream_load_send_delay = strtoul(optarg, NULL, 0);
               break;
             default: print_usage();
                  return EXIT_FAILURE;
@@ -1192,11 +1223,19 @@ int main(int argc, char **argv)
         fas_noise_amount = FAS_GRANULAR_MAX_DENSITY;
     }
 
+    if (fas_stream_load_send_delay < 1.) {
+        printf("Warning: stream_load_send_delay program option argument is invalid, should be >= 1, the default value (%i) will be used.\n", FAS_STREAM_LOAD_SEND_DELAY);
+
+        fas_stream_load_send_delay = FAS_STREAM_LOAD_SEND_DELAY;
+    }
+
     if (errno == ERANGE) {
         printf("Warning: One of the specified program option is out of range and was set to its maximal value.\n");
     }
 
     if (print_infos != 1) {
+        time(&stream_load_begin);
+
         samples_count = load_samples(&samples, fas_grains_path);
         samples_count_m1 = samples_count - 1;
 

@@ -7,7 +7,7 @@
 
     #include "constants.h"
 
-    #define FAS_ENVS_COUNT 9
+    #define FAS_ENVS_COUNT 13
 
     extern float randf(float min, float max);
     extern float **createEnvelopes(unsigned int n);

@@ -11,7 +11,20 @@ float randf(float min, float max) {
 }
 
 float gaussian(float x, int L, float sigma) {
-   return exp(-pow((x - L / 2) / (2 * sigma), 2));
+    return exp(-pow((x - L / 2) / (2 * sigma), 2));
+}
+
+float bessi0(float x) {
+    double ax = fabs(x);
+
+    if (ax < 3.75) {
+        double y = x / 3.75;
+        y = y * y;
+        return 1.0 + y*(3.5156229+y*(3.0899424+y*(1.2067492+y*(0.2659732+y*(0.360768e-1+y*0.45813e-2)))));
+    } else {
+        double y = 3.75 / ax;
+        return (exp(ax) / sqrt(ax)) * (0.39894228+y*(0.1328592e-1+y*(0.225319e-2+y*(-0.157565e-2+y*(0.916281e-2+y*(-0.2057706e-1+y*(0.2635537e-1+y*(-0.1647633e-1+y*0.392377e-2))))))));
+   }
 }
 
 float **createEnvelopes(unsigned int n) {
@@ -26,26 +39,26 @@ float **createEnvelopes(unsigned int n) {
         switch(i) {
             case 0: // SINE
               for (int j = 0; j < n; j++) {
-                  envs[i][j] = sin(M_PI * (double)j / n);
+                  envs[i][j] = sin(M_PI * (double)j / (double)(n - 1));
               }
               break;
 
             case 1: // HANN
               for (int j = 0; j < n; j++) {
-                  envs[i][j] = 0.5 * (1 - cos(2 * M_PI * j / n));
+                  envs[i][j] = 0.5 * (1.0 - cos(2.0 * M_PI * (double)j / (double)(n - 1)));
               }
               break;
 
             case 2: // HAMMING
               for (int j = 0; j < n; j++) {
-                  envs[i][j] = 0.54 - 0.46 * cos(2 * M_PI * j / n);
+                  envs[i][j] = 0.54 - 0.46 * cos(2 * M_PI * (double)j / (double)(n - 1));
               }
               break;
 
             case 3: // TUKEY
               for (int j = 0; j < n; j++) {
                   float truncationHeight = 0.5;
-                  float f = 1 / (2 * truncationHeight) * (1 - cos(2 * M_PI * j / n));
+                  float f = 1.0 / (2.0 * truncationHeight) * (1.0 - cos(2.0 * M_PI * (double)j / (double)(n - 1)));
                   envs[i][j] = f < 1 ? f : 1;
               }
               break;
@@ -53,7 +66,7 @@ float **createEnvelopes(unsigned int n) {
             case 4: // GAUSSIAN
               for (int j = 0; j < n; j++) {
                   float sigma = 0.3;
-                  envs[i][j] = pow(E, -0.5* pow(((j - n/   2) / (sigma * n / 2)), 2) );
+                  envs[i][j] = pow(E, -0.5* pow(((j - (double)(n - 1) /   2) / (sigma * (double)(n - 1) / 2)), 2) );
               }
               break;
 
@@ -109,6 +122,31 @@ float **createEnvelopes(unsigned int n) {
                     envs[i][j] += a2 * cos((2.0f * 2.0f * (float)(M_PI) * j) / L);
                     envs[i][j] -= a3 * cos((3.0f * 2.0f * (float)(M_PI) * j) / L);
                 }
+              break;
+
+            case 9: // PARZEN
+              for (int j = 0; j < n; j++) {
+                  envs[i][j] = 1.0 - fabs(((double)j - 0.5 * (double)(n - 1)) / (0.5 * (double)(n + 1)));
+              }
+              break;
+
+            case 10: // NUTALL
+              for (int j = 0; j < n; j++) {
+                  envs[i][j] = 0.3635819 - 0.3635819 * cos(2*(float)(M_PI)*(double)j/(n-1)) + 0.1365995* cos(4*(float)(M_PI)*(double)j/(n-1)) - 0.0106411*cos(6*(float)(M_PI)*(double)j/(n-1));
+              }
+              break;
+
+            case 11: // FLATTOP
+              for (int j = 0; j < n; j++) {
+                  envs[i][j] = 1 - 1.93*cos(2*(float)(M_PI)*(double)j/(n-1)) + 1.29*cos(4*(float)(M_PI)*(double)j/(n-1)) - 0.388*cos(6*(float)(M_PI)*(double)j/(n-1)) + 0.032*cos(8*(float)(M_PI)*(double)j/(n-1));
+              }
+              break;
+
+            case 12: // KAISER
+              for (int j = 0; j < n; j++) {
+                  double alpha = 3.0;
+                  envs[i][j] = bessi0((float)(M_PI) * alpha * sqrt(1 - pow((2 * (double)j / (n - 1)) - 1, 2))) / bessi0((float)(M_PI) * alpha);
+              }
               break;
 
             default:

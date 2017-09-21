@@ -31,6 +31,8 @@ With OSC you can basically do whatever you want with the pixels data, feeding Su
 
 The granular synthesis part is being actively developed, you can have additive and granular synthesis at the same time with different output channel, all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment.
 
+FAS will try to guess the sample pitch to map it correctly to images height with several methods, an exact one from the filename (the filename should contain a note such as A#4 for example) and Yin pitch detection if everything else fail.
+
 With granular synthesis method, the Blue pixel value is mapped to sample index (bounded to [0, 1]) and granular density when higher than 2, the Alpha value is mapped to sample index, the Alpha value can be used to play the sample backward as well when less than zero.
 
 The ongoing development is to add more synthesis methods with the help of the essentia framework. (a C essentia wrapper is available)

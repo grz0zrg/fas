@@ -247,7 +247,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                                 smp = &samples[n->smp_index];
 
-                                gr->index[k] = round((smp->frames - 1) * (fabs(n->alpha + randf(0.0, 1.0) * fabs(round(n->blue))))) * smp->chn;
+                                gr->index[k] = round((smp->frames - 1) * (fabs(n->alpha + randf(0.0, 1.0) * fabs(floor(n->blue))))) * smp->chn;
                                 gr->frames[k] = fmax(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * (smp->frames - 1);
                                 gr->speed = osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
                                 gr->env_step[k] = FAS_ENVS_SIZE / (gr->frames[k] / gr->speed);

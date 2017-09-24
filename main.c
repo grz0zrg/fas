@@ -126,7 +126,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     }
 
     if (curr_synth.oscillators == NULL ||
-        curr_synth.grains == NULL ||
         curr_synth.settings == NULL ||
         curr_synth.gain == NULL ||
         curr_synth.chn_settings == NULL ||
@@ -215,7 +214,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         }
 #endif
                     }
-                } else if (chn_settings->synthesis_method == FAS_GRANULAR) {
+                } else if (chn_settings->synthesis_method == FAS_GRANULAR && curr_synth.grains != NULL) {
                     int env_type = chn_settings->env_type;
                     float *gr_env = grain_envelope[env_type];
                     for (j = s; j < e; j += 1) {
@@ -226,31 +225,23 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
                         float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
 
-                        struct grain *gr = &curr_synth.grains[n->osc_index];
-                        struct sample *smp = &samples[gr->smp_index[k]];
+                        unsigned int grain_index = n->osc_index * samples_count + n->smp_index;
+                        unsigned int si = curr_synth.settings->h * samples_count;
+
+                        struct grain *gr = &curr_synth.grains[grain_index];
+                        struct sample *smp = &samples[n->smp_index];
 
                         for (d = 0; d < gr->density[k]; d += 1) {
-                            gr = &curr_synth.grains[n->osc_index + d * curr_synth.settings->h];
-
-                            unsigned int sample_index_l = ((unsigned int)gr->frame[k]) * smp->chn + gr->index[k];
-                            unsigned int sample_index_r = ((unsigned int)gr->frame[k]) * smp->chn + gr->index[k] + smp->chn_m1;
-
-                            output_l += vl * (smp->data[sample_index_l] * gr_env[gr->env_index[k]]);
-                            output_r += vr * (smp->data[sample_index_r] * gr_env[gr->env_index[k]]);
-
-                            gr->frame[k] += gr->speed;
-
-                            gr->env_index[k] += gr->env_step[k];
+                            gr = &curr_synth.grains[grain_index + (d * si)];
 
                             if (gr->frame[k] >= gr->frames[k] || gr->frame[k] < 0.0f) {
                                 gr->smp_index[k] = n->smp_index;
 
                                 smp = &samples[n->smp_index];
 
-                                gr->index[k] = round((smp->frames - 1) * (fabs(n->alpha + randf(0.0, 1.0) * fabs(floor(n->blue))))) * smp->chn;
-                                gr->frames[k] = fmax(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * (smp->frames - 1);
-                                gr->speed = osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
-                                gr->env_step[k] = FAS_ENVS_SIZE / (gr->frames[k] / gr->speed);
+                                gr->index[k] = round(smp->frames * (fabs(n->alpha + randf(0.0, 1.0) * fabs(floor(n->alpha))))) * smp->chn;
+                                gr->frames[k] = fmax(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * smp->frames;
+                                gr->env_step[k] = fmax((float)FAS_ENVS_SIZE / ((float)gr->frames[k] / gr->speed), 1.0);
                                 gr->env_index[k] = 0;
                                 gr->frame[k] = 0;
                                 gr->density[k] = fabs(round(n->blue));
@@ -274,9 +265,19 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                     gr->speed = fabs(gr->speed);
                                 }
                             }
+
+                            unsigned int sample_index_l = ((unsigned int)gr->frame[k]) * smp->chn + gr->index[k];
+                            unsigned int sample_index_r = ((unsigned int)gr->frame[k]) * smp->chn + gr->index[k] + smp->chn_m1;
+
+                            output_l += vl * (smp->data[sample_index_l] * gr_env[gr->env_index[k]]);
+                            output_r += vr * (smp->data[sample_index_r] * gr_env[gr->env_index[k]]);
+
+                            gr->frame[k] += gr->speed;
+
+                            gr->env_index[k] += gr->env_step[k];
                         }
                     }
-                } else if (chn_settings->synthesis_method == FAS_SAMPLER) {
+                } else if (chn_settings->synthesis_method == FAS_SAMPLER && curr_synth.grains != NULL) {
                     int env_type = chn_settings->env_type;
                     float *gr_env = grain_envelope[env_type];
                     for (j = s; j < e; j += 1) {
@@ -289,14 +290,12 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         unsigned int sample_index = gr->smp_index[k];
 
                         struct sample *smp = &samples[sample_index];
-                        struct sample *smp2 = &samples[(sample_index + 1)%samples_count_m1];
 
                         uint16_t phi = (float)osc->phase_index[k];
 
                         float s = smp->data[phi * smp->chn];
-                        float s2 = smp->data[phi * smp->chn + smp->chn_m1];
 
-                        float savg = /*(s + s2) * 0.5f*/s * gr_env[gr->env_index[k]];
+                        float savg = s * gr_env[gr->env_index[k]];
 
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
@@ -312,7 +311,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                             smp = &samples[n->smp_index];
 
-                            osc->phase_index[k] = 0;//abs(round((smp->frames - smp->chn) * fabs(n->alpha)) * smp->chn);
+                            osc->phase_index[k] = abs(round((smp->frames - smp->chn) * fabs(n->alpha)) * smp->chn);
                             gr->env_step[k] = FAS_ENVS_SIZE / (smp->frames / gr->speed);
                             gr->env_index[k] = 0;
                         }
@@ -465,7 +464,7 @@ void freeSynth(struct _synth **s) {
             synth->oscillators = freeOscillators(&synth->oscillators, synth->settings->h);
         }
 
-        freeGrains(&synth->grains, synth->settings->h, fas_granular_max_density);
+        freeGrains(&synth->grains, samples_count, synth->settings->h, fas_granular_max_density);
 
         free(synth->chn_settings);
         free(synth->settings);
@@ -642,7 +641,7 @@ if (remaining_payload != 0) {
                             usd->synth->settings->octave, usd->synth->settings->data_type, usd->synth->settings->base_frequency);
                     #endif
 
-                    freeGrains(&usd->synth->grains, h, fas_granular_max_density);
+                    freeGrains(&usd->synth->grains, samples_count, h, fas_granular_max_density);
 
                     usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, h);
 
@@ -694,7 +693,7 @@ if (remaining_payload != 0) {
                         free(usd->synth->settings);
                         usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, usd->synth->settings->h);
 
-                        freeGrains(&usd->synth->grains, usd->synth->settings->h, fas_granular_max_density);
+                        freeGrains(&usd->synth->grains, samples_count, usd->synth->settings->h, fas_granular_max_density);
 
                         free(usd->synth);
                         usd->synth = NULL;

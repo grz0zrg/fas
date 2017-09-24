@@ -57,6 +57,6 @@
     #define FAS_SAMPLER 3 // experiments
 
     // granular constants
-    #define GRAIN_MIN_DURATION 0.01 // 1 ms
+    #define GRAIN_MIN_DURATION 0.0001
 
 #endif

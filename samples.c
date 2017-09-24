@@ -129,7 +129,16 @@ unsigned int load_samples(struct sample **s, char *directory) {
 
             // TODO : try to get raw pitch from filename
             if (smp->pitch == 0) {
-
+                char *res = strtok(file.name, "#");
+                if (res) {
+                    res = strtok (NULL, "#");
+                    if (res) {
+                        smp->pitch = strtod(res, NULL);
+                        if (errno == ERANGE) {
+                            smp->pitch = 0;
+                        }
+                    }
+                }
             }
 
             // try to guess it
@@ -189,15 +198,15 @@ unsigned int load_samples(struct sample **s, char *directory) {
 
                 if (smp->pitch < 8) {
                     smp->pitch = 440. * 4.;
-                    printf("Sample '%s' loaded, fundamental pitch was not detected, 440hz as default.\n", file.name);
+                    printf("Sample %i '%s' loaded, fundamental pitch was not detected, 440hz as default.\n", samples_count, file.name);
                 } else {
-                    printf("Sample '%s' loaded, fundamental pitch is %fhz with %i%% uncertainty\n", file.name, smp->pitch / 4, (int)(100 * uncertainty));
+                    printf("Sample %i '%s' loaded, fundamental pitch is %fhz with %i%% uncertainty\n", samples_count, file.name, smp->pitch / 4, (int)(100 * uncertainty));
                 }
 
                 free(yin_samples);
                 free(st_samples);
             } else {
-                printf("Sample '%s' loaded, pitch %fhz was detected.\n", file.name, smp->pitch);
+                printf("Sample %i '%s' loaded, pitch %fhz was detected.\n", samples_count, file.name, smp->pitch);
             }
 
             sf_close(audio_file);
@@ -209,6 +218,18 @@ unsigned int load_samples(struct sample **s, char *directory) {
     tinydir_close(&dir);
 
     *s = samples;
+
+    // print samples map
+    double sstep = 1.0 / (double)samples_count;
+    double scurr = 0.0;
+    for (int i = 1; i <= samples_count; i += 1) {
+        struct sample *smp = &samples[i];
+
+        printf("Sample %i mapped to %f and beyond\n", i, scurr);
+
+        scurr += sstep;
+    }
+    fflush(stdout);
 
     return samples_count;
 }

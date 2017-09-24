@@ -9,7 +9,7 @@
         uint32_t frames;
         unsigned int chn;
         unsigned int chn_m1;
-        float pitch; // hz
+        double pitch; // hz
         int samplerate;
     };
 

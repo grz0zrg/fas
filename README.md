@@ -29,9 +29,11 @@ This support OSC output of pixels data on the channel "/fragment" with data type
 
 With OSC you can basically do whatever you want with the pixels data, feeding SuperCollider synths for example, sending the data as an OSC bundle is WIP.
 
-The granular synthesis part is being actively developed, you can have additive and granular synthesis at the same time with different output channel, all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment.
+The granular synthesis part is being actively developed and is mature enough to be used, you can have additive and granular synthesis at the same time with different output channel, all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment.
 
-FAS will try to guess the sample pitch to map it correctly to images height with several methods, an exact one from the filename (the filename should contain a note such as A#4 for example) and Yin pitch detection if everything else fail.
+Granular synthesis is less optimized than additive synthesis but has still good performances.
+
+FAS will try to guess the sample pitch to map it correctly to images height with several methods, an exact one from the filename (the filename should contain a note such as A#4 for example or a frequency between "#" character such as "flute_#440#.wav") and Yin pitch detection if everything else fail.
 
 With granular synthesis method, the Blue pixel value is mapped to sample index (bounded to [0, 1]) and granular density when higher than 2, the Alpha value is mapped to sample index, the Alpha value can be used to play the sample backward as well when less than zero.
 
@@ -179,7 +181,7 @@ Usage: fas [list_of_parameters]
  * --alsa_realtime_scheduling 0 **Linux only**
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio will be delayed**
  * --commands_queue_size 16 **should be a positive integer power of 2**
- * --stream_load_send_delay 2 **FAS will send the stream CPU load every seconds**
+ * --stream_load_send_delay 2 **FAS will send the stream CPU load every two seconds**
 
 Self-signed certificates are provided in case you compile/run it with SSL. (Note: This is useless for many reasons and HTTP should _**ALWAYS**_ be the prefered protocol for online Fragment application, this is explained in [this issue](https://github.com/grz0zrg/fas/issues/1).)
 

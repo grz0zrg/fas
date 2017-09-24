@@ -6,7 +6,7 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
         return NULL;
     }
 
-    unsigned int grains_count = n * max_density;
+    unsigned int grains_count = n * max_density * samples_count;
     unsigned int y = 0;
 
     double octave_length = (double)n / octaves;
@@ -14,45 +14,50 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
     struct sample *samples = *s;
 
     struct grain *g = (struct grain *)malloc(grains_count * sizeof(struct grain));
-    for (int i = 0; i < grains_count; i += 1) {
-        y = i%n;
+    for (int i = 0; i < grains_count; i += samples_count) {
+        for (int k = 0; k < samples_count; k += 1) {
+            int gr_index = i + k;
 
-        struct sample *smp = &samples[y%samples_count];
+            struct sample *smp = &samples[k];
 
-        double frequency = base_frequency * pow(2, (n-y) / octave_length);
+            double frequency = base_frequency * pow(2, (n-y) / octave_length);
 
-        g[i].speed = frequency / (smp->pitch * (sample_rate / smp->samplerate));
-        if (g[i].speed <= 0) {
-            g[i].speed = 1;
+            g[gr_index].speed = frequency / (smp->pitch * ((double)sample_rate / smp->samplerate));
+
+            if (g[gr_index].speed <= 0) {
+                g[gr_index].speed = 1;
+            }
+
+            g[gr_index].frame = malloc(sizeof(float) * frame_data_count);
+            g[gr_index].frames = malloc(sizeof(unsigned int) * frame_data_count);
+            g[gr_index].index = malloc(sizeof(unsigned int) * frame_data_count);
+            g[gr_index].env_index = malloc(sizeof(uint16_t) * frame_data_count);
+            g[gr_index].env_step = malloc(sizeof(uint16_t) * frame_data_count);
+            g[gr_index].smp_index = malloc(sizeof(unsigned int) * frame_data_count);
+            g[gr_index].density = malloc(sizeof(unsigned int) * frame_data_count);
+
+            // we setup these for each simultaneous channels that we will have
+            for (int j = 0; j < frame_data_count; j += 1) {
+                g[gr_index].frames[j] = 0;
+                g[gr_index].frame[j] = 0;
+                g[gr_index].index[j] = 0;
+                g[gr_index].env_step[j] = 0;
+                g[gr_index].env_index[j] = 0;
+                g[gr_index].smp_index[j] = k;
+                g[gr_index].density[j] = 1;
+            }
         }
-
-        g[i].frame = malloc(sizeof(float) * frame_data_count);
-        g[i].frames = malloc(sizeof(unsigned int) * frame_data_count);
-        g[i].index = malloc(sizeof(unsigned int) * frame_data_count);
-        g[i].env_index = malloc(sizeof(uint16_t) * frame_data_count);
-        g[i].env_step = malloc(sizeof(uint16_t) * frame_data_count);
-        g[i].smp_index = malloc(sizeof(unsigned int) * frame_data_count);
-        g[i].density = malloc(sizeof(unsigned int) * frame_data_count);
-
-        // we setup these for each simultaneous channels that we will have
-        for (int j = 0; j < frame_data_count; j += 1) {
-            g[i].frames[j] = 0;
-            g[i].frame[j] = 0;
-            g[i].index[j] = 0;
-            g[i].env_step[j] = FAS_ENVS_SIZE / (g[i].frames[j] / g[i].speed);
-            g[i].env_index[j] = 0;
-            g[i].smp_index[j] = 0;
-            g[i].density[j] = 1;
-        }
+        y++;
+        y = y % n;
     }
 
     return g;
 }
 
-struct grain *freeGrains(struct grain **g, unsigned int n, unsigned int max_density) {
+struct grain *freeGrains(struct grain **g, unsigned int samples_count, unsigned int n, unsigned int max_density) {
     struct grain *grains = *g;
 
-    unsigned int grains_count = n * max_density;
+    unsigned int grains_count = n * max_density * samples_count;
 
     int y = 0;
     for (y = 0; y < grains_count; y += 1) {

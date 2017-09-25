@@ -120,8 +120,13 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
    * make
    * sudo make install
    * "libwebsockets.a" can now be found in the "build/lib" directory
+ * Get latest [liblo package](http://liblo.sourceforge.net/)
+   * uncompress, go into the directory "liblo-0.29"
+   * ./configure
+   * copy the library found in "src/.libs/liblo.so.7.3.0" to FAS root folder
+   * sudo make install
 
-Copy the \*.a into "fas" root directory then compile by using one of the rule below.
+Copy the \*.a into "fas" root directory then compile by using one of the rule below (recommended rule for Linux and similar is "release-static-o").
 
 Recommended launch parameters with HiFiBerry DAC+ :
     ./fas --alsa_realtime_scheduling 1 --frames_queue_size 63 --sample_rate 48000 --device 2

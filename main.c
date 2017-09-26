@@ -235,7 +235,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             gr = &curr_synth.grains[grain_index + (d * si)];
 
                             if (gr->frame[k] >= gr->frames[k] || gr->frame[k] < 0.0f) {
-                                gr->smp_index[k] = n->smp_index;
+                                //gr->smp_index[k] = n->smp_index;
 
                                 smp = &samples[n->smp_index];
 

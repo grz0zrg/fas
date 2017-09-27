@@ -81,6 +81,10 @@ struct _synth_gain {
     double gmin_size; // granular grain duration (min. bound)
     double gmax_size; // granular grain duration (max. bound)
 };
+
+Server actions, packet identifier 4 :
+
+At the moment, this just reload samples in the grains folder.
 ```
 
 ### Build

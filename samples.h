@@ -14,5 +14,6 @@
     };
 
     extern unsigned int load_samples(struct sample **samples, char *directory);
+    extern void free_samples(struct sample **s, unsigned int samples_count);
 
 #endif

@@ -291,6 +291,16 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         struct sample *smp = &samples[sample_index];
 
+                        if (osc->phase_index[k] >= smp->frames) {
+                            gr->smp_index[k] = n->smp_index;
+
+                            smp = &samples[n->smp_index];
+
+                            osc->phase_index[k] = abs(round(smp->frames * fabs(n->alpha)) * smp->chn);
+                            gr->env_step[k] = FAS_ENVS_SIZE / (smp->frames / gr->speed);
+                            gr->env_index[k] = 0;
+                        }
+
                         uint16_t phi = (float)osc->phase_index[k];
 
                         float s = smp->data[phi * smp->chn];
@@ -306,15 +316,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         gr->env_index[k] += gr->env_step[k];
 
                         osc->phase_index[k] += osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
-                        if (osc->phase_index[k] >= smp->frames) {
-                            gr->smp_index[k] = n->smp_index;
-
-                            smp = &samples[n->smp_index];
-
-                            osc->phase_index[k] = abs(round((smp->frames - smp->chn) * fabs(n->alpha)) * smp->chn);
-                            gr->env_step[k] = FAS_ENVS_SIZE / (smp->frames / gr->speed);
-                            gr->env_index[k] = 0;
-                        }
                     }
                 }
             }
@@ -920,6 +921,18 @@ fflush(stdout);
                     }
 
                     usd->synth = NULL;
+                } else if (pid == ACTION) { // since we have one action for now, don't care about content, just reload samples
+#ifdef DEBUG
+    printf("ACTION\n");
+#endif
+
+                    audioPause();
+
+                    free_samples(&samples, samples_count);
+                    samples_count = load_samples(&samples, fas_grains_path);
+                    samples_count_m1 = samples_count - 1;
+
+                    audioPlay();
                 }
 
 free_packet:
@@ -1496,10 +1509,6 @@ error:
     free(fas_sine_wavetable);
     free(fas_white_noise_table);
 
-    for (i = 0; i < samples_count; i++) {
-      struct sample *smp = &samples[i];
-      free(smp->data);
-    }
     free(samples);
 
     return err;

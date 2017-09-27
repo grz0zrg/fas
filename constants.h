@@ -18,6 +18,7 @@
     #define FRAME_DATA 1
     #define GAIN_CHANGE 2
     #define CHN_SETTINGS 3
+    #define ACTION 4
 
     // program settings constants
     #define FAS_SAMPLE_RATE 44100

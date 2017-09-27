@@ -84,7 +84,8 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int channels, unsigned
             _note->diff_a = abs(alpha - palpha);
 
             // for granular synthesis, samples and related
-            _note->smp_index = fmod(fabs(blue), 1.0) * samples_count;
+            double dummy;
+            _note->smp_index = modf(fabs(blue), &dummy) * (samples_count + 1);
 
             if (l > 0 ) {
                 volume_l = l * inv_full_brightness;

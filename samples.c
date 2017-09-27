@@ -6,17 +6,27 @@
 
 unsigned int notes_length = 120;
 // TODO : generate it
-char *notes[120] = {
-  "C0","C#0","D0","D#0","E0","F0","F#0","G0","G#0","A0","A#0","B0",
-  "C1","C#1","D1","D#1","E1","F1","F#1","G1","G#1","A1","A#1","B1",
-  "C2","C#2","D2","D#2","E2","F2","F#2","G2","G#2","A2","A#2","B2",
-  "C3","C#3","D3","D#3","E3","F3","F#3","G3","G#3","A3","A#3","B3",
-  "C4","C#4","D4","D#4","E4","F4","F#4","G4","G#4","A4","A#4","B4",
-  "C5","C#5","D5","D#5","E5","F5","F#5","G5","G#5","A5","A#5","B5",
-  "C6","C#6","D6","D#6","E6","F6","F#6","G6","G#6","A6","A#6","B6",
-  "C7","C#7","D7","D#7","E7","F7","F#7","G7","G#7","A7","A#7","B7",
-  "C8","C#8","D8","D#8","E8","F8","F#8","G8","G#8","A8","A#8","B8",
-  "C9","C#9","D9","D#9","E9","F9","F#9","G9","G#9","A9","A#9","B9"
+char *notes[240] = {
+  "c0","c#0","d0","d#0","e0","f0","f#0","g0","g#0","a0","a#0","b0",
+  "c1","c#1","d1","d#1","e1","f1","f#1","g1","g#1","a1","a#1","b1",
+  "c2","c#2","d2","d#2","e2","f2","f#2","g2","g#2","a2","a#2","b2",
+  "c3","c#3","d3","d#3","e3","f3","f#3","g3","g#3","a3","a#3","b3",
+  "c4","c#4","d4","d#4","e4","f4","f#4","g4","g#4","a4","a#4","b4",
+  "c5","c#5","d5","d#5","e5","f5","f#5","g5","g#5","a5","a#5","b5",
+  "c6","c#6","d6","d#6","e6","f6","f#6","g6","g#6","a6","a#6","b6",
+  "c7","c#7","d7","d#7","e7","f7","f#7","g7","g#7","a7","a#7","b7",
+  "c8","c#8","d8","d#8","e8","f8","f#8","g8","g#8","a8","a#8","b8",
+  "c9","c#9","d9","d#9","e9","f9","f#9","g9","g#9","a9","a#9","b9",
+  "c0","cs0","d0","ds0","e0","f0","fs0","g0","gs0","a0","as0","b0",
+  "c1","cs1","d1","ds1","e1","f1","fs1","g1","gs1","a1","as1","b1",
+  "c2","cs2","d2","ds2","e2","f2","fs2","g2","gs2","a2","as2","b2",
+  "c3","cs3","d3","ds3","e3","f3","fs3","g3","gs3","a3","as3","b3",
+  "c4","cs4","d4","ds4","e4","f4","fs4","g4","gs4","a4","as4","b4",
+  "c5","cs5","d5","ds5","e5","f5","fs5","g5","gs5","a5","as5","b5",
+  "c6","cs6","d6","ds6","e6","f6","fs6","g6","gs6","a6","as6","b6",
+  "c7","cs7","d7","ds7","e7","f7","fs7","g7","gs7","a7","as7","b7",
+  "c8","cs8","d8","ds8","e8","f8","fs8","g8","gs8","a8","as8","b8",
+  "c9","cs9","d9","ds9","e9","f9","fs9","g9","gs9","a9","as9","b9"
 };
 
 unsigned int load_samples(struct sample **s, char *directory) {
@@ -42,12 +52,13 @@ unsigned int load_samples(struct sample **s, char *directory) {
     double ratio = pow(2.0, 1.0 / 12.0);
 
     while (dir.has_next) {
-        int i, j;
+        int i, j, k;
         tinydir_file file;
         tinydir_readfile(&dir, &file);
 
         if (file.is_reg) {
-            size_t filepath_len = strlen(directory) + strlen(file.name);
+            size_t filename_length = strlen(file.name);
+            size_t filepath_len = strlen(directory) + filename_length;
 
             char *filepath = (char *)malloc(filepath_len + 1);
             filepath[0] = '\0';
@@ -106,32 +117,53 @@ unsigned int load_samples(struct sample **s, char *directory) {
                 }
             }
 
+            // make room to copy filename
+            char *filename = malloc(sizeof(char) * (filename_length + 1));
+
             // == pitch detection
             // analyze file name to gather pitch informations first
             double o = 16.35 / 2;
-            for (i = 0; i < notes_length; i += 1) {
-                int n = i % 12;
-                if (n == 0) {
-                    o *= 2;
-                }
+            int detected = 0;
+            for (j = 0; j < 2; j += 1) {
+                unsigned int start = notes_length * j;
+                for (i = 0; i < notes_length; i += 1) {
+                    int n = i % 12;
+                    if (n == 0) {
+                        o *= 2;
+                    }
 
-                char *note_name = notes[i];
+                    char *_note_name = notes[i + start];
+                    char *note_name = malloc(sizeof(char) * (strlen(_note_name) + 1));
+                    strcpy(note_name, _note_name);
 
-                char *res = strstr(file.name, note_name);
-                if (res) {
-                    double frequency = o * pow(ratio, n);
+                    // check lowercase and uppercase note character
+                    for (k = 0; k < 2; k += 1) {
+                        char *res = strstr(file.name, note_name);
+                        if (res) {
+                            double frequency = o * pow(ratio, n);
 
-                    smp->pitch = frequency;
+                            smp->pitch = frequency;
 
-                    break;
+                            free(note_name);
+
+                            goto pitch_detected;
+                        }
+
+                        note_name[0] -= 32;
+                    }
+
+                    free(note_name);
                 }
             }
 
+        pitch_detected:
+
             // TODO : try to get raw pitch from filename
             if (smp->pitch == 0) {
-                char *res = strtok(file.name, "#");
+                strcpy(filename, file.name);
+                char *res = strtok(filename, "##");
                 if (res) {
-                    res = strtok (NULL, "#");
+                    res = strtok (NULL, "##");
                     if (res) {
                         smp->pitch = strtod(res, NULL);
                         if (errno == ERANGE) {
@@ -140,6 +172,8 @@ unsigned int load_samples(struct sample **s, char *directory) {
                     }
                 }
             }
+
+            free(filename);
 
             // try to guess it
             if (smp->pitch == 0) {
@@ -225,11 +259,23 @@ unsigned int load_samples(struct sample **s, char *directory) {
     for (int i = 1; i <= samples_count; i += 1) {
         struct sample *smp = &samples[i];
 
-        printf("Sample %i mapped to %f and beyond\n", i, scurr);
+        printf("Sample %i mapped to [%f, %f)\n", i, scurr, scurr + sstep);
 
         scurr += sstep;
     }
     fflush(stdout);
 
     return samples_count;
+}
+
+void free_samples(struct sample **s, unsigned int samples_count) {
+    unsigned int i = 0;
+
+    struct sample *samples = *s;
+
+    for (i = 0; i < samples_count; i++) {
+      struct sample *smp = &samples[i];
+      free(smp->data);
+    }
+    free(samples);
 }

@@ -24,7 +24,7 @@
 */
 
 /*
-    Band-aid raw additive synthesizer built for the Fragment Synthesizer, a web-based Collaborative Spectral Synthesizer.
+    Band-aid raw additive/granular synthesizer built for the Fragment Synthesizer, a web-based Collaborative Spectral Synthesizer.
 
     This collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound from it in real-time for a smooth experience,
     this effectively serve as a band-aid for crackling audio until some heavier optimizations are done.
@@ -40,7 +40,7 @@
 
     You can tweak this program by passing settings to its arguments, for help : fas --h
 
-    Can be used as a generic additive synthesizer if you feed it correctly!
+    Can be used as a generic additive/granular synthesizer if you feed it correctly!
 
     https://www.fsynth.com
 
@@ -199,11 +199,13 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
+                        //osc->amp[k] = (vl + vr * 0.5);
+
                         output_l += vl * s;
                         output_r += vr * s;
 
 #ifdef BANDLIMITED_NOISE
-                        osc->phase_index[k] += osc->phase_step * (1.0f + fas_white_noise_table[osc->noise_index[k]++] * n->noise_multiplier);
+                        osc->phase_index[k] += osc->phase_step * (1.0f + fas_white_noise_table[osc->noise_index[k]++] * n->blue);
 #else
                         osc->phase_index[k] += osc->phase_step;
 #endif
@@ -316,6 +318,60 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         gr->env_index[k] += gr->env_step[k];
 
                         osc->phase_index[k] += osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
+                    }
+                } else if (chn_settings->synthesis_method == FAS_FM) {
+                    for (j = s; j < e; j += 1) {
+                        struct note *n = &curr_notes[j];
+
+                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                        unsigned int add_phase_step = 0;
+
+                        // additive/self part
+                        struct _synth_chn_settings *pm_mod_source_chn_settings = &curr_synth.chn_settings[n->fm_mod_source];
+                        if (chn_settings->synthesis_method == FAS_FM ||
+                          chn_settings->synthesis_method == FAS_ADDITIVE) {
+                            unsigned int s2 = 0;
+                            unsigned int e2 = 0;
+                            unsigned int pv_note_buffer_len2 = 0;
+                            unsigned int note_buffer_len2 = 0;
+                            for (int c = 0; c <= n->fm_mod_source; c += 1) {
+                                pv_note_buffer_len2 += note_buffer_len2;
+                                note_buffer_len2 = curr_notes[pv_note_buffer_len2].osc_index;
+                                pv_note_buffer_len2 += 1;
+                                s2 = pv_note_buffer_len2;
+                                e2 = s2 + note_buffer_len2;
+                            }
+
+                            for (int c = s2; c < e2; c += 1) {
+                                struct note *n2 = &curr_notes[c];
+
+                                struct oscillator *mod_osc = &curr_synth.oscillators[n2->osc_index];
+                                float s = fas_sine_wavetable[mod_osc->phase_index[k] & fas_wavetable_size_m1];
+                                add_phase_step += (float)mod_osc->phase_step /*mod_osc->phase_index[k]*//*mod_osc->phase_step*//*mod_osc->phase_index[k]*/ * ((n2->volume_l + n2->volume_r) * 0.5);
+                            }
+                        }
+                        // end
+
+#ifndef FIXED_WAVETABLE
+                        float s = fas_sine_wavetable[osc->phase_index[k]];
+#else
+                        float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
+#endif
+
+                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                        output_l += vl * s;
+                        output_r += vr * s;
+
+                        osc->phase_index[k] += osc->phase_step + add_phase_step;
+
+#ifndef FIXED_WAVETABLE
+                        if (osc->phase_index[k] >= fas_wavetable_size) {
+                            osc->phase_index[k] -= fas_wavetable_size;
+                        }
+#endif
                     }
                 }
             }

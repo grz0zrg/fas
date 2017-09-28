@@ -1,11 +1,11 @@
 [Fragment Synthesizer](https://github.com/grz0zrg/fsynth) Band-aid
 =====
 
-Raw additive/granular synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based Collaborative Spectral Synthesizer](https://www.fsynth.com)
+Raw additive/granular/PM synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based Collaborative Spectral Synthesizer](https://www.fsynth.com)
 
 This program should compile on most platforms!
 
-This program collect Fragment settings and RGBA (8-bit or 32-bit float) notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, it can also interpret the data for granular synthesis, it is a generic image synth, this serve as a fast and independent alternative to output audio for the Fragment Synthesizer.
+This program collect Fragment settings and RGBA (8-bit or 32-bit float) notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, it can also interpret the data for granular synthesis (synchronous and asynchronous) and phase/frequency modulation (WIP), it is a generic image synth, this serve as a fast and independent alternative to output audio for the Fragment Synthesizer.
 
 This program is tailored for performances and can be executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
 
@@ -37,9 +37,9 @@ FAS will try to guess the sample pitch to map it correctly to images height with
 
 With granular synthesis method, the Blue pixel value is mapped to sample index (bounded to [0, 1]) and granular density when higher than 2, the Alpha value is mapped to sample index, the Alpha value can be used to play the sample backward as well when less than zero.
 
-The ongoing development is to add more synthesis methods with the help of the essentia framework. (a C essentia wrapper is available)
+The ongoing development is to add more synthesis methods (FM/PM is WIP) and with the help of the essentia framework. (a C essentia wrapper is available)
 
-**Can be used as a raw generic additive/granular synthesizer if you feed it correctly! :)**
+**Can be used as a raw generic additive/granular/PM/FM synthesizer if you feed it correctly! :)**
 
 ### Packets
 

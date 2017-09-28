@@ -56,6 +56,7 @@
     #define FAS_SPECTRAL 1
     #define FAS_GRANULAR 2
     #define FAS_SAMPLER 3 // experiments
+    #define FAS_FM 4
 
     // granular constants
     #define GRAIN_MIN_DURATION 0.0001

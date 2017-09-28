@@ -76,7 +76,6 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int channels, unsigned
             struct note *_note = &note_buffer[index];
             _note->osc_index = y;
 
-            _note->noise_multiplier = blue;
             _note->alpha = alpha;
             _note->blue = blue;
 
@@ -86,6 +85,8 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int channels, unsigned
             // for granular synthesis, samples and related
             double dummy;
             _note->smp_index = modf(fabs(blue), &dummy) * (samples_count + 1);
+
+            _note->fm_mod_source = modf(fabs(blue), &dummy) * channels;
 
             if (l > 0 ) {
                 volume_l = l * inv_full_brightness;

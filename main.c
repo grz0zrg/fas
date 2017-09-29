@@ -348,7 +348,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                                 struct oscillator *mod_osc = &curr_synth.oscillators[n2->osc_index];
                                 float s = fas_sine_wavetable[mod_osc->phase_index[k] & fas_wavetable_size_m1];
-                                add_phase_step += (float)mod_osc->phase_step /*mod_osc->phase_index[k]*//*mod_osc->phase_step*//*mod_osc->phase_index[k]*/ * ((n2->volume_l + n2->volume_r) * 0.5);
+                                add_phase_step += (float)fas_wavetable_size * s /*mod_osc->phase_index[k]*//*mod_osc->phase_step*//*mod_osc->phase_index[k]*/ * ((n2->volume_l + n2->volume_r) * 0.5);
                             }
                         }
                         // end

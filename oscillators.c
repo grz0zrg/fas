@@ -36,12 +36,12 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
 
         oscillators[index].noise_index = malloc(sizeof(uint16_t) * frame_data_count);
 
-        oscillators[index].amp = malloc(sizeof(float) * frame_data_count);
+        oscillators[index].value = malloc(sizeof(float) * frame_data_count);
 
         for (int i = 0; i < frame_data_count; i += 1) {
             oscillators[index].phase_index[i] = rand() / (double)RAND_MAX * wavetable_size;
             oscillators[index].noise_index[i] = rand() / (double)RAND_MAX * wavetable_size;
-            oscillators[index].amp[i] = 0;
+            oscillators[index].value[i] = 0;
         }
 
         oscillators[index].phase_step = phase_step;
@@ -77,12 +77,12 @@ struct oscillator *copyOscillators(struct oscillator **oscs, unsigned int n, uns
         #endif
 
         new_oscillators[y].noise_index = malloc(sizeof(uint16_t) * frame_data_count);
-        new_oscillators[y].amp = malloc(sizeof(float) * frame_data_count);
+        new_oscillators[y].value = malloc(sizeof(float) * frame_data_count);
 
         for (int i = 0; i < frame_data_count; i += 1) {
             new_oscillators[y].phase_index[i] = o[y].phase_index[i];
             new_oscillators[y].noise_index[i] = o[y].noise_index[i];
-            new_oscillators[y].amp[i] = o[y].amp[i];
+            new_oscillators[y].value[i] = o[y].value[i];
         }
     }
 
@@ -100,7 +100,7 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n) {
     for (y = 0; y < n; y += 1) {
         free(oscs[y].phase_index);
         free(oscs[y].noise_index);
-        free(oscs[y].amp);
+        free(oscs[y].value);
     }
 
     free(oscs);

@@ -199,7 +199,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        //osc->amp[k] = (vl + vr * 0.5);
+                        // for PM/FM synth
+                        osc->value[k] = s;
 
                         output_l += vl * s;
                         output_r += vr * s;
@@ -347,8 +348,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 struct note *n2 = &curr_notes[c];
 
                                 struct oscillator *mod_osc = &curr_synth.oscillators[n2->osc_index];
-                                float s = fas_sine_wavetable[mod_osc->phase_index[k] & fas_wavetable_size_m1];
-                                add_phase_step += (float)fas_wavetable_size * s /*mod_osc->phase_index[k]*//*mod_osc->phase_step*//*mod_osc->phase_index[k]*/ * ((n2->volume_l + n2->volume_r) * 0.5);
+                                float s = mod_osc->value[n->fm_mod_source] * ((n2->volume_l + n2->volume_r) * 0.5);
+                                add_phase_step += s * fas_wavetable_size;
                             }
                         }
                         // end
@@ -358,6 +359,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #else
                         float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
 #endif
+
+                        osc->value[k] = s;
 
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;

@@ -13,7 +13,7 @@
         unsigned int phase_step;
 #endif
 
-        float *amp;
+        float *value;
 
         uint16_t *noise_index;
     };

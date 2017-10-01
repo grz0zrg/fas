@@ -7,7 +7,7 @@ This program should compile on most platforms!
 
 This program collect Fragment settings and RGBA (8-bit or 32-bit float) notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, it can also interpret the data for granular synthesis (synchronous and asynchronous) and phase/frequency modulation (WIP), it is a generic image synth, this serve as a fast and independent alternative to output audio for the Fragment Synthesizer.
 
-This program is tailored for performances and can be executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
+This program is tailored for performances (it is memory intensive) and can be executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
 
 Only one client is supported at the moment (altough many can connect, not tested but it may result in a big audio mess and likely a crash!)
 
@@ -81,11 +81,11 @@ struct _synth_gain {
     double gmin_size; // granular grain duration (min. bound)
     double gmax_size; // granular grain duration (max. bound)
 };
+```
 
 Server actions, packet identifier 4 :
 
-At the moment, this just reload samples in the grains folder.
-```
+- At the moment, this just reload samples in the grains folder.
 
 ### Build
 

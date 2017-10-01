@@ -200,7 +200,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         // for PM/FM synth
-                        osc->value[k] = s;
+                        //osc->value[k] = s;
 
                         output_l += vl * s;
                         output_r += vr * s;
@@ -360,15 +360,13 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
 #endif
 
-                        osc->value[k] = s;
-
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         output_l += vl * s;
                         output_r += vr * s;
 
-                        osc->phase_index[k] += osc->phase_step + add_phase_step;
+                        osc->phase_index[k] += osc->phase_step + add_phase_step + (s * fas_wavetable_size) * n->alpha;
 
 #ifndef FIXED_WAVETABLE
                         if (osc->phase_index[k] >= fas_wavetable_size) {

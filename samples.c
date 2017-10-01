@@ -72,6 +72,8 @@ unsigned int load_samples(struct sample **s, char *directory) {
 
                 free(filepath);
 
+                tinydir_next(&dir);
+
                 continue;
             }
 

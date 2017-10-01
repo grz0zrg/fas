@@ -1206,6 +1206,31 @@ int main(int argc, char **argv)
         }
     }
 
+    if (fas_grains_path == NULL) {
+#ifdef __unix__
+        struct stat s;
+        int err = stat("/usr/local/share/fragment/grains/", &s);
+        if (err == -1) {
+            if (ENOENT == errno) {
+                fas_grains_path = fas_default_grains_path;
+            } else {
+                printf("stat() error while checking for '~/.fragment' directory.");
+                return EXIT_FAILURE;
+            }
+        } else {
+            if (S_ISDIR(s.st_mode)) {
+                fas_grains_path = fas_install_default_grains_path;
+                printf("'~/.fragment' directory detected, default grains folder is '~/.fragment/grains'.");
+            } else {
+                printf("'~/.fragment' is not a directory, defaulting to non-install grains path.");
+                fas_grains_path = fas_default_grains_path;
+            }
+        }
+#else
+        fas_grains_path = fas_default_grains_path;
+#endif
+    }
+
     if (fas_sample_rate == 0) {
         printf("Warning: sample_rate program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_SAMPLE_RATE);
 

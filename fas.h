@@ -14,6 +14,10 @@
         #include <conio.h>
     #endif
 
+    #ifdef __unix__
+        #include <sys/stat.h>
+    #endif
+
     // libraries
     #include "portaudio.h"
     #include "libwebsockets.h"
@@ -35,6 +39,9 @@
 
         struct note *data;
     };
+
+    char* fas_default_grains_path = "./grains/";
+    char* fas_install_default_grains_path = "/usr/local/share/fragment/grains/";
 
     // program settings with associated default value
     unsigned int fas_sample_rate = FAS_SAMPLE_RATE;
@@ -67,7 +74,7 @@
     char *fas_iface = NULL;
     char *fas_osc_addr = "127.0.0.1";
     char *fas_osc_port = "57120";
-    char *fas_grains_path = "./grains/";
+    char *fas_grains_path = NULL;
 
     lo_address fas_lo_addr;
 

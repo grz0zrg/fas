@@ -98,7 +98,7 @@ Requirements :
  * [libwebsockets](https://libwebsockets.org/)
  * [liblo](http://liblo.sourceforge.net/)
 
-The granular synthesis part make use of [libsndfile](https://github.com/erikd/libsndfile) and [tinydir](https://github.com/cxong/tinydir)
+The granular synthesis part make use of [libsndfile](https://github.com/erikd/libsndfile) and [tinydir](https://github.com/cxong/tinydir) (bundled)
 
 Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
 
@@ -134,8 +134,42 @@ Copy the \*.a into "fas" root directory then compile by using one of the rule be
 
 Recommended launch parameters with HiFiBerry DAC+ :
     ./fas --alsa_realtime_scheduling 1 --frames_queue_size 63 --sample_rate 48000 --device 2
-
 Bit depth is fixed to 32 bits float at the moment.
+
+### Cross-compiling under Linux for Windows
+
+The audio server was successfully cross-compiled under Windows (x86_64) with the Ubuntu package **mingw-w64** and the **win-cross-x86-64** makefile rule.
+
+Most libraries will compile easily, some may take some workaround which are noted below, notably those which are using **cmake** (liblo, libwebsockets) and also libsndfile.
+
+For those which are using cmake, a custom cmake toolchain file must be used
+
+##### Custom cmake toolchain for x86_64
+
+`set(CMAKE_SYSTEM_NAME Windows)`
+`set(TOOLCHAIN_PREFIX x86_64-w64-mingw32)`
+
+`set(CMAKE_C_COMPILER ${TOOLCHAIN_PREFIX}-gcc)`
+`set(CMAKE_CXX_COMPILER ${TOOLCHAIN_PREFIX}-g++)`
+`set(CMAKE_RC_COMPILER ${TOOLCHAIN_PREFIX}-windres)`
+
+`set(CMAKE_FIND_ROOT_PATH /usr/${TOOLCHAIN_PREFIX})`
+
+`set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)`
+`set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)`
+`set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)`
+
+##### With liblo
+
+`cmake -DCMAKE_TOOLCHAIN_FILE=/home/julien/toolchain.cmake ../cmake`
+
+##### With libwebsockets
+
+`cmake -DLWS_WITH_SSL=0 -DCMAKE_TOOLCHAIN_FILE=/home/julien/toolchain.cmake ..`
+
+##### For libsndfile
+
+`./configure --build=x86_64 --host=x86_64-w64-mingw32`
 
 #### Makefile rules
 
@@ -160,6 +194,8 @@ Statically linked (with libessentia) : **make release-essentia-static**
 With MinGW (Statically linked) :  **make win-release-static**
 
 With MinGW (Statically linked + advanced optimizations, default build) :  **make win-release-static-o**
+
+With mingw-w64 package (Ubuntu) cross-compilation for Windows : **make win-cross-x86-64**
 
 ### Usage
 

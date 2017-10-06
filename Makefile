@@ -1,5 +1,6 @@
 compiler = gcc
 cppcompiler = g++
+x86-64-cross-compiler = /usr/bin/x86_64-w64-mingw32-gcc
 source = main.c tools.c samples.c grains.c oscillators.c wavetables.c note.c usage.c Yin.c
 cpp_source = essentia_wrapper.cpp
 obj = main.o tools.o samples.o grains.o oscillators.o wavetables.o note.o usage.o Yin.o
@@ -11,13 +12,15 @@ static_libs = liblfds711.a libportaudio.a libwebsockets.a -lz -lrt -lm -lasound 
 ssl_libs = -lssl -lcrypto
 win_ssl_libs = -lssl -lcrypto -lws2_32 -lgdi32
 win_static_libs = liblfds711.a libwebsockets_static.a libportaudio.a -lm -lz -lws2_32
+win_cross_libs = cross/liblfds711.a cross/libwebsockets_static.a cross/libportaudio.a cross/libzlib_internal.a cross/liblo.a cross/libsndfile.a -lm -ldsound -lwinmm -lws2_32 -lstdc++ -lole32 -liphlpapi
 compat_options = -U__STRICT_ANSI__
 output = fas
 standard_options = -std=c11 -pedantic -D_POSIX_SOURCE
 win_static_options = -static -static-libgcc
 adv_optimization_options = -DFIXED_WAVETABLE
 debug_options = -g -DDEBUG
-include_path = -I lo -I inc
+include_path = -I lo -I inc -I inc/portaudio
+win_cross_include_path = -I lo -I inc -I inc/portaudio -I cross
 release_options = -O2
 
 all:
@@ -68,6 +71,9 @@ win-release-static-o:
 
 ssl-win-release-static-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${standard_options} ${win_static_options} ${adv_optimization_options} ${compat_options} $(win_static_libs) $(win_ssl_libs) -o $(output)
+
+win-cross-x86-64:
+	$(x86-64-cross-compiler) $(source) $(win_cross_include_path) ${release_options} ${compat_options} ${adv_optimization_options} ${standard_options} $(win_cross_libs) -o fas.exe
 
 32:
 	$(compiler) -m32 $(source) $(include_path) ${release_options} ${standard_options} $(libs) -o $(output)

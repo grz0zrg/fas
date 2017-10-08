@@ -1214,15 +1214,15 @@ int main(int argc, char **argv)
             if (ENOENT == errno) {
                 fas_grains_path = fas_default_grains_path;
             } else {
-                printf("stat() error while checking for '/usr/local/share/fragment/grains/' directory.");
+                printf("stat() error while checking for '/usr/local/share/fragment/grains/' directory.\n");
                 return EXIT_FAILURE;
             }
         } else {
             if (S_ISDIR(s.st_mode)) {
                 fas_grains_path = fas_install_default_grains_path;
-                printf("'/usr/local/share/fragment/grains/' directory detected, this is the default grains folder.");
+                printf("'/usr/local/share/fragment/grains/' directory detected, default grains folder.\n");
             } else {
-                printf("'/usr/local/share/fragment/grains/' is not a directory, defaulting to non-install grains path.");
+                printf("'/usr/local/share/fragment/grains/' is not a directory, defaulting to non-install grains path.\n");
                 fas_grains_path = fas_default_grains_path;
             }
         }

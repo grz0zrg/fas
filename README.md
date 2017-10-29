@@ -7,9 +7,11 @@ This program should compile on most platforms!
 
 This program collect Fragment settings and RGBA (8-bit or 32-bit float) notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, it can also interpret the data for granular synthesis (synchronous and asynchronous) and phase/frequency modulation (WIP), it is a generic image synth, this serve as a fast and independent alternative to output audio for the Fragment Synthesizer.
 
-This program is tailored for performances (it is memory intensive) and can be executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
+This program is tailored for performances (it is memory intensive, most things are pre-allocated with near zero real-time allocations) and can be executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
 
-Only one client is supported at the moment (altough many can connect, not tested but it may result in a big audio mess and likely a crash!)
+Smooth audio can be produced even in the case of frames drop with the `max_drop` program option.
+
+Only one client is supported at the moment (altough many can connect, not tested but it may result in a big audio mess and likely a crash!), you can launch multiple servers instance on different port and feed it different data if you need a multi-client audio server
 
 The server only send the CPU load of the stream at regular interval (adjustable) to the client (double type).
 
@@ -21,36 +23,42 @@ A free list data structure is used to handle data reuse, the program pre-allocat
 
 Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping), bandwidth enhanced sines can also be disabled for lightning fast additive synthesis.
 
-For additive synthesis and in stereophonic mode the pixels data channel R and G is the amplitude value of the oscillators (for L/R) while the B channel is the band-limited noise multiplier, if you set B to 0, no noise will added to the oscillator while a value of 1 will apply the global noise amount.
-
 In monophonic mode the Alpha channel value is the amplitude value.
 
-This support OSC output of pixels data on the channel "/fragment" with data type "idff" and data (in order) "osc index", "osc frequency", "osc amplitude L value", "osc amplitude R value"
+**Can be used as a raw generic additive/granular/PM/FM synthesizer if you feed it correctly! :)**
 
-With OSC you can basically do whatever you want with the pixels data, feeding SuperCollider synths for example, sending the data as an OSC bundle is WIP.
+### Additive/spectral synthesis
+
+For additive synthesis and in stereophonic mode the pixels data channel R and G is the amplitude value of the oscillators (for L/R) while the B channel is the band-limited noise multiplier, if you set B to 0, no noise will added to the oscillator while a value of 1 will apply the global noise amount.
+
+### Granular synthesis
 
 The granular synthesis part is being actively developed and is mature enough to be used, you can have additive and granular synthesis at the same time with different output channel, all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment.
 
-Granular synthesis is less optimized than additive synthesis but has still good performances.
+Granular synthesis is less optimized than additive synthesis but has ok performances.
 
-FAS will try to guess the sample pitch to map it correctly to images height with several methods, an exact one from the filename (the filename should contain a note such as A#4 for example or a frequency between "#" character such as "flute_#440#.wav") and Yin pitch detection if everything else fail.
+FAS will try to guess the sample pitch to map it correctly to the image height with several methods, an exact one from the filename (the filename should contain a note such as A#4 for example or a frequency between "#" character such as "flute_#440#.wav") and Yin pitch detection if everything else fail.
 
 With granular synthesis method, the Blue pixel value is mapped to sample index (bounded to [0, 1]) and granular density when higher than 2, the Alpha value is mapped to sample index, the Alpha value can be used to play the sample backward as well when less than zero.
 
 The ongoing development is to add more synthesis methods (FM/PM is WIP) and with the help of the essentia framework. (a C essentia wrapper is available)
 
-**Can be used as a raw generic additive/granular/PM/FM synthesizer if you feed it correctly! :)**
+### OSC
+
+This support OSC output of pixels data on the channel "/fragment" with data type "idff" and data (in order) "osc index", "osc frequency", "osc amplitude L value", "osc amplitude R value"
+
+With OSC you can basically do whatever you want with the pixels data, feeding SuperCollider synths for example, sending the data as an OSC bundle is WIP.
 
 ### Packets
 
-To communicate with FAS, there is only four type of packets, the first byte is the packet identifier, below is the expected data for each packets (you must send settings before sending any frames!) :
+To communicate with FAS with a custom client, there is only five type of packets to handle, the first byte of the packet is the packet identifier, below is the expected data for each packets (Note: you must send settings before sending any frames, otherwise they are simply ignored!) :
 
 Synth settings, packet identifier 0 :
 ```c
 struct _synth_settings {
-    unsigned int h;
-    unsigned int octave;
-    unsigned int data_type; // the frame data type length (1 for 8-bit/4 for 32-bit pixels value)
+    unsigned int h; // image height
+    unsigned int octave; // octaves count
+    unsigned int data_type; // the frame data type, 0 = 8-bit, 1 = float
     double base_frequency;
 };
 ```
@@ -58,9 +66,9 @@ struct _synth_settings {
 Frame data, packet identifier 1 :
 ```c
 struct _frame_data {
-    unsigned int channels;
-    unsigned int monophonic;
-    // Note : the expected data length is computed by : (4 * _synth_settings.data_type * _synth_settings.h) * (fas_output_channels / 2)
+    unsigned int channels; // channels count
+    unsigned int monophonic; // 0 = stereo, 1 = mono
+    // Note : the expected data length is computed by : (4 * (_synth_settings.data_type * sizeof(float)) * _synth_settings.h) * (fas_output_channels / 2)
     // Example with one output channel (L/R) and a 8-bit image with height of 400 pixels : (4 * sizeof(unsigned char) * 400)
     void *rgba_data;
 };
@@ -74,14 +82,19 @@ struct _synth_gain {
 ```
 
 Synth channels settings, packet identifier 3 :
+
+`unsigned int channels_count;` followed by
+
 ```c
-struct _synth_gain {
-    unsigned int synthesis_method;
-    int env_type; // granular envelope type for this channel (there is 9 types of envelopes)
+struct _synth_chn_settings {
+    unsigned int synthesis_method; // 0 = additive, 1 = spectral, 2 = granular, 3 = sampler, 4 = FM/PM
+    int env_type; // granular envelope type for this channel (there is 13 types of envelopes)
     double gmin_size; // granular grain duration (min. bound)
     double gmax_size; // granular grain duration (max. bound)
 };
 ```
+
+for every channels.
 
 Server actions, packet identifier 4 :
 
@@ -213,6 +226,7 @@ Usage: fas [list_of_parameters]
  * --smooth_factor 8.0 **this is the samples interpolation factor between frames**
  * --ssl 0
  * --deflate 0
+ * --max_drop 8 **this allow smooth audio in the case of frames drop, allow 8 frames drop by default**
  * --osc_out 0 **you can enable OSC output of notes by setting this argument to 1**
  * --osc_addr 127.0.0.1 **the OSC server address**
  * --osc_port 57120 **the OSC server port**

@@ -175,7 +175,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             float output_l = 0.0f;
             float output_r = 0.0f;
 
-            if (curr_notes != NULL) {
+            if (curr_notes) {
                 pv_note_buffer_len += note_buffer_len;
                 note_buffer_len = curr_notes[pv_note_buffer_len].osc_index;
                 pv_note_buffer_len += 1;
@@ -430,19 +430,25 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     fflush(stdout);
 #endif
             } else {
-                if (curr_notes) {
-                    LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
-                    lfds711_freelist_push(&freelist_frames, &curr_freelist_frames_data->fe, NULL);
+                // allow some frame drop, hold the current note to FAS_MAX_DROP if that happen, this allow smooth audio for all situations
+                fas_drop_counter += 1;
+                if (fas_drop_counter >= fas_max_drop) {
+                    if (curr_notes) {
+                        LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
+                        lfds711_freelist_push(&freelist_frames, &curr_freelist_frames_data->fe, NULL);
+                    }
+
+                    curr_notes = NULL;
+
+                    note_buffer_len = 0;
+
+                    fas_drop_counter = 0;
                 }
-
-                curr_notes = NULL;
-
-                note_buffer_len = 0;
             }
         }
     }
 
-    acb_time += (double)fas_frames_per_buffer / fas_sample_rate;
+    //acb_time += (double)fas_frames_per_buffer / fas_sample_rate;
 
     return paContinue;
 }
@@ -1121,6 +1127,9 @@ int main(int argc, char **argv)
         { "smooth_factor",            required_argument, 0, 21 },
         { "granular_max_density",     required_argument, 0, 22 },
         { "stream_load_send_delay",   required_argument, 0, 23 },
+        { "max_drop",                 required_argument, 0, 24 },
+        //{ "render",                   required_argument, 0, 25 },
+        //{ "render_convert",           required_argument, 0, 26 },
         { 0, 0, 0, 0 }
     };
 
@@ -1201,6 +1210,15 @@ int main(int argc, char **argv)
             case 23:
                 fas_stream_load_send_delay = strtoul(optarg, NULL, 0);
               break;
+            case 24:
+              fas_max_drop = strtoul(optarg, NULL, 0);
+              break;
+            /*case 25:
+              fas_render_target = optarg;
+              break;
+            case 26:
+              fas_render_convert = optarg;
+              break;*/
             default: print_usage();
                  return EXIT_FAILURE;
         }
@@ -1309,6 +1327,12 @@ int main(int argc, char **argv)
         printf("Warning: stream_load_send_delay program option argument is invalid, should be >= 1, the default value (%i) will be used.\n", FAS_STREAM_LOAD_SEND_DELAY);
 
         fas_stream_load_send_delay = FAS_STREAM_LOAD_SEND_DELAY;
+    }
+
+    if (fas_max_drop <= 0) {
+        printf("Warning: max_drop program option argument is invalid, should be >= 0, the default value (%i) will be used.\n", FAS_MAX_DROP);
+
+        fas_max_drop = FAS_MAX_DROP;
     }
 
     if (errno == ERANGE) {

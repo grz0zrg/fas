@@ -17,6 +17,9 @@ void print_usage() {
     printf("  --deflate %u\n", FAS_DEFLATE);
     printf("  --rx_buffer_size %u\n", FAS_RX_BUFFER_SIZE);
     printf("  --port %u\n", FAS_PORT);
+    printf("  --max_drop %u\n", FAS_MAX_DROP);
+    //printf("  --render main.fs\n");
+    //printf("  --render_convert main.fs\n");
     printf("  --iface 127.0.0.1\n");
     printf("  --device -1\n");
     printf("  --osc_out 0\n");

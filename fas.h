@@ -68,13 +68,18 @@
     unsigned int fas_granular_max_density = FAS_GRANULAR_MAX_DENSITY;
     unsigned int frame_data_count = FAS_OUTPUT_CHANNELS / 2;
     unsigned int fas_stream_load_send_delay = FAS_STREAM_LOAD_SEND_DELAY;
+    unsigned int fas_max_drop = FAS_MAX_DROP;
     double fas_smooth_factor = FAS_SMOOTH_FACTOR;
     float fas_noise_amount = FAS_NOISE_AMOUNT;
     int fas_audio_device = -1;
     char *fas_iface = NULL;
     char *fas_osc_addr = "127.0.0.1";
     char *fas_osc_port = "57120";
+    char *fas_render_target = NULL;
+    char *fas_render_convert = NULL;
     char *fas_grains_path = NULL;
+
+    unsigned int fas_drop_counter = 0;
 
     lo_address fas_lo_addr;
 

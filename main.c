@@ -104,22 +104,25 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
         if (queue_synth->chn_settings) {
             curr_synth.chn_settings = queue_synth->chn_settings;
-        }
 
-        //audio_thread_state = FAS_AUDIO_PLAY;
+            // do not allow synthesis based on samples when there is no samples,
+            if (samples_count == 0) {
+                for (k = 0; k < frame_data_count; k += 1) {
+                    struct _synth_chn_settings *chn_settings = &curr_synth.chn_settings[k];
+
+                    if (chn_settings->synthesis_method == FAS_GRANULAR ||
+                        chn_settings->synthesis_method == FAS_SAMPLER) {
+                        chn_settings->synthesis_method = FAS_VOID;
+                    }
+                }
+            }
+        }
     }
 
     int read_status = 0;
     void *key;
 
     if (audio_thread_state == FAS_AUDIO_DO_PAUSE) {
-/*        while(lfds711_ringbuffer_read(&rs, &key, NULL));
-
-        if (curr_notes) {
-            LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
-            lfds711_freelist_push(&freelist_frames, &curr_freelist_frames_data->fe, NULL);
-        }
-*/
         audio_thread_state = FAS_AUDIO_PAUSE;
     } else if (audio_thread_state == FAS_AUDIO_DO_PLAY) {
         audio_thread_state = FAS_AUDIO_PLAY;
@@ -137,6 +140,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 *out++ = 0.0f;
             }
         }
+
+        curr_notes = NULL;
 
         curr_synth.lerp_t = 0.0;
         curr_synth.curr_sample = 0;
@@ -217,7 +222,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         }
 #endif
                     }
-                } else if (chn_settings->synthesis_method == FAS_GRANULAR && curr_synth.grains != NULL) {
+                } else if (chn_settings->synthesis_method == FAS_GRANULAR) {
                     int env_type = chn_settings->env_type;
                     float *gr_env = grain_envelope[env_type];
                     for (j = s; j < e; j += 1) {
@@ -238,8 +243,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             gr = &curr_synth.grains[grain_index + (d * si)];
 
                             if (gr->frame[k] >= gr->frames[k] || gr->frame[k] < 0.0f) {
-                                //gr->smp_index[k] = n->smp_index;
-
                                 smp = &samples[n->smp_index];
 
                                 gr->index[k] = round(smp->frames * (fabs(n->alpha + randf(0.0, 1.0) * fabs(floor(n->alpha))))) * smp->chn;
@@ -247,14 +250,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 gr->env_step[k] = fmax((float)FAS_ENVS_SIZE / ((float)gr->frames[k] / gr->speed), 1.0);
                                 gr->env_index[k] = 0;
                                 gr->frame[k] = 0;
-                                gr->density[k] = fabs(round(n->blue));
-                                if (gr->density[k] < 1) {
-                                    gr->density[k] = 1;
-                                }
-
-                                if (gr->density[k] >= fas_granular_max_density) {
-                                    gr->density[k] = 1;
-                                }
+                                gr->density[k] = n->density;
 
                                 gr->index[k] %= (smp->frames - gr->frames[k]);
 
@@ -269,18 +265,17 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 }
                             }
 
-                            unsigned int sample_index_l = ((unsigned int)gr->frame[k]) * smp->chn + gr->index[k];
-                            unsigned int sample_index_r = ((unsigned int)gr->frame[k]) * smp->chn + gr->index[k] + smp->chn_m1;
+                            unsigned int sample_index = ((unsigned int)gr->frame[k]) + gr->index[k];
 
-                            output_l += vl * (smp->data[sample_index_l] * gr_env[gr->env_index[k]]);
-                            output_r += vr * (smp->data[sample_index_r] * gr_env[gr->env_index[k]]);
+                            output_l += vl * (smp->data_l[sample_index] * gr_env[gr->env_index[k]]);
+                            output_r += vr * (smp->data_r[sample_index] * gr_env[gr->env_index[k]]);
 
                             gr->frame[k] += gr->speed;
 
                             gr->env_index[k] += gr->env_step[k];
                         }
                     }
-                } else if (chn_settings->synthesis_method == FAS_SAMPLER && curr_synth.grains != NULL) {
+                } else if (chn_settings->synthesis_method == FAS_SAMPLER) {
                     int env_type = chn_settings->env_type;
                     float *gr_env = grain_envelope[env_type];
                     for (j = s; j < e; j += 1) {
@@ -306,7 +301,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         uint16_t phi = (float)osc->phase_index[k];
 
-                        float s = smp->data[phi * smp->chn];
+                        float s = smp->data_l[phi];
 
                         float savg = s * gr_env[gr->env_index[k]];
 
@@ -328,7 +323,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         unsigned int add_phase_step = 0;
 
-                        // additive/self part
+                        // additive/self part, experiment not compatible with distributed mode (multiple instances of FAS)
                         struct _synth_chn_settings *pm_mod_source_chn_settings = &curr_synth.chn_settings[n->fm_mod_source];
                         if (chn_settings->synthesis_method == FAS_FM ||
                           chn_settings->synthesis_method == FAS_ADDITIVE) {
@@ -377,7 +372,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 }
             }
 
-
             //output_l /= (e-s);
             //output_r /= (e-s);
 
@@ -416,6 +410,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 lerp_t_step = 1 / note_time_samples;
 
                 note_buffer_len = curr_notes[0].osc_index;
+
+                fas_drop_counter = 0;
 
 #ifdef DEBUG
     frames_read += 1;
@@ -852,7 +848,7 @@ if (remaining_payload != 0) {
                         memset(freelist_frames_data->data[0].frq, 0, sizeof(float) * hop_size);
                     }
 */
-                    fillNotesBuffer(samples_count_m1, (*channels), usd->frame_data_size, freelist_frames_data->data, usd->synth_h, &usd->oscillators, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
+                    fillNotesBuffer(samples_count_m1, fas_granular_max_density, (*channels), usd->frame_data_size, freelist_frames_data->data, usd->synth_h, &usd->oscillators, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
 
                     oscSend(usd->oscillators, freelist_frames_data->data);
 
@@ -992,7 +988,7 @@ fflush(stdout);
                     audioPause();
 
                     free_samples(&samples, samples_count);
-                    samples_count = load_samples(&samples, fas_grains_path);
+                    samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate);
                     samples_count_m1 = samples_count - 1;
 
                     audioPlay();
@@ -1342,7 +1338,7 @@ int main(int argc, char **argv)
     if (print_infos != 1) {
         time(&stream_load_begin);
 
-        samples_count = load_samples(&samples, fas_grains_path);
+        samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate);
         samples_count_m1 = samples_count - 1;
 
         // fas setup

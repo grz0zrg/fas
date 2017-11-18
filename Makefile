@@ -8,11 +8,11 @@ cpp_obj = essentia_wrapper.o
 cpp_options = -std=c++11
 essentia_libs = libessentia.a -lfftw3 -lfftw3f
 libs = liblfds711.a -lportaudio -lwebsockets -lrt -lm -lasound -ljack -pthread -lsndfile liblo.so.7.3.0
-static_libs = liblfds711.a libportaudio.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread -lsndfile liblo.so.7.3.0
+static_libs = liblfds711.a libportaudio.a libsamplerate.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread -lsndfile liblo.so.7.3.0
 ssl_libs = -lssl -lcrypto
 win_ssl_libs = -lssl -lcrypto -lws2_32 -lgdi32
 win_static_libs = liblfds711.a libwebsockets_static.a libportaudio.a -lm -lz -lws2_32
-win_cross_libs = cross/liblfds711.a cross/libwebsockets_static.a cross/libportaudio.a cross/libzlib_internal.a cross/liblo.a cross/libsndfile.a -lm -ldsound -lwinmm -lws2_32 -lstdc++ -lole32 -liphlpapi
+win_cross_libs = cross/liblfds711.a cross/libwebsockets_static.a cross/libportaudio.a cross/libzlib_internal.a cross/liblo.a cross/libsamplerate.a cross/libsndfile.a -lm -ldsound -lwinmm -lws2_32 -lstdc++ -lole32 -liphlpapi
 compat_options = -U__STRICT_ANSI__
 output = fas
 standard_options = -std=c11 -pedantic -D_POSIX_SOURCE

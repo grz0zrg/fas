@@ -22,7 +22,7 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
 
             double frequency = base_frequency * pow(2, (n-y) / octave_length);
 
-            g[gr_index].speed = frequency / (smp->pitch * ((double)sample_rate / smp->samplerate));
+            g[gr_index].speed = frequency / (smp->pitch * ((double)sample_rate / (double)smp->samplerate));
 
             if (g[gr_index].speed <= 0) {
                 g[gr_index].speed = 1;

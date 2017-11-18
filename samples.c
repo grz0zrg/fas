@@ -1,4 +1,5 @@
 #include "inc/sndfile.h"
+#include "inc/samplerate.h"
 #include "inc/tinydir.h"
 #include "inc/Yin.h"
 
@@ -29,7 +30,36 @@ char *notes[240] = {
   "c9","cs9","d9","ds9","e9","f9","fs9","g9","gs9","a9","as9","b9"
 };
 
-unsigned int load_samples(struct sample **s, char *directory) {
+// https://github.com/tidalcycles/Dirt
+void fix_samplerate (struct sample *sample, unsigned int samplerate) {
+    SRC_DATA data;
+    int max_output_frames;
+    int channels = sample->chn;
+
+    if (sample->samplerate == samplerate) {
+        return;
+    }
+
+    data.src_ratio = (float) samplerate / (float) sample->samplerate;
+
+    max_output_frames = sample->frames * data.src_ratio + 32;
+
+    data.data_in = sample->data;
+    data.input_frames = sample->frames;
+
+    data.data_out = (float *) calloc(1, sizeof(float) * max_output_frames* channels);
+    data.output_frames = max_output_frames;
+
+    src_simple(&data, SRC_SINC_BEST_QUALITY, channels);
+
+    if (sample->data) free(sample->data);
+
+    sample->data = data.data_out;
+    sample->samplerate = samplerate;
+    sample->frames = data.output_frames_gen;
+}
+
+unsigned int load_samples(struct sample **s, char *directory, unsigned int samplerate) {
     unsigned int samples_count = 0;
     size_t path_len;
 
@@ -99,11 +129,16 @@ unsigned int load_samples(struct sample **s, char *directory) {
 
             sf_seek(audio_file, 0, SEEK_SET);
 
+            fix_samplerate(smp, samplerate);
+
+            smp->data_l = (float *)malloc(smp->frames * sizeof(float));
+            smp->data_r = (float *)malloc(smp->frames * sizeof(float));
+
             // normalize samples
             unsigned int index = 0;
             float *max_value = (float *)malloc(sfinfo.channels * sizeof(float));
             for (i = 0; i < smp->frames; i++) {
-                for(j = 0; j < sfinfo.channels; j++) {
+                for (j = 0; j < sfinfo.channels; j++) {
                     index = i * sfinfo.channels + j;
 
                     max_value[j] = fmax(max_value[j], fabs(smp->data[index]));
@@ -118,6 +153,24 @@ unsigned int load_samples(struct sample **s, char *directory) {
                     smp->data[index] = smp->data[index] * (1.0f / max_value[j]);
                 }
             }
+
+            if (smp->chn > 1) {
+                // copy l&r
+                index = 0;
+                for (i = 0; i < smp->frames; i += 2) {
+                    smp->data_l[index] = smp->data[i];
+                    smp->data_r[index] = smp->data[i + 1];
+
+                    index += 1;
+                }
+            } else {
+                for (i = 0; i < smp->frames; i++) {
+                    smp->data_l[i] = smp->data[i];
+                    smp->data_r[i] = smp->data[i];
+                }
+            }
+
+            free(smp->data);
 
             // make room to copy filename
             char *filename = malloc(sizeof(char) * (filename_length + 1));
@@ -277,7 +330,8 @@ void free_samples(struct sample **s, unsigned int samples_count) {
 
     for (i = 0; i < samples_count; i++) {
       struct sample *smp = &samples[i];
-      free(smp->data);
+      free(smp->data_l);
+      free(smp->data_r);
     }
     free(samples);
 }

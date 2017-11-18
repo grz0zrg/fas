@@ -98,7 +98,7 @@ for every channels.
 
 Server actions, packet identifier 4 :
 
-- At the moment, this just reload samples in the grains folder.
+- At the moment, this just reload samples in the grains folder, this should be followed by a synth settings change to pre-compute grains tables.
 
 ### Build
 
@@ -142,6 +142,10 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
    * ./configure
    * copy the library found in "src/.libs/liblo.so.7.3.0" to FAS root folder
    * sudo make install
+* Get latest [libsamplerate](http://www.mega-nerd.com/SRC/download.html)
+  * uncompress, go into the directory "libsamplerate-0.1.9"
+  * ./configure
+  * copy the library found in "src/.libs/libsamplerate.a" to FAS root folder
 
 Copy the \*.a into "fas" root directory then compile by using one of the rule below (recommended rule for Linux and similar is "release-static-o").
 
@@ -153,7 +157,7 @@ Bit depth is fixed to 32 bits float at the moment.
 
 The audio server was successfully cross-compiled under Windows (x86_64) with the Ubuntu package **mingw-w64** and the **win-cross-x86-64** makefile rule.
 
-Most libraries will compile easily, some may take some workaround which are noted below, notably those which are using **cmake** (liblo, libwebsockets) and also libsndfile.
+Most libraries will compile easily, some may take some workaround which are noted below, notably those which are using **cmake** (liblo, libwebsockets) and also libsndfile/libsamplerate.
 
 For those which are using cmake, a custom cmake toolchain file must be used
 
@@ -180,7 +184,7 @@ For those which are using cmake, a custom cmake toolchain file must be used
 
 `cmake -DLWS_WITH_SSL=0 -DCMAKE_TOOLCHAIN_FILE=/home/julien/toolchain.cmake ..`
 
-##### For libsndfile
+##### For libsndfile & libsamplerate
 
 `./configure --build=x86_64 --host=x86_64-w64-mingw32`
 

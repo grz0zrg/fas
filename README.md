@@ -237,7 +237,7 @@ Usage: fas [list_of_parameters]
  * --smooth_factor 8.0 **this is the samples interpolation factor between frames**
  * --ssl 0
  * --deflate 0
- * --max_drop 16 **this allow smooth audio in the case of frames drop, allow 16 frames drop by default**
+ * --max_drop 32 **this allow smooth audio in the case of frames drop, allow 16 frames drop by default**
  * --render target.fs **real-time pixels-data offline rendering, this will save pixels data to "target.fs" file**
  * --render_convert target.fs **this will convert the pixels data contained by the .fs file to a .flac file of the same name**
  * --osc_out 0 **you can enable OSC output of notes by setting this argument to 1**

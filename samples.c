@@ -170,6 +170,23 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
                 }
             }
 
+            // apply small amount of fade out/in (eliminate crackles)
+            unsigned int smooth_samples = 32;
+            float factor_step = 1.0f / (float)smooth_samples;
+            float factor = 0.0f;
+
+            if (smp->frames > (smooth_samples * 4)) {
+                for (i = 0; i < smooth_samples; i ++) {
+                    smp->data_l[i] *= factor;
+                    smp->data_r[i] *= factor;
+
+                    smp->data_l[smp->frames - i - 1] *= factor;
+                    smp->data_r[smp->frames - i - 1] *= factor;
+
+                    factor += factor_step;
+                }
+            }
+
             free(smp->data);
 
             // make room to copy filename

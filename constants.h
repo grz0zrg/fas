@@ -1,6 +1,8 @@
 #ifndef _FAS_CONSTANTS_H_
 #define _FAS_CONSTANTS_H_
 
+    #define linearInterpolate(y1, y2, mu) (y1 * (1-mu) + y2 * mu)
+
     #ifndef M_PI
         #define M_PI (3.141592653589)
     #endif

@@ -41,6 +41,10 @@ FAS will try to guess the sample pitch to map it correctly to the image height w
 
 With granular synthesis method, the Blue pixel value is mapped to sample index (bounded to [0, 1]) and granular density when higher than 2, the Alpha value is mapped to sample index, the Alpha value can be used to play the sample backward as well when less than zero.
 
+### Offline rendering
+
+FAS support real-time rendering of the pixels data, the pixels data is compressed on-the-fly into a single file, FAS can then do offline processing and be used again to convert the pixels data into an audio .flac file, this pretty much ensure smooth "professional" audio output.
+
 The ongoing development is to add more synthesis methods (FM/PM is WIP) and with the help of the essentia framework. (a C essentia wrapper is available)
 
 ### OSC
@@ -110,6 +114,7 @@ Requirements :
  * [liblfds](http://liblfds.org/)
  * [libwebsockets](https://libwebsockets.org/)
  * [liblo](http://liblo.sourceforge.net/)
+ * libsamplerate
 
 The granular synthesis part make use of [libsndfile](https://github.com/erikd/libsndfile) and [tinydir](https://github.com/cxong/tinydir) (bundled)
 
@@ -230,7 +235,9 @@ Usage: fas [list_of_parameters]
  * --smooth_factor 8.0 **this is the samples interpolation factor between frames**
  * --ssl 0
  * --deflate 0
- * --max_drop 8 **this allow smooth audio in the case of frames drop, allow 8 frames drop by default**
+ * --max_drop 16 **this allow smooth audio in the case of frames drop, allow 16 frames drop by default**
+ * --render target.fs **real-time pixels-data offline rendering, this will save pixels data to "target.fs" file**
+ * --render_convert target.fs **this will convert the pixels data contained by the .fs file to a .flac file of the same name**
  * --osc_out 0 **you can enable OSC output of notes by setting this argument to 1**
  * --osc_addr 127.0.0.1 **the OSC server address**
  * --osc_port 57120 **the OSC server port**

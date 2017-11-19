@@ -245,11 +245,11 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             if (gr->frame[k] >= gr->frames[k] || gr->frame[k] < 0.0f) {
                                 smp = &samples[n->smp_index];
 
-                                gr->index[k] = round(smp->frames * (fabs(n->alpha + randf(0.0, 1.0) * fabs(floor(n->alpha))))) * smp->chn;
+                                gr->index[k] = round(smp->frames * (fabs(n->alpha + randf(0.0f, 1.0f) * fabs(floor(n->alpha))))) * smp->chn;
                                 gr->frames[k] = fmax(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * smp->frames;
-                                gr->env_step[k] = fmax((float)FAS_ENVS_SIZE / ((float)gr->frames[k] / gr->speed), 1.0);
-                                gr->env_index[k] = 0;
-                                gr->frame[k] = 0;
+                                gr->env_step[k] = fmax((float)FAS_ENVS_SIZE / ((float)gr->frames[k] / gr->speed), 1.0f);
+                                gr->env_index[k] = 0.0f;
+                                gr->frame[k] = 0.0f;
                                 gr->density[k] = n->density;
 
                                 gr->index[k] %= (smp->frames - gr->frames[k]);
@@ -265,7 +265,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 }
                             }
 
-                            unsigned int sample_index = ((unsigned int)gr->frame[k]) + gr->index[k];
+                            unsigned int sample_index = (unsigned int)roundf(gr->frame[k]) + gr->index[k];
 
                             output_l += vl * (smp->data_l[sample_index] * gr_env[gr->env_index[k]]);
                             output_r += vr * (smp->data_r[sample_index] * gr_env[gr->env_index[k]]);
@@ -412,6 +412,48 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 note_buffer_len = curr_notes[0].osc_index;
 
                 fas_drop_counter = 0;
+
+                // do some more processing on notes for later use (optimization)
+                note_buffer_len = 0;
+                pv_note_buffer_len = 0;
+
+                for (k = 0; k < frame_data_count; k += 1) {
+                    float output_l = 0.0f;
+                    float output_r = 0.0f;
+
+                    if (curr_notes) {
+                        pv_note_buffer_len += note_buffer_len;
+                        note_buffer_len = curr_notes[pv_note_buffer_len].osc_index;
+                        pv_note_buffer_len += 1;
+                        s = pv_note_buffer_len;
+                        e = s + note_buffer_len;
+
+                        struct _synth_chn_settings *chn_settings = &curr_synth.chn_settings[k];
+
+                        if (chn_settings->synthesis_method == FAS_GRANULAR) {
+                            for (j = s; j < e; j += 1) {
+                                struct note *n = &curr_notes[j];
+
+                                if (n->volume_r <= 0 && n->volume_l <= 0) {
+                                    unsigned int grain_index = n->osc_index * samples_count + n->smp_index;
+                                    unsigned int si = curr_synth.settings->h * samples_count;
+
+                                    struct grain *gr = &curr_synth.grains[grain_index];
+
+                                    for (d = 0; d < gr->density[k]; d += 1) {
+                                        gr = &curr_synth.grains[grain_index + (d * si)];
+
+                                        if (gr->speed >= 0.0f) {
+                                            gr->frame[k] = gr->frames[k];
+                                        } else {
+                                            gr->frame[k] = -1.0f;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
 #ifdef DEBUG
     frames_read += 1;

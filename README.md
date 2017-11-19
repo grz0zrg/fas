@@ -41,7 +41,7 @@ FAS will try to guess the sample pitch to map it correctly to the image height w
 
 With granular synthesis method, the Blue pixel value is mapped to sample index (bounded to [0, 1]) and granular density when higher than 2, the Alpha value is mapped to sample index, the Alpha value can be used to play the sample backward as well when less than zero.
 
-### Offline rendering
+### Offline rendering (planned feature, not implemented)
 
 FAS support real-time rendering of the pixels data, the pixels data is compressed on-the-fly into a single file, FAS can then do offline processing and be used again to convert the pixels data into an audio .flac file, this pretty much ensure smooth "professional" audio output.
 
@@ -163,6 +163,8 @@ Bit depth is fixed to 32 bits float at the moment.
 The audio server was successfully cross-compiled under Windows (x86_64) with the Ubuntu package **mingw-w64** and the **win-cross-x86-64** makefile rule.
 
 Most libraries will compile easily, some may take some workaround which are noted below, notably those which are using **cmake** (liblo, libwebsockets) and also libsndfile/libsamplerate.
+
+The makefile rules get the libraries from a "cross" folder in the FAS root directory.
 
 For those which are using cmake, a custom cmake toolchain file must be used
 

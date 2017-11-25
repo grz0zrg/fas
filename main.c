@@ -230,8 +230,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        float vl = (n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t);
-                        float vr = (n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t);
+                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         unsigned int grain_index = n->osc_index * samples_count + n->smp_index;
                         unsigned int si = curr_synth.settings->h * samples_count;

@@ -138,7 +138,7 @@ float **createEnvelopes(unsigned int n) {
 
             case 11: // FLATTOP
               for (int j = 0; j < n; j++) {
-                  envs[i][j] = 1 - 1.93*cos(2*(float)(M_PI)*(double)j/(n-1)) + 1.29*cos(4*(float)(M_PI)*(double)j/(n-1)) - 0.388*cos(6*(float)(M_PI)*(double)j/(n-1)) + 0.032*cos(8*(float)(M_PI)*(double)j/(n-1));
+                  envs[i][j] = 1 - 1.93*cos(2*(float)(M_PI)*(double)j/(n-1)) + 1.29*cos(4*(float)(M_PI)*(double)j/(n-1)) - 0.388*cos(6*(float)(M_PI)*(double)j/(n-1)) + 0.032*cos(8*(float)(M_PI)*(double)j/(n-1)) * 0.215;
               }
               break;
 

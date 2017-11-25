@@ -50,7 +50,7 @@ void fix_samplerate (struct sample *sample, unsigned int samplerate) {
     data.data_out = (float *) calloc(1, sizeof(float) * max_output_frames* channels);
     data.output_frames = max_output_frames;
 
-    src_simple(&data, SRC_SINC_BEST_QUALITY, channels);
+    src_simple(&data, SRC_SINC_MEDIUM_QUALITY, channels);
 
     if (sample->data) free(sample->data);
 

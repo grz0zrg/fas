@@ -10,12 +10,12 @@
     typedef struct grain grain;
 
     struct grain {
-        float *frame; // current position
+        float *frame; // current sample position
         unsigned int *frames; // duration
         unsigned int *index; // grain position
         unsigned int *density; // grain density
         unsigned int *smp_index;
-        float speed;
+        float speed; // sample-based step
         uint16_t *env_index;
         uint16_t *env_step;
     };

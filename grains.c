@@ -1,6 +1,7 @@
 #include "grains.h"
 
-// setup granular synthesis grains, this also setup a maximum of "sub grains" with the max_density parameter
+// granular synthesis : grains setup
+// all possible grains (and sub-grains from max_density parameter) are pre-computed in memory
 struct grain *createGrains(struct sample **s, unsigned int samples_count, unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int frame_data_count, unsigned int max_density) {
     if (samples_count == 0) {
         return NULL;
@@ -28,6 +29,7 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
                 g[gr_index].speed = 1;
             }
 
+            // channels dependent parameters
             g[gr_index].frame = malloc(sizeof(float) * frame_data_count);
             g[gr_index].frames = malloc(sizeof(unsigned int) * frame_data_count);
             g[gr_index].index = malloc(sizeof(unsigned int) * frame_data_count);
@@ -36,7 +38,7 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
             g[gr_index].smp_index = malloc(sizeof(unsigned int) * frame_data_count);
             g[gr_index].density = malloc(sizeof(unsigned int) * frame_data_count);
 
-            // we setup these for each simultaneous channels that we will have
+            // initialization for each simultaneous channels
             for (int j = 0; j < frame_data_count; j += 1) {
                 g[gr_index].frames[j] = 0;
                 g[gr_index].frame[j] = 0;

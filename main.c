@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2017, Julien Verneuil
+    Copyright (c) 2017, 2018, Julien Verneuil
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -24,23 +24,15 @@
 */
 
 /*
-    Band-aid raw additive/granular synthesizer built for the Fragment Synthesizer, a web-based Collaborative Spectral Synthesizer.
+    Band-aid raw additive/spectral/granular/PM synthesizer built for the Fragment Synthesizer, a web-based Collaborative Spectral Synthesizer.
 
-    This collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound from it in real-time for a smooth experience,
-    this effectively serve as a band-aid for crackling audio until some heavier optimizations are done.
+    This collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound from it in real-time for a smooth experience.
 
     Only one client is supported (altough many can connect, not tested but it may result in a big audio mess and likely a crash!)
 
-    The audio callback contain its own synth. data structure,
-    this data structure is filled from data coming from a lock-free ring buffer to ensure thread safety for the incoming notes data.
-
-    There is a generic lock-free thread-safe commands queue for synth. parameter changes (gain, oscillators etc.).
-
-    A free list data structure is used to handle data reuse, the program pre-allocate a pool of notes buffer that is reused.
-
     You can tweak this program by passing settings to its arguments, for help : fas --h
 
-    Can be used as a generic additive/granular synthesizer if you feed it correctly!
+    Can be used as a generic additive/spectral/granular/PM synthesizer if you feed it correctly!
 
     https://www.fsynth.com
 
@@ -105,7 +97,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         if (queue_synth->chn_settings) {
             curr_synth.chn_settings = queue_synth->chn_settings;
 
-            // do not allow synthesis based on samples when there is no samples,
+            // do not allow synthesis based on samples when there is no samples
             if (samples_count == 0) {
                 for (k = 0; k < frame_data_count; k += 1) {
                     struct _synth_chn_settings *chn_settings = &curr_synth.chn_settings[k];
@@ -204,7 +196,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        // for PM/FM synth
+                        // experiment with PM/FM synth
                         //osc->value[k] = s;
 
                         output_l += vl * s;
@@ -303,13 +295,13 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         float s = smp->data_l[phi];
 
-                        float savg = s * gr_env[gr->env_index[k]];
+                        //float savg = s * gr_env[gr->env_index[k]];
 
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        output_l += vl * savg;
-                        output_r += vr * savg;
+                        output_l += vl; // * savg;
+                        output_r += vr; // * savg;
 
                         gr->env_index[k] += gr->env_step[k];
 
@@ -468,7 +460,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     fflush(stdout);
 #endif
             } else {
-                // allow some frame drop, hold the current note to FAS_MAX_DROP if that happen, this allow smooth audio for all situations
+                // allow some frame drop, hold the current note to FAS_MAX_DROP if that happen
+                // ensure smooth audio for all situations (the only downside : it may sound delayed, the impact depend on how many frames are dropped)
                 fas_drop_counter += 1;
                 if (fas_drop_counter >= fas_max_drop) {
                     if (curr_notes) {
@@ -485,8 +478,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             }
         }
     }
-
-    //acb_time += (double)fas_frames_per_buffer / fas_sample_rate;
 
     return paContinue;
 }
@@ -815,7 +806,7 @@ if (remaining_payload != 0) {
     printf("Number of channels in the frame: %u\n", *frame_data_length);
 #endif
 
-                    // don't accept frame packets when the audio thread is busy at doing something else than playing audio
+                    // drop frame packets when the audio thread is busy at doing something else than playing audio
                     if (audio_thread_state != FAS_AUDIO_PLAY) {
                         goto free_packet;
                     }

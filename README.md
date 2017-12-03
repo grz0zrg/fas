@@ -1,19 +1,161 @@
-[Fragment Synthesizer](https://github.com/grz0zrg/fsynth) Band-aid
+Fragment : Additive/Spectral/Granular/PM synthesizer
 =====
 
-Raw additive/granular/PM synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based Collaborative Spectral Synthesizer](https://www.fsynth.com)
+Raw additive/spectral/granular/PM synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
 
 This program should compile on most platforms!
 
-This program collect Fragment settings and RGBA (8-bit or 32-bit float) notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time by adding sine waves from a wavetable and add band-limited noise to enhance the synthesized sound, it can also interpret the data for granular synthesis (synchronous and asynchronous) and phase/frequency modulation (WIP), it is a generic image synth, this serve as a fast and independent alternative to output audio for the Fragment Synthesizer.
+[TOC]
 
-This program is tailored for performances (it is memory intensive, most things are pre-allocated with near zero real-time allocations) and can be executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 oscillators can be played simultaneously on the Raspberry Pi at the moment with two cores and minimum Raspbian stuff enabled (additive synthesis), note that frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues (slow browser/client), the RPI having too much load from stuff running in the background, etc.
+## About
 
-Smooth audio can be produced even in the case of frames drop with the `max_drop` program option.
+Fragment Audio Server (FAS) is a pixels-based additive, spectral, granular and phase modulated (PM) audio synthesizer implemented as a WebSocket server with the C language.
 
-Only one client is supported at the moment (altough many can connect, not tested but it may result in a big audio mess and likely a crash!), you can launch multiple servers instance on different port and feed it different data if you need a multi-client audio server
+All the synthesis methods can be used at the same time by using different output channels.
+
+FAS is focused on **real-time performances**, being **cross-platform** and **pixels-based**.
+
+This project was built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
+
+### Pixels-based
+
+Unlike other synthesizers, the notes data format understood by FAS is pixels-based, the notes data format can be
+
+- **8-bit RGBA**
+- **32-bit float RGBA**
+
+The RGBA data collected is 1px wide with an user-defined height, the height is mapped to frequencies with an user-defined logarithmic frequency map.
+
+FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM).
+
+It can be said that FAS is a generic image-synth : any RGBA images can be used to produce an infinite variety of sounds by streaming vertical slices of the image to FAS.
+
+### Additive synthesis
+
+Additive synthesis is a mean to generate sounds by adding sine waves together, it is an extremely powerful type of sound synthesis able to reproduce any waveforms in theory.
+
+FAS allow to add some amount of white noise to the phase of each sine waves, this may result in enhancement of noisy sounds.
+
+#### RGBA interpretation
+
+##### Monophonic
+
+| Components | Interpretations                |
+| ---------: | :----------------------------- |
+|          R | unused                         |
+|          G | unused                         |
+|          B | unused                         |
+|          A | Amplitude value of the channel |
+
+##### Stereophonic
+
+| Components | Interpretations                          |
+| ---------: | :--------------------------------------- |
+|          R | Amplitude value of the LEFT channel      |
+|          G | Amplitude value of the RIGHT channel     |
+|          B | Added noise factor for the LEFT and RIGHT oscillator |
+|          A | unused                                   |
+
+### Granular synthesis
+
+Granular synthesis is a mean to generate sounds by using small grains of sounds blended together and forming a continuous stream.
+
+FAS grains source are audio files (.wav, .flac or any formats supported by [libsndfile](https://github.com/erikd/libsndfile)) automatically loaded into memory from the "grains" folder by default.
+
+Both asynchronous and synchronous granular synthesis is implemented and can be used at the same time.
+
+Granular synthesis implementation is less optimal than additive synthesis but has good performances.
+
+**Note** : Monophonic mode granular synthesis is not implemented.
+
+#### Window type
+
+The grains window/envelope type is defined as a channel dependent settings, FAS allow the selection of 13 envelopes, they can be visualized in a browser by opening the `labs/envs.html` file.
+
+#### RGBA interpretation
+
+| Components | Interpretations                          |
+| ---------: | :--------------------------------------- |
+|          R | Amplitude value of the LEFT channel      |
+|          G | Amplitude value of the RIGHT channel     |
+|          B | Sample index bounded to [0, 1] (cyclic) and grains density when > 2 |
+|          A | Grains start index bounded [0, 1] (cyclic), grains start randomization amount when > 1, play the grain backward when negative |
+
+### Spectral synthesis (planned)
+
+Spectral synthesis is a mean to generate sounds by using the FFT and IFFT algorithm preserving phase information, this is one of the most powerful synthesis algorithm available, it is able to re-produce sounds with great accuracy.
+
+### Sampler
+
+FAS can interpret the notes data to trigger samples loaded from the `grains` folder.
+
+**Note** : Monophonic mode sampler is not implemented.
+
+#### RGBA interpretation
+
+| Components | Interpretations                          |
+| ---------: | :--------------------------------------- |
+|          R | Amplitude value of the LEFT channel      |
+|          G | Amplitude value of the RIGHT channel     |
+|          B | Sample index bounded to [0, 1] (cyclic) and grains density when > 2 |
+|          A | Grains start index bounded [0, 1] (cyclic), grains start randomization amount when > 1, play the grain backward when negative |
+
+### PM synthesis
+
+Phase modulation (PM) is a mean to generate sounds by modulating the phase of an oscillator from another oscillator, it is very similar to frequency modulation (FM).
+
+PM synthesis is in construction and the implementation can be subject to changes.
+
+### Samples map
+
+Each samples loaded from the `grains` folder are processed, one of the most important process is the sample pitch mapping, this process try to gather informations or guess the sample pitch to map it correctly onto the user-defined image height when used, in order :
+
+1. from the filename, the filename should contain a specific pattern which indicate the sample pitch such as `A#4` or a frequency between "#" character such as `flute_#440#.wav`
+2. with Yin pitch detection algorithm, this method can be heavily inaccurate and depend on the sample content
+
+### Performances
+
+This program is tailored for performances, it is memory intensive, most things are pre-allocated with near zero real-time allocations.
+
+#### Raspberry PI
+
+FAS was executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 additive synthesis oscillators can be played simultaneously on the Raspberry Pi with two cores used and minimum Raspbian stuff enabled.
+
+#### Distributed/multi-core synthesis
+
+Due to the architecture of FAS, distributed sound synthesis is easily doable by running multiple FAS instances on the same or different computer by distributing the pixels data correctly to each instances, on the same machine this only require a sufficient amount of memory.
+
+This is the only way to exploit multiple cores on the same machine.
+
+A simple implementation of a distributed synthesis relay can be found [here](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
+
+#### Frames drop
+
+Frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues like a slow client, etc.
+
+When a frame is dropped, FAS hold the audio till a frame is received or the `max_drop` program option is reached, this ensure smooth audio even if the client has issues sending its frames, latency can be heard if too much frames are dropped however.
+
+### Limitations
+
+Only one client is supported at the moment (many can connect but it is not tested and may result in a big audio mess and likely a crash!), you can launch multiple servers instance on different port and feed it different data if you need a multi-client audio server
+
+### What is sent
 
 The server only send the CPU load of the stream at regular interval (adjustable) to the client (double type).
+
+### Offline rendering (planned)
+
+FAS support real-time rendering of the pixels data, the pixels data is compressed on-the-fly into a single file, FAS can then do offline processing and be used again to convert the pixels data into an audio .flac file, this  ensure professional quality audio output.
+
+The ongoing development is to add more synthesis methods (FM/PM is WIP) and with the help of the essentia framework. (a C essentia wrapper is available)
+
+### OSC
+
+FAS support OSC output of pixels data on the channel "/fragment" with data type "idff" and data (in order) "osc index", "osc frequency", "osc amplitude L value", "osc amplitude R value"
+
+With OSC you can basically do whatever you want with the pixels data, feeding SuperCollider synths for example, sending the data as an OSC bundle is WIP.
+
+## Technical implementation
 
 The audio callback contain its own synth. data structure, the data structure is filled from data coming from a lock-free ring buffer to ensure thread safety for the incoming notes data.
 
@@ -21,46 +163,18 @@ There is a generic lock-free thread-safe commands queue for synth. parameters ch
 
 A free list data structure is used to handle data reuse, the program pre-allocate a pool of notes buffer that is reused.
 
-Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping), bandwidth enhanced sines can also be disabled for lightning fast additive synthesis.
+Additive synthesis is wavetable-based.
 
-In monophonic mode the Alpha channel value is the amplitude value.
+## Packets description
 
-**Can be used as a raw generic additive/granular/PM/FM synthesizer if you feed it correctly! :)**
+To communicate with FAS with a custom client, there is only five type of packets to handle, the first byte of the packet is the packet identifier, below is the expected data for each packets 
 
-### Additive/spectral synthesis
-
-For additive synthesis and in stereophonic mode the pixels data channel R and G is the amplitude value of the oscillators (for L/R) while the B channel is the band-limited noise multiplier, if you set B to 0, no noise will added to the oscillator while a value of 1 will apply the global noise amount.
-
-### Granular synthesis
-
-The granular synthesis part is being actively developed and is mature enough to be used, you can have additive and granular synthesis at the same time with different output channel, all the grains are loaded from audio files found in the "grains" folder (put your .wav or .flac audio files there), FAS will load them all into memory at the moment.
-
-Granular synthesis is less optimized than additive synthesis but has ok performances.
-
-FAS will try to guess the sample pitch to map it correctly to the image height with several methods, an exact one from the filename (the filename should contain a note such as A#4 for example or a frequency between "#" character such as "flute_#440#.wav") and Yin pitch detection if everything else fail.
-
-With granular synthesis method, the Blue pixel value is mapped to sample index (bounded to [0, 1]) and granular density when higher than 2, the Alpha value is mapped to sample index, the Alpha value can be used to play the sample backward as well when less than zero.
-
-### Offline rendering (planned feature, not implemented)
-
-FAS support real-time rendering of the pixels data, the pixels data is compressed on-the-fly into a single file, FAS can then do offline processing and be used again to convert the pixels data into an audio .flac file, this pretty much ensure smooth "professional" audio output.
-
-The ongoing development is to add more synthesis methods (FM/PM is WIP) and with the help of the essentia framework. (a C essentia wrapper is available)
-
-### OSC
-
-This support OSC output of pixels data on the channel "/fragment" with data type "idff" and data (in order) "osc index", "osc frequency", "osc amplitude L value", "osc amplitude R value"
-
-With OSC you can basically do whatever you want with the pixels data, feeding SuperCollider synths for example, sending the data as an OSC bundle is WIP.
-
-### Packets
-
-To communicate with FAS with a custom client, there is only five type of packets to handle, the first byte of the packet is the packet identifier, below is the expected data for each packets (Note: you must send settings before sending any frames, otherwise they are simply ignored!) :
+**Note** : synth settings packet must be sent before sending any frames, otherwise the frames received are simply ignored.
 
 Synth settings, packet identifier 0 :
 ```c
 struct _synth_settings {
-    unsigned int h; // image height
+    unsigned int h; // image/slice height
     unsigned int octave; // octaves count
     unsigned int data_type; // the frame data type, 0 = 8-bit, 1 = float
     double base_frequency;
@@ -104,7 +218,7 @@ Server actions, packet identifier 4 :
 
 - At the moment, this just reload samples in the grains folder, this should be followed by a synth settings change to pre-compute grains tables.
 
-### Build
+## Build
 
 Under Windows, [MSYS2](https://msys2.github.io/) with mingw32 is used and well tested.
 
@@ -158,7 +272,9 @@ Recommended launch parameters with HiFiBerry DAC+ :
     ./fas --alsa_realtime_scheduling 1 --frames_queue_size 63 --sample_rate 48000 --device 2
 Bit depth is fixed to 32 bits float at the moment.
 
-### Cross-compiling under Linux for Windows
+**Note** : Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping), bandwidth enhanced sines can also be disabled for lightning fast additive synthesis.
+
+## Cross-compiling under Linux for Windows
 
 The audio server was successfully cross-compiled under Windows (x86_64) with the Ubuntu package **mingw-w64** and the **win-cross-x86-64** makefile rule.
 
@@ -195,7 +311,7 @@ For those which are using cmake, a custom cmake toolchain file must be used
 
 `./configure --build=x86_64 --host=x86_64-w64-mingw32`
 
-#### Makefile rules
+## Makefile rules
 
 Debug : **make**
 
@@ -221,7 +337,7 @@ With MinGW (Statically linked + advanced optimizations, default build) :  **make
 
 With mingw-w64 package (Ubuntu) cross-compilation for Windows : **make win-cross-x86-64**
 
-### Usage
+## Usage
 
 You can tweak this program by passing parameters to its arguments, for command-line help : **fas --h**
 

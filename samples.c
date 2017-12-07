@@ -131,8 +131,10 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
 
             fix_samplerate(smp, samplerate);
 
-            smp->data_l = (float *)malloc(smp->frames * sizeof(float));
-            smp->data_r = (float *)malloc(smp->frames * sizeof(float));
+            int padded_frames_len = smp->frames + 1; // lerp usage
+
+            smp->data_l = (float *)malloc(padded_frames_len * sizeof(float));
+            smp->data_r = (float *)malloc(padded_frames_len * sizeof(float));
 
             // normalize samples
             unsigned int index = 0;
@@ -186,6 +188,10 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
                     factor += factor_step;
                 }
             }
+
+            // pad TODO : accomodate for pad length > 1 (assume 1 for now)
+            smp->data_l[smp->frames] = 0;
+            smp->data_r[smp->frames] = 0;
 
             free(smp->data);
 

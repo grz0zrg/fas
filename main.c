@@ -24,7 +24,7 @@
 */
 
 /*
-    Band-aid raw additive/spectral/granular/PM synthesizer built for the Fragment Synthesizer, a web-based Collaborative Spectral Synthesizer.
+    Additive/spectral/granular/PM synthesizer built for the Fragment Synthesizer, a web-based image-synth collaborative audio/visual synthesizer.
 
     This collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound from it in real-time for a smooth experience.
 
@@ -257,10 +257,24 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 }
                             }
 
-                            unsigned int sample_index = (unsigned int)roundf(gr->frame[k]) + gr->index[k];
+                            float pos = gr->frame[k] + gr->index[k];
+                            // simplest & fastest (no interpolation) : (unsigned int)roundf(gr->frame[k]) + gr->index[k];
+                            unsigned int sample_index = pos;
+                            unsigned int sample_index2 = sample_index + 1;
 
-                            output_l += vl * (smp->data_l[sample_index] * gr_env[gr->env_index[k]]);
-                            output_r += vr * (smp->data_r[sample_index] * gr_env[gr->env_index[k]]);
+                            float smp_l = smp->data_l[sample_index];
+                            float smp_r = smp->data_r[sample_index];
+
+                            float smp_l2 = smp->data_l[sample_index2];
+                            float smp_r2 = smp->data_r[sample_index2];
+
+                            float n = pos - sample_index;
+
+                            float smp_lv = smp_l + n * (smp_l2 - smp_l);
+                            float smp_rv = smp_r + n * (smp_r2 - smp_r);
+
+                            output_l += vl * (smp_lv * gr_env[gr->env_index[k]]);
+                            output_r += vr * (smp_rv * gr_env[gr->env_index[k]]);
 
                             gr->frame[k] += gr->speed;
 

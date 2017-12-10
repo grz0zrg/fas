@@ -34,4 +34,5 @@ void print_usage() {
 #endif
     printf("  --frames_queue_size %u\n", FAS_FRAMES_QUEUE_SIZE);
     printf("  --commands_queue_size %u\n", FAS_COMMANDS_QUEUE_SIZE);
+    printf("  --samplerate_conv_type %u\n", SRC_SINC_MEDIUM_QUALITY);
 }

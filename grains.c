@@ -14,7 +14,7 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
 
     struct sample *samples = *s;
 
-    struct grain *g = (struct grain *)malloc(grains_count * sizeof(struct grain));
+    struct grain *g = (struct grain *)calloc(grains_count, sizeof(struct grain));
     for (int i = 0; i < grains_count; i += samples_count) {
         for (int k = 0; k < samples_count; k += 1) {
             int gr_index = i + k;
@@ -23,28 +23,24 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
 
             double frequency = base_frequency * pow(2, (n-y) / octave_length);
 
-            g[gr_index].speed = frequency / (smp->pitch * ((double)sample_rate / (double)smp->samplerate));
+            g[gr_index].speed = frequency / smp->pitch / ((double)sample_rate / (double)smp->samplerate);
 
             if (g[gr_index].speed <= 0) {
                 g[gr_index].speed = 1;
             }
 
             // channels dependent parameters
-            g[gr_index].frame = malloc(sizeof(float) * frame_data_count);
-            g[gr_index].frames = malloc(sizeof(unsigned int) * frame_data_count);
-            g[gr_index].index = malloc(sizeof(unsigned int) * frame_data_count);
-            g[gr_index].env_index = malloc(sizeof(uint16_t) * frame_data_count);
-            g[gr_index].env_step = malloc(sizeof(uint16_t) * frame_data_count);
-            g[gr_index].smp_index = malloc(sizeof(unsigned int) * frame_data_count);
-            g[gr_index].density = malloc(sizeof(unsigned int) * frame_data_count);
+            g[gr_index].frame = calloc(frame_data_count, sizeof(double));
+            g[gr_index].frames = calloc(frame_data_count, sizeof(unsigned int));
+            g[gr_index].index = calloc(frame_data_count, sizeof(unsigned int));
+            g[gr_index].env_index = calloc(frame_data_count, sizeof(double));
+            g[gr_index].env_step = calloc(frame_data_count, sizeof(double));
+            g[gr_index].smp_index = calloc(frame_data_count, sizeof(unsigned int));
+            g[gr_index].density = calloc(frame_data_count, sizeof(unsigned int));
 
             // initialization for each simultaneous channels
             for (int j = 0; j < frame_data_count; j += 1) {
-                g[gr_index].frames[j] = 0;
-                g[gr_index].frame[j] = 0;
-                g[gr_index].index[j] = 0;
-                g[gr_index].env_step[j] = 0;
-                g[gr_index].env_index[j] = 0;
+                g[gr_index].env_index[j] = FAS_ENVS_SIZE;
                 g[gr_index].smp_index[j] = k;
                 g[gr_index].density[j] = 1;
             }

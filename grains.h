@@ -10,14 +10,14 @@
     typedef struct grain grain;
 
     struct grain {
-        float *frame; // current sample position
+        double *frame; // current sample position
         unsigned int *frames; // duration
         unsigned int *index; // grain position
         unsigned int *density; // grain density
         unsigned int *smp_index;
-        float speed; // sample-based step
-        uint16_t *env_index;
-        uint16_t *env_step;
+        double speed; // sample-based step
+        double *env_index;
+        double *env_step;
     };
 
     extern struct grain *createGrains(struct sample **samples, unsigned int samples_count, unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int frame_data_count, unsigned int max_density);

@@ -234,17 +234,18 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         for (d = 0; d < gr->density[k]; d += 1) {
                             gr = &curr_synth.grains[grain_index + (d * si)];
 
-                            if (gr->frame[k] >= gr->frames[k] || gr->frame[k] < 0.0f) {
+                            if (gr->env_index[k] >= FAS_ENVS_SIZE) {
                                 smp = &samples[n->smp_index];
 
-                                gr->index[k] = round(smp->frames * (fabs(n->alpha + randf(0.0f, 1.0f) * fabs(floor(n->alpha))))) * smp->chn;
-                                gr->frames[k] = fmax(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * smp->frames;
-                                gr->env_step[k] = fmax((float)FAS_ENVS_SIZE / ((float)gr->frames[k] / gr->speed), 1.0f);
-                                gr->env_index[k] = 0.0f;
-                                gr->frame[k] = 0.0f;
-                                gr->density[k] = n->density;
+                                float grain_start = (float)smp->frames;
+                                grain_start = roundf(grain_start * (fmaxf(fminf(n->alpha, 1.0f), 0.0f) * (randf(0.0f, 1.0f) * fabs(floorf(fminf(n->alpha - 0.0001f, 1.0f))))));
 
-                                gr->index[k] %= (smp->frames - gr->frames[k]);
+                                gr->index[k] = grain_start;
+                                gr->frames[k] = grain_start + fmaxf(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * (smp->frames - grain_start);
+                                gr->env_step[k] = fmax(((double)(FAS_ENVS_SIZE)) / (((double)gr->frames[k] - (double)gr->index[k]) / fabs(gr->speed)), 0.00000001);
+                                gr->env_index[k] = 0.0f;
+                                gr->frame[k] = gr->index[k];
+                                gr->density[k] = n->density;
 
                                 if (n->alpha < 0.0f) {
                                     if (gr->speed >= 0.0f) {
@@ -257,8 +258,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 }
                             }
 
-                            float pos = gr->frame[k] + gr->index[k];
-                            // simplest & fastest (no interpolation) : (unsigned int)roundf(gr->frame[k]) + gr->index[k];
+                            double pos = gr->frame[k];
+
                             unsigned int sample_index = pos;
                             unsigned int sample_index2 = sample_index + 1;
 
@@ -268,13 +269,15 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             float smp_l2 = smp->data_l[sample_index2];
                             float smp_r2 = smp->data_r[sample_index2];
 
-                            float n = pos - sample_index;
+                            float n = pos - (float)sample_index;
 
                             float smp_lv = smp_l + n * (smp_l2 - smp_l);
                             float smp_rv = smp_r + n * (smp_r2 - smp_r);
 
-                            output_l += vl * (smp_lv * gr_env[gr->env_index[k]]);
-                            output_r += vr * (smp_rv * gr_env[gr->env_index[k]]);
+                            float env = gr_env[(unsigned int)round(gr->env_index[k])];
+
+                            output_l += vl * (smp_lv * env);
+                            output_r += vr * (smp_rv * env);
 
                             gr->frame[k] += gr->speed;
 
@@ -440,7 +443,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             for (j = s; j < e; j += 1) {
                                 struct note *n = &curr_notes[j];
 
-                                if (n->volume_r <= 0 && n->volume_l <= 0) {
+                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
                                     unsigned int grain_index = n->osc_index * samples_count + n->smp_index;
                                     unsigned int si = curr_synth.settings->h * samples_count;
 
@@ -449,11 +452,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                     for (d = 0; d < gr->density[k]; d += 1) {
                                         gr = &curr_synth.grains[grain_index + (d * si)];
 
-                                        if (gr->speed >= 0.0f) {
-                                            gr->frame[k] = gr->frames[k];
-                                        } else {
-                                            gr->frame[k] = -1.0f;
-                                        }
+                                        gr->env_index[k] = FAS_ENVS_SIZE;
                                     }
                                 }
                             }
@@ -1035,7 +1034,7 @@ fflush(stdout);
                     audioPause();
 
                     free_samples(&samples, samples_count);
-                    samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate);
+                    samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type);
                     samples_count_m1 = samples_count - 1;
 
                     audioPlay();
@@ -1144,35 +1143,36 @@ int main(int argc, char **argv)
     int i = 0;
 
     static struct option long_options[] = {
-        { "sample_rate",              required_argument, 0, 0 },
-        { "frames",                   required_argument, 0, 1 },
-        { "wavetable",                required_argument, 0, 2 },
+        { "sample_rate",                required_argument, 0, 0 },
+        { "frames",                     required_argument, 0, 1 },
+        { "wavetable",                  required_argument, 0, 2 },
 #ifndef FIXED_WAVETABLE
-        { "wavetable_size",           required_argument, 0, 3 },
+        { "wavetable_size",             required_argument, 0, 3 },
 #endif
-        { "fps",                      required_argument, 0, 4 },
-        { "deflate",                  required_argument, 0, 5 },
-        { "rx_buffer_size",           required_argument, 0, 6 },
-        { "port",                     required_argument, 0, 7 },
-        { "alsa_realtime_scheduling", required_argument, 0, 8 },
-        { "frames_queue_size",        required_argument, 0, 9 },
-        { "commands_queue_size",      required_argument, 0, 10 },
-        { "ssl",                      required_argument, 0, 11 },
-        { "iface",                    required_argument, 0, 12 },
-        { "device",                   required_argument, 0, 13 },
-        { "output_channels",          required_argument, 0, 14 },
-        { "i",                              no_argument, 0, 15 },
-        { "noise_amount",             required_argument, 0, 16 },
-        { "osc_out",                  required_argument, 0, 17 },
-        { "osc_addr",                 required_argument, 0, 18 },
-        { "osc_port",                 required_argument, 0, 19 },
-        { "grains_folder",            required_argument, 0, 20 },
-        { "smooth_factor",            required_argument, 0, 21 },
-        { "granular_max_density",     required_argument, 0, 22 },
-        { "stream_load_send_delay",   required_argument, 0, 23 },
-        { "max_drop",                 required_argument, 0, 24 },
-        //{ "render",                   required_argument, 0, 25 },
-        //{ "render_convert",           required_argument, 0, 26 },
+        { "fps",                        required_argument, 0, 4 },
+        { "deflate",                    required_argument, 0, 5 },
+        { "rx_buffer_size",             required_argument, 0, 6 },
+        { "port",                       required_argument, 0, 7 },
+        { "alsa_realtime_scheduling",   required_argument, 0, 8 },
+        { "frames_queue_size",          required_argument, 0, 9 },
+        { "commands_queue_size",        required_argument, 0, 10 },
+        { "ssl",                        required_argument, 0, 11 },
+        { "iface",                      required_argument, 0, 12 },
+        { "device",                     required_argument, 0, 13 },
+        { "output_channels",            required_argument, 0, 14 },
+        { "i",                                no_argument, 0, 15 },
+        { "noise_amount",               required_argument, 0, 16 },
+        { "osc_out",                    required_argument, 0, 17 },
+        { "osc_addr",                   required_argument, 0, 18 },
+        { "osc_port",                   required_argument, 0, 19 },
+        { "grains_folder",              required_argument, 0, 20 },
+        { "smooth_factor",              required_argument, 0, 21 },
+        { "granular_max_density",       required_argument, 0, 22 },
+        { "stream_load_send_delay",     required_argument, 0, 23 },
+        { "max_drop",                   required_argument, 0, 24 },
+        { "samplerate_conv_type",       required_argument, 0, 25 },
+        //{ "render",                   required_argument, 0, 26 },
+        //{ "render_convert",           required_argument, 0, 27 },
         { 0, 0, 0, 0 }
     };
 
@@ -1256,10 +1256,13 @@ int main(int argc, char **argv)
             case 24:
               fas_max_drop = strtoul(optarg, NULL, 0);
               break;
-            /*case 25:
+            case 25:
+              fas_samplerate_converter_type = strtoul(optarg, NULL, 0);
+              break;
+            /*case 26:
               fas_render_target = optarg;
               break;
-            case 26:
+            case 27:
               fas_render_convert = optarg;
               break;*/
             default: print_usage();
@@ -1382,10 +1385,21 @@ int main(int argc, char **argv)
         printf("Warning: One of the specified program option is out of range and was set to its maximal value.\n");
     }
 
+    const char *samplerate_converter_type = src_get_name(fas_samplerate_converter_type);
+    if (samplerate_converter_type == NULL) {
+        printf("Invalid samplerate conversion method, defaulting to SRC_SINC_MEDIUM_QUALITY\n");
+        fflush(stdout);
+
+        fas_samplerate_converter_type = SRC_SINC_MEDIUM_QUALITY;
+    } else {
+        printf("Samplerate conversion method : %s\n", samplerate_converter_type);
+        fflush(stdout);
+    }
+
     if (print_infos != 1) {
         time(&stream_load_begin);
 
-        samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate);
+        samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type);
         samples_count_m1 = samples_count - 1;
 
         // fas setup

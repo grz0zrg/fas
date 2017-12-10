@@ -2,6 +2,7 @@
 #define _FAS_SAMPLES_H_
 
   #include <math.h>
+  #include "inc/samplerate.h"
 
     struct sample {
         float *data; // unused after load
@@ -15,7 +16,7 @@
         int samplerate;
     };
 
-    extern unsigned int load_samples(struct sample **samples, char *directory, unsigned int sample_rate);
+    extern unsigned int load_samples(struct sample **samples, char *directory, unsigned int sample_rate, int converter_type);
     extern void free_samples(struct sample **s, unsigned int samples_count);
 
 #endif

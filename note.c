@@ -79,6 +79,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
                 _note->previous_volume_l = pvl;
                 _note->volume_l = volume_l;
                 _note->diff_volume_l = volume_l - pvl;
+
 //note_buffer[note_osc_index].mag[note_i] = abs(r * inv_full_brightness);//20. * log10();
 //                note_buffer[note_osc_index].frq[note_i] = oscs[y].freq;
 

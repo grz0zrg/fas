@@ -5,7 +5,32 @@ Raw additive/spectral/granular/PM synthesizer built for the [Fragment Synthesize
 
 This program should compile on most platforms!
 
-[TOC]
+Table of Contents
+=================
+
+* [<a href="https://www.fsynth.com">Fragment Synthesizer</a>](#fragment-:-additive/spectral/granular/pm-synthesizer)
+   * [About FAS](#about)
+         * [Pixels-based](#pixels-based)
+         * [Additive synthesis](#additive-synthesis)
+         * [Granular synthesis](#granular-synthesis)
+         * [Spectral synthesis (planned)](#spectral-synthesis-(planned))
+         * [Sampler](#sampler)
+         * [PM synthesis](#pm-synthesis)
+         * [Samples map](#samples-map)
+         * [Performances](#performances)
+            * [Raspberry PI](#raspberry-pi)
+            * [Distributed/multi-core synthesis](#distributed/multi-core-synthesis)
+            * [Frames drop](#frames-drop)
+         * [Limitations](#limitations)
+         * [What is sent](#what-is-sent)
+         * [Offline rendering (planned)](#offline-rendering-(planned))
+         * [OSC](#osc)
+   * [Technical Implementation](#technical-implementation)
+   * [Packets description](#packets-description)
+   * [Building FAS](#build)
+   * [Cross-compiling under Linux for Windows](#cross-compiling-under-linux-for-windows)
+   * [Makefile rules](#makefile-rules)
+   * [Usage](#usage)
 
 ## About
 
@@ -79,7 +104,7 @@ The grains window/envelope type is defined as a channel dependent settings, FAS 
 |          R | Amplitude value of the LEFT channel      |
 |          G | Amplitude value of the RIGHT channel     |
 |          B | Sample index bounded to [0, 1] (cyclic) and grains density when > 2 |
-|          A | Grains start index bounded [0, 1] (cyclic), grains start randomization amount when > 1, play the grain backward when negative |
+|          A | Grains start index bounded [0, 1] (cyclic), grains start index random [0, 1] factor when > 1, play the grain backward when negative |
 
 ### Spectral synthesis (planned)
 
@@ -90,6 +115,8 @@ Spectral synthesis is a mean to generate sounds by using the FFT and IFFT algori
 FAS can interpret the notes data to trigger samples loaded from the `grains` folder.
 
 **Note** : Monophonic mode sampler is not implemented.
+
+This is WIP.
 
 #### RGBA interpretation
 
@@ -165,9 +192,11 @@ A free list data structure is used to handle data reuse, the program pre-allocat
 
 Additive synthesis is wavetable-based.
 
+Real-time resampling is done with a simple linear method, better resampling method may come in the future.
+
 ## Packets description
 
-To communicate with FAS with a custom client, there is only five type of packets to handle, the first byte of the packet is the packet identifier, below is the expected data for each packets 
+To communicate with FAS with a custom client, there is only five type of packets to handle, the first byte of the packet is the packet identifier, below is the expected data for each packets
 
 **Note** : synth settings packet must be sent before sending any frames, otherwise the frames received are simply ignored.
 
@@ -370,6 +399,7 @@ Usage: fas [list_of_parameters]
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio will be delayed**
  * --commands_queue_size 16 **should be a positive integer power of 2**
  * --stream_load_send_delay 2 **FAS will send the stream CPU load every two seconds**
+ * --samplerate_conv_type 1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time**
 
 Self-signed certificates are provided in case you compile/run it with SSL. (Note: This is useless for many reasons and HTTP should _**ALWAYS**_ be the prefered protocol for online Fragment application, this is explained in [this issue](https://github.com/grz0zrg/fas/issues/1).)
 

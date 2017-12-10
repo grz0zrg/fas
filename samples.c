@@ -1,5 +1,4 @@
 #include "inc/sndfile.h"
-#include "inc/samplerate.h"
 #include "inc/tinydir.h"
 #include "inc/Yin.h"
 
@@ -31,7 +30,7 @@ char *notes[240] = {
 };
 
 // https://github.com/tidalcycles/Dirt
-void fix_samplerate (struct sample *sample, unsigned int samplerate) {
+void fix_samplerate (struct sample *sample, unsigned int samplerate, int converter_type) {
     SRC_DATA data;
     int max_output_frames;
     int channels = sample->chn;
@@ -50,16 +49,32 @@ void fix_samplerate (struct sample *sample, unsigned int samplerate) {
     data.data_out = (float *) calloc(1, sizeof(float) * max_output_frames* channels);
     data.output_frames = max_output_frames;
 
-    src_simple(&data, SRC_SINC_MEDIUM_QUALITY, channels);
+    int conv_result = src_simple(&data, converter_type, channels);
 
-    if (sample->data) free(sample->data);
+    if (conv_result != 0) {
+        const char *conv_error_str = src_strerror(conv_result);
 
-    sample->data = data.data_out;
-    sample->samplerate = samplerate;
-    sample->frames = data.output_frames_gen;
+        if (conv_error_str == NULL) {
+            printf("fix_samplerate: Unknown conversion error.");
+            fflush(stdout);
+        } else {
+            printf("fix_samplerate: %s", conv_error_str);
+            fflush(stdout);
+        }
+
+        free(data.data_out);
+    } else {
+        if (sample->data) {
+            free(sample->data);
+        }
+
+        sample->data = data.data_out;
+        sample->samplerate = samplerate;
+        sample->frames = data.output_frames_gen;
+    }
 }
 
-unsigned int load_samples(struct sample **s, char *directory, unsigned int samplerate) {
+unsigned int load_samples(struct sample **s, char *directory, unsigned int samplerate, int converter_type) {
     unsigned int samples_count = 0;
     size_t path_len;
 
@@ -77,7 +92,7 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
         return 0;
     }
 
-    samples = malloc(sizeof(struct sample) * 1);
+    samples = calloc(1, sizeof(struct sample));
 
     double ratio = pow(2.0, 1.0 / 12.0);
 
@@ -123,22 +138,23 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
             smp->len = sfinfo.frames * sfinfo.channels;
             smp->frames = sfinfo.frames;
             smp->samplerate = sfinfo.samplerate;
-            smp->data = (float *)malloc(smp->len * sizeof(float));
+            smp->data = (float *)calloc(smp->len, sizeof(float));
             smp->pitch = 0;
-            sf_read_float(audio_file, smp->data, smp->len);
+
+            sf_count_t read_count = sf_read_float(audio_file, smp->data, smp->len);
 
             sf_seek(audio_file, 0, SEEK_SET);
 
-            fix_samplerate(smp, samplerate);
+            fix_samplerate(smp, samplerate, converter_type);
 
             int padded_frames_len = smp->frames + 1; // lerp usage
 
-            smp->data_l = (float *)malloc(padded_frames_len * sizeof(float));
-            smp->data_r = (float *)malloc(padded_frames_len * sizeof(float));
+            smp->data_l = (float *)calloc(padded_frames_len, sizeof(float));
+            smp->data_r = (float *)calloc(padded_frames_len, sizeof(float));
 
             // normalize samples
             unsigned int index = 0;
-            float *max_value = (float *)malloc(sfinfo.channels * sizeof(float));
+            float *max_value = (float *)calloc(sfinfo.channels, sizeof(float));
             for (i = 0; i < smp->frames; i++) {
                 for (j = 0; j < sfinfo.channels; j++) {
                     index = i * sfinfo.channels + j;
@@ -159,7 +175,7 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
             if (smp->chn > 1) {
                 // copy l&r
                 index = 0;
-                for (i = 0; i < smp->frames; i += 2) {
+                for (i = 0; i < smp->frames * 2; i += 2) {
                     smp->data_l[index] = smp->data[i];
                     smp->data_r[index] = smp->data[i + 1];
 
@@ -196,7 +212,7 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
             free(smp->data);
 
             // make room to copy filename
-            char *filename = malloc(sizeof(char) * (filename_length + 1));
+            char *filename = calloc(filename_length + 1, sizeof(char));
 
             // == pitch detection
             // analyze file name to gather pitch informations first
@@ -211,7 +227,7 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
                     }
 
                     char *_note_name = notes[i + start];
-                    char *note_name = malloc(sizeof(char) * (strlen(_note_name) + 1));
+                    char *note_name = calloc(strlen(_note_name) + 1, sizeof(char));
                     strcpy(note_name, _note_name);
 
                     // check lowercase and uppercase note character
@@ -255,10 +271,10 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
 
             // try to guess it
             if (smp->pitch == 0) {
-                int16_t *st_samples = (int16_t *)malloc(smp->len * sizeof(int16_t));
+                int16_t *st_samples = (int16_t *)calloc(smp->len, sizeof(int16_t));
                 sf_read_short(audio_file, st_samples, smp->len);
 
-                int16_t *yin_samples = (int16_t *)malloc(smp->frames * sizeof(int16_t));
+                int16_t *yin_samples = (int16_t *)calloc(smp->frames, sizeof(int16_t));
 
                 // convert to mono for pitch detection
                 for(i = 0; i < smp->frames; i++) {

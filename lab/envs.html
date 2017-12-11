@@ -19,10 +19,20 @@
       p {
         font-family: monospace;
       }
+
+      .osd {
+        position: absolute;
+
+        bottom: 0;
+        left: 0;
+
+        color: #ffffff;
+      }
     </style>
   </head>
   <body>
     <canvas id="canvas"></canvas>
+    <div id="envs" class="osd"></div>
     <script>
       window.onload = function () {
         var canvas = document.getElementById('canvas');
@@ -63,6 +73,22 @@
            }
         };
 
+        var envelopes = {
+            "SINE": true,
+            "HANN": true,
+            "HAMMING": true,
+            "TUKEY": true,
+            "GAUSSIAN": true,
+            "CONFINED GAUSSIAN": true,
+            "TRAPEZOIDAL": true,
+            "BLACKMAN": true,
+            "BLACKMAN HARRIS": true,
+            "PARZEN": true,
+            "NUTALL": true,
+            "FLATTOP": true,
+            "KAISER": true
+          };
+
         // confined gaussian init
         var fN = n;
         var sigma = fN * 0.3;
@@ -83,95 +109,166 @@
         var bha2 = 0.14128;
         var bha3 = 0.01168;
 
-        // plot envelopes
-        for (var j = 0; j < n; j++) {
-          var x = offx / 2 + s * j;
+        var draw = function () {
+          context.fillStyle = 'rgb(0,0,0)';
+          context.fillRect(0, 0, w, h);
 
-          // sine
-          var y = Math.sin(Math.PI * j / (n - 1));
-          plot(x, y, '#ffffff');
+          // plot envelopes
+          for (var j = 0; j < n; j++) {
+            var x = offx / 2 + s * j;
+            var y = 0;
 
-          // hann
-          y = 0.5 * (1.0 - Math.cos(2.0 * Math.PI  * j / (n - 1)));
-          plot(x, y, '#80ff80');
+            // sine
+            if (envelopes["SINE"]) {
+              y = Math.sin(Math.PI * j / (n - 1));
+              plot(x, y, '#ffffff');
+            }
 
-          // hamming
-          y = 0.54 - 0.46 * Math.cos(2 * Math.PI * j / (n - 1));
-          plot(x, y, '#ffff80');
+            // hann
+            if (envelopes["HANN"]) {
+              y = 0.5 * (1.0 - Math.cos(2.0 * Math.PI  * j / (n - 1)));
+              plot(x, y, '#80ff80');
+            }
 
-          // TUKEY
-          var truncationHeight = 0.5;
-          var f = 1.0 / (2.0 * truncationHeight) * (1.0 - Math.cos(2.0 * Math.PI * j / (n - 1)));
-          y = f < 1 ? f : 1;
-          plot(x, y, '#ff00ff');
+            // hamming
+            if (envelopes["HAMMING"]) {
+              y = 0.54 - 0.46 * Math.cos(2 * Math.PI * j / (n - 1));
+              plot(x, y, '#ffff80');
+            }
 
-          // GAUSSIAN
-          sigma = 0.3;
-          y = Math.pow(Math.E, -0.5* Math.pow(((j - (n - 1) /   2) / (sigma * (n - 1) / 2)), 2) );
-          plot(x, y, '#ff00ff');
+            // TUKEY
+            if (envelopes["TUKEY"]) {
+              var truncationHeight = 0.5;
+              var f = 1.0 / (2.0 * truncationHeight) * (1.0 - Math.cos(2.0 * Math.PI * j / (n - 1)));
+              y = f < 1 ? f : 1;
+              plot(x, y, '#ff00ff');
+            }
 
-          // confined gaussian
-          fn = j;
-          sigma = fN * 0.3;
-          numerator = gaussian(-0.5, L, sigma) * (gaussian(fn + fN, L, sigma) + gaussian(fn - fN, L, sigma));
-          denominator = gaussian(-0.5 + fN, L, sigma) + gaussian(-0.5 - fN, L, sigma);
-          y = gaussian(fn, L, sigma) - numerator / denominator;
-          plot(x, y, '#ff0000');
+            // GAUSSIAN
+            if (envelopes["GAUSSIAN"]) {
+              sigma = 0.3;
+              y = Math.pow(Math.E, -0.5* Math.pow(((j - (n - 1) /   2) / (sigma * (n - 1) / 2)), 2) );
+              plot(x, y, '#ff00ff');
+            }
 
-          // TRAPEZOIDAL
-          var slope = 10;
-          var xx = j / n;
-          var f1 = slope * xx;
-          var f2 = -1 * slope * (xx-(slope-1) / slope) + 1;
-          y = xx < 0.5 ? (f1 < 1 ? f1 : 1) : (f2 < 1 ? f2 : 1);
-          plot(x, y, '#004080');
+            // confined gaussian
+            if (envelopes["CONFINED GAUSSIAN"]) {
+              fn = j;
+              sigma = fN * 0.3;
+              numerator = gaussian(-0.5, L, sigma) * (gaussian(fn + fN, L, sigma) + gaussian(fn - fN, L, sigma));
+              denominator = gaussian(-0.5 + fN, L, sigma) + gaussian(-0.5 - fN, L, sigma);
+              y = gaussian(fn, L, sigma) - numerator / denominator;
+              plot(x, y, '#ff0000');
+            }
 
-          // BLACKMAN
-          y = ba0;
-          y -= ba1 * Math.cos((1.0 * 2.0 * (Math.PI) * j) / L);
-          y += ba2 * Math.cos((2.0 * 2.0 * (Math.PI) * j) / L);
-          plot(x, y, '#ffff80');
+            // TRAPEZOIDAL
+            if (envelopes["TRAPEZOIDAL"]) {
+              var slope = 10;
+              var xx = j / n;
+              var f1 = slope * xx;
+              var f2 = -1 * slope * (xx-(slope-1) / slope) + 1;
+              y = xx < 0.5 ? (f1 < 1 ? f1 : 1) : (f2 < 1 ? f2 : 1);
+              plot(x, y, '#004080');
+            }
 
-          // BLACKMAN HARRIS
-          y = bha0;
-          y -= bha1 * Math.cos((1.0 * 2.0 * (Math.PI) * j) / L);
-          y += bha2 * Math.cos((2.0 * 2.0 * (Math.PI) * j) / L);
-          y -= bha3 * Math.cos((3.0 * 2.0 * (Math.PI) * j) / L);
-          plot(x, y, '#204080');
+            // BLACKMAN
+            if (envelopes["BLACKMAN"]) {
+              y = ba0;
+              y -= ba1 * Math.cos((1.0 * 2.0 * (Math.PI) * j) / L);
+              y += ba2 * Math.cos((2.0 * 2.0 * (Math.PI) * j) / L);
+              plot(x, y, '#ffff80');
+            }
 
-          // PARZEN
-          y = 1.0 - Math.abs((j - 0.5 * (n - 1)) / (0.5 * (n + 1)));
-          plot(x, y, '#800040');
+            // BLACKMAN HARRIS
+            if (envelopes["BLACKMAN HARRIS"]) {
+              y = bha0;
+              y -= bha1 * Math.cos((1.0 * 2.0 * (Math.PI) * j) / L);
+              y += bha2 * Math.cos((2.0 * 2.0 * (Math.PI) * j) / L);
+              y -= bha3 * Math.cos((3.0 * 2.0 * (Math.PI) * j) / L);
+              plot(x, y, '#204080');
+            }
 
-          // NUTALL
-          y = 0.3635819 - 0.3635819 * Math.cos(2*(Math.PI)*j/(n-1)) + 0.1365995* Math.cos(4*(Math.PI)*j/(n-1)) - 0.0106411*Math.cos(6*(Math.PI)*j/(n-1));
-          plot(x, y, '#800040');
+            // PARZEN
+            if (envelopes["PARZEN"]) {
+              y = 1.0 - Math.abs((j - 0.5 * (n - 1)) / (0.5 * (n + 1)));
+              plot(x, y, '#800040');
+            }
 
-          // FLATTOP
-          y = (1 - 1.93*Math.cos(2*(Math.PI)*j/(n-1)) + 1.29*Math.cos(4*(Math.PI)*j/(n-1)) - 0.388*Math.cos(6*(Math.PI)*j/(n-1)) + 0.032*Math.cos(8*(Math.PI)*j/(n-1))) * 0.215;
-          plot(x, y, '#808040');
+            // NUTALL
+            if (envelopes["NUTALL"]) {
+              y = 0.3635819 - 0.3635819 * Math.cos(2*(Math.PI)*j/(n-1)) + 0.1365995* Math.cos(4*(Math.PI)*j/(n-1)) - 0.0106411*Math.cos(6*(Math.PI)*j/(n-1));
+              plot(x, y, '#800040');
+            }
 
-          // KAISER
-          var alpha = 3.0;
-          y = bessi0((Math.PI) * alpha * Math.sqrt(1 - Math.pow((2 * j / (n - 1)) - 1, 2))) / bessi0((Math.PI) * alpha);
-          plot(x, y, '#000080');
+            // FLATTOP
+            if (envelopes["FLATTOP"]) {
+              y = (1 - 1.93*Math.cos(2*(Math.PI)*j/(n-1)) + 1.29*Math.cos(4*(Math.PI)*j/(n-1)) - 0.388*Math.cos(6*(Math.PI)*j/(n-1)) + 0.032*Math.cos(8*(Math.PI)*j/(n-1))) * 0.215;
+              plot(x, y, '#808040');
+            }
+
+            // KAISER
+            if (envelopes["KAISER"]) {
+              var alpha = 3.0;
+              y = bessi0((Math.PI) * alpha * Math.sqrt(1 - Math.pow((2 * j / (n - 1)) - 1, 2))) / bessi0((Math.PI) * alpha);
+              plot(x, y, '#000080');
+            }
+          }
+
+          context.fillStyle = 'rgb(255,255,0)';
+          context.fillRect(0, h2, w, 1);
+
+          context.fillStyle = 'rgb(255,255,0)';
+          context.fillRect(w / 2, 0, 1, h);
+
+          context.fillStyle = 'rgba(255,0,0,0.5)';
+          context.fillRect(0, (h2 / 2), w, 1);
+
+          context.fillStyle = 'rgba(255,0,0,0.5)';
+          context.fillRect(offx / 2, 0, 1, h);
+
+          context.fillStyle = 'rgba(255,0,0,0.5)';
+          context.fillRect(w - offx / 2, 0, 1, h);
+        };
+
+        var env_osd_input_change = function () {
+          return function () {
+            var self = this;
+
+            envelopes[self.id] = self.checked;
+
+            draw();
+          };
+        };
+
+        draw();
+
+        var envelopes_controls_container = document.getElementById("envs");
+        for(var env in envelopes) {
+          var envelope_name = env;
+          var envelope_enabled = envelopes[envelope_name];
+
+          var div = document.createElement("div");
+          var input = document.createElement("input");
+          var label = document.createElement("label");
+
+          input.type = "checkbox";
+          input.id = envelope_name;
+
+          if (envelope_enabled) {
+            input.checked = "true";
+          }
+
+          input.addEventListener("change", env_osd_input_change(input));
+
+          label.htmlFor = envelope_name;
+          label.innerHTML = envelope_name;
+
+          div.appendChild(input);
+          div.appendChild(label);
+
+          envelopes_controls_container.appendChild(div);
         }
-
-        context.fillStyle = 'rgb(255,255,0)';
-        context.fillRect(0, h2, w, 1);
-
-        context.fillStyle = 'rgb(255,255,0)';
-        context.fillRect(w / 2, 0, 1, h);
-
-        context.fillStyle = 'rgba(255,0,0,0.5)';
-        context.fillRect(0, (h2 / 2), w, 1);
-
-        context.fillStyle = 'rgba(255,0,0,0.5)';
-        context.fillRect(offx / 2, 0, 1, h);
-
-        context.fillStyle = 'rgba(255,0,0,0.5)';
-        context.fillRect(w - offx / 2, 0, 1, h);
-      }
+      };
     </script>
   </body>
 </html>

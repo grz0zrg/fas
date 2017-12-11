@@ -1,0 +1,277 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>FAS granular synthesis algorithm</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+
+        overflow: hidden;
+      }
+
+      canvas {
+        width: 100%;
+        height: 100%;
+      }
+
+      p {
+        font-family: monospace;
+      }
+
+      .header {
+        font-size: 22px;
+        font-family: monospace;
+
+        margin: 32px;
+        margin-bottom: 8px;
+      }
+
+      .sub_header {
+        font-size: 16px;
+        font-family: monospace;
+
+        margin-left: 38px;
+      }
+
+      .footer {
+        font-size: 10px;
+        font-family: monospace;
+
+        margin-left: 38px;
+      }
+
+      .output {
+         margin: 16px;
+
+         margin-left: 42px;
+         border: solid 1px #dddddd;
+         padding: 8px;
+         margin-top: 8px;
+         box-shadow: -2px 4px 4px #aaaaaa;
+         margin-right: 42px;
+         border-radius: 6px;
+         width: 800px;
+      }
+
+      .output_infos {
+        font-size: 14px;
+        font-family: monospace;
+      }
+
+      .output_errors {
+        font-size: 22px;
+        font-family: monospace;
+
+        margin-top: 12px;
+        margin-left: 8px;
+
+        color: red;
+      }
+
+      .osd {
+        position: absolute;
+
+        bottom: 0;
+        left: 0;
+
+        color: #ffffff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">Fragment - Granular Synthesis algorithm (asynchronous/synchronous)</div>
+    <div class="sub_header">Use RIGHT keyboard arrow to process the next sample</div>
+
+    <div id="output" class="output"></div>
+    <div class="footer">This is a granular synthesis algorithm built for <a href="www.fsynth.com">Fragment</a> implemented in JavaScript for tests and prototyping purpose.</div>
+    <script>
+      window.onload = function () {
+        var _random = function (min, max) {
+            return Math.random() * (max - min) + min;
+        };
+
+        var _format_error = function (str) {
+            return "<div class=\"output_errors\">" + str +"</div>";
+        };
+
+        var output_div = document.getElementById('output');
+
+        var i = 0, k = 0, j = 0;
+
+        // data structure
+        var grains = [];
+
+        // constants
+        var max_density = 128
+        var env_size = 65536;
+        var grain_min_duration = 0.0001;
+
+        // channels settings (note: only one channel here)
+        var chn_grain_min_duration = 0.1;
+        var chn_grain_max_duration = 0.9;
+
+        // samples related (simulated)
+        var samples = [{
+            pitch: 440,
+            samplerate: 44100,
+            frames: 4
+          }, {
+            pitch: 220,
+            samplerate: 44100,
+            frames: 8
+          }];
+        var samples_count = samples.length;
+
+        // audio parameters
+        var sample_rate = 96000;
+
+        // synthesis parameters
+        var height = 439;
+        var base_frequency = 16.34;
+        var octaves = 10;
+
+        // granular synthesis parameters
+        var density = 1;
+
+        // initialization
+        var grains_count = height * max_density * samples_count;
+
+        var octave_length = height / octaves;
+
+        var y = 0;
+
+        // grains init
+        for (i = 0; i < grains_count; i += 1) {
+            grains.push({
+                speed: 0,
+                frame: 0,
+                frames: 0,
+                index: 0,
+                env_index: env_size,
+                env_step: 0,
+                smp_index: k,
+                density: 1
+              });
+        }
+
+        for (i = 0; i < grains_count; i += samples_count) {
+            for (k = 0; k < samples_count; k += 1) {
+                var gr_index = i + k;
+
+                var frequency = base_frequency * Math.pow(2, (height-y) / octave_length);
+
+                var smp = samples[k];
+                var gr = grains[gr_index];
+
+                gr.speed = frequency / smp.pitch / (sample_rate / smp.samplerate);
+
+                if (gr.speed <= 0) {
+                    gr.speed = 1;
+                }
+            }
+
+            y++;
+            y = y % height;
+        }
+
+        var perform_granular = function (notes) {
+            for (j = 0; j < notes.length; j += 1) {
+                var note = notes[j];
+
+                var grain_index = note.osc_index * samples_count + note.smp_index;
+
+                var si = height * samples_count;
+
+                var smp = samples[note.smp_index];
+                var gr = grains[grain_index];
+
+                for (i = 0; i < gr.density; i += 1) {
+                    if (gr.env_index >= env_size) {
+                        smp = samples[note.smp_index];
+
+                        var grain_start = smp.frames - 1;
+                        var a = Math.abs(note.alpha);
+                        grain_start = Math.round(grain_start * Math.max(Math.min(a, 1.0), 0.0) * (1.0 - Math.random() * Math.floor(Math.min(a - 0.0001, 1.0))));
+
+                        gr.index = grain_start;
+
+                        var duration = grain_start + Math.max(_random(grain_min_duration + chn_grain_min_duration, chn_grain_max_duration), grain_min_duration) * (smp.frames - grain_start - 1);
+                        gr.frames = Math.round(duration) + 1;
+                        gr.env_step = Math.max(env_size / ((gr.frames - gr.index) / Math.abs(gr.speed)), 0.00000001);
+
+                        gr.env_index = 0.0;
+                        gr.frame = gr.index;
+                        gr.density = note.density;
+
+                        if (note.alpha < 0.0) {
+                            if (gr.speed >= 0.0) {
+                                gr.speed = -gr.speed;
+                            }
+
+                            gr.frame = gr.frames;
+                        } else {
+                            gr.speed = Math.abs(gr.speed);
+                        }
+                    }
+
+                    output_div.innerHTML = "<span class=\"output_infos\">" +
+                                           "note osc. index: " + note.osc_index +
+                                           "<br>note grain position: " + note.alpha +
+                                           "<br>note density: " + note.density +
+                                           "<br><br>sample: " + note.smp_index +
+                                           "<br>sample length: " + smp.frames +
+                                           "<br><br>grain start index: " + gr.index +
+                                           "<br>grain end: " + gr.frames +
+                                           "<br>env. step: " + gr.env_step +
+                                           "<br>speed: " + gr.speed +
+                                           "<br><br>env. index: " + Math.round(gr.env_index) +
+                                           "<br>grain position: " + Math.floor(gr.frame) + "</span><br>";
+
+                    if (gr.frame < 0) {
+                        output_div.innerHTML += _format_error("grain position < 0");
+                    }
+
+                    if (gr.frame > smp.frames) {
+                        output_div.innerHTML += _format_error("grain position > sample length");
+                    }
+
+                    if (gr.index === gr.frames) {
+                        output_div.innerHTML += _format_error("grain start === grain end");
+                    }
+
+                    if (gr.env_index >= env_size) {
+                        output_div.innerHTML += _format_error("env. index >= env. length");
+                    }
+
+                    gr.frame += gr.speed;
+
+                    gr.env_index += gr.env_step;
+                }
+            }
+        };
+
+        perform_granular([{
+            osc_index: Math.round(height * Math.random()),
+            smp_index: Math.round((samples_count - 1) * Math.random()),
+            alpha: 1,//Math.random(),
+            density: 1
+          }]);
+
+        document.onkeydown = function (e) {
+            e = e || window.event;
+
+            if (e.keyCode == '39') {
+              perform_granular([{
+                  osc_index: Math.round(height / 2),
+                  smp_index: 1,
+                  alpha: Math.random() * 2. - 1.,
+                  density: 1
+                }]);
+            }
+        };
+      };
+    </script>
+  </body>
+</html>

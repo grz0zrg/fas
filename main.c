@@ -237,12 +237,12 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             if (gr->env_index[k] >= FAS_ENVS_SIZE) {
                                 smp = &samples[n->smp_index];
 
-                                float grain_start = (float)smp->frames;
+                                float grain_start = (float)smp->frames - 1.0f;
                                 float a = fabs(n->alpha);
                                 grain_start = roundf(grain_start * fmaxf(fminf(a, 1.0f), 0.0f) * (1.0f - randf(0.0f, 1.0f) * floorf(fminf(a - 0.0001f, 1.0f))));
 
                                 gr->index[k] = grain_start;
-                                gr->frames[k] = grain_start + fmaxf(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * (smp->frames - grain_start);
+                                gr->frames[k] = roundf(grain_start + fmaxf(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * (smp->frames - grain_start - 1)) + 1;
                                 gr->env_step[k] = fmax(((double)(FAS_ENVS_SIZE)) / (((double)gr->frames[k] - (double)gr->index[k]) / fabs(gr->speed)), 0.00000001);
                                 gr->env_index[k] = 0.0f;
                                 gr->frame[k] = gr->index[k];

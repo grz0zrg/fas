@@ -91,11 +91,15 @@ Both asynchronous and synchronous granular synthesis is implemented and can be u
 
 Granular synthesis implementation is less optimal than additive synthesis but has good performances.
 
+The granular synthesis algorithm is also prototyped in JavaScript (one channel only) and can be tried in a browser by opening the `lab/granular/algorithm.html`, it should always be up-to-date
+
 **Note** : Monophonic mode granular synthesis is not implemented.
+
+**Note** : Real-time grain sample change on note-on may result in crackles, this is an implementation issue, FAS abruptly end the grain whose sample changed (the new grain directly replace the old one).
 
 #### Window type
 
-The grains window/envelope type is defined as a channel dependent settings, FAS allow the selection of 13 envelopes, they can be visualized in a browser by opening the `labs/envs.html` file.
+The grains window/envelope type is defined as a channel dependent settings, FAS allow the selection of 13 envelopes, they can be visualized in a browser by opening the `lab/envs.html` file.
 
 #### RGBA interpretation
 

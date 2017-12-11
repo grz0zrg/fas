@@ -15,7 +15,7 @@
         unsigned int *index; // grain position
         unsigned int *density; // grain density
         unsigned int *smp_index;
-        double speed; // sample-based step
+        double *speed; // sample-based step
         double *env_index;
         double *env_step;
     };

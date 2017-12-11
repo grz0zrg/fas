@@ -81,11 +81,16 @@
     </style>
   </head>
   <body>
-    <div class="header">Fragment - Granular Synthesis algorithm (asynchronous/synchronous)</div>
+    <div class="header">Fragment - Granular Synthesis (asynchronous/synchronous)</div>
     <div class="sub_header">Use RIGHT keyboard arrow to process the next sample</div>
 
     <div id="output" class="output"></div>
-    <div class="footer">This is a granular synthesis algorithm built for <a href="www.fsynth.com">Fragment</a> implemented in JavaScript for tests and prototyping purpose.</div>
+    <div class="footer">Granular synthesis algorithm built for <a href="www.fsynth.com">Fragment</a> implemented in JavaScript for tests and prototyping purpose.</div>
+    <br/>
+    <div class="footer"><a href="https://github.com/grz0zrg/fas/blob/master/lab/granular/algorithm.html">Source-code (Github)</a></div>
+    <br/>
+    <div class="footer"><a href="https://github.com/grz0zrg/fas/">C implementation (Github)</a></div>
+
     <script>
       window.onload = function () {
         var _random = function (min, max) {
@@ -114,7 +119,7 @@
 
         // samples related (simulated)
         var samples = [{
-            pitch: 440,
+            pitch: 40,
             samplerate: 44100,
             frames: 4
           }, {
@@ -206,7 +211,7 @@
                         gr.density = note.density;
 
                         if (note.alpha < 0.0) {
-                            if (gr.speed >= 0.0) {
+                            if (gr.speed > 0.0) {
                                 gr.speed = -gr.speed;
                             }
 
@@ -229,6 +234,7 @@
                                            "<br><br>env. index: " + Math.round(gr.env_index) +
                                            "<br>grain position: " + Math.floor(gr.frame) + "</span><br>";
 
+                    // some tests
                     if (gr.frame < 0) {
                         output_div.innerHTML += _format_error("grain position < 0");
                     }
@@ -252,10 +258,13 @@
             }
         };
 
+        var test_height = Math.round(height / 2);
+        var smp_index = Math.round((samples_count - 1) * Math.random());
+
         perform_granular([{
-            osc_index: Math.round(height * Math.random()),
-            smp_index: Math.round((samples_count - 1) * Math.random()),
-            alpha: 1,//Math.random(),
+            osc_index: test_height,
+            smp_index: smp_index,
+            alpha: 0.,
             density: 1
           }]);
 
@@ -264,8 +273,8 @@
 
             if (e.keyCode == '39') {
               perform_granular([{
-                  osc_index: Math.round(height / 2),
-                  smp_index: 1,
+                  osc_index: test_height,
+                  smp_index: smp_index,
                   alpha: Math.random() * 2. - 1.,
                   density: 1
                 }]);

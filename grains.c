@@ -23,10 +23,10 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
 
             double frequency = base_frequency * pow(2, (n-y) / octave_length);
 
-            g[gr_index].speed = frequency / smp->pitch / ((double)sample_rate / (double)smp->samplerate);
+            double grain_speed = frequency / smp->pitch / ((double)sample_rate / (double)smp->samplerate);
 
-            if (g[gr_index].speed <= 0) {
-                g[gr_index].speed = 1;
+            if (grain_speed <= 0) {
+                grain_speed = 1;
             }
 
             // channels dependent parameters
@@ -37,12 +37,14 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
             g[gr_index].env_step = calloc(frame_data_count, sizeof(double));
             g[gr_index].smp_index = calloc(frame_data_count, sizeof(unsigned int));
             g[gr_index].density = calloc(frame_data_count, sizeof(unsigned int));
+            g[gr_index].speed = calloc(frame_data_count, sizeof(double));
 
             // initialization for each simultaneous channels
             for (int j = 0; j < frame_data_count; j += 1) {
                 g[gr_index].env_index[j] = FAS_ENVS_SIZE;
                 g[gr_index].smp_index[j] = k;
                 g[gr_index].density[j] = 1;
+                g[gr_index].speed[j] = grain_speed;
             }
         }
         y++;

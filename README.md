@@ -403,7 +403,7 @@ Usage: fas [list_of_parameters]
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio will be delayed**
  * --commands_queue_size 16 **should be a positive integer power of 2**
  * --stream_load_send_delay 2 **FAS will send the stream CPU load every two seconds**
- * --samplerate_conv_type 1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time**
+ * --samplerate_conv_type 1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time, -1 can be used to skip resampling step**
 
 Self-signed certificates are provided in case you compile/run it with SSL. (Note: This is useless for many reasons and HTTP should _**ALWAYS**_ be the prefered protocol for online Fragment application, this is explained in [this issue](https://github.com/grz0zrg/fas/issues/1).)
 

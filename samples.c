@@ -145,7 +145,9 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
 
             sf_seek(audio_file, 0, SEEK_SET);
 
-            fix_samplerate(smp, samplerate, converter_type);
+            if (converter_type > 0) {
+                fix_samplerate(smp, samplerate, converter_type);
+            }
 
             int padded_frames_len = smp->frames + 1; // lerp usage
 

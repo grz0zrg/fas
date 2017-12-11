@@ -1263,7 +1263,7 @@ int main(int argc, char **argv)
               fas_max_drop = strtoul(optarg, NULL, 0);
               break;
             case 25:
-              fas_samplerate_converter_type = strtoul(optarg, NULL, 0);
+              fas_samplerate_converter_type = strtol(optarg, NULL, 0);
               break;
             /*case 26:
               fas_render_target = optarg;
@@ -1391,15 +1391,17 @@ int main(int argc, char **argv)
         printf("Warning: One of the specified program option is out of range and was set to its maximal value.\n");
     }
 
-    const char *samplerate_converter_type = src_get_name(fas_samplerate_converter_type);
-    if (samplerate_converter_type == NULL) {
-        printf("Invalid samplerate conversion method, defaulting to SRC_SINC_MEDIUM_QUALITY\n");
-        fflush(stdout);
+    if (fas_samplerate_converter_type > 0) {
+        const char *samplerate_converter_type = src_get_name(fas_samplerate_converter_type);
+        if (samplerate_converter_type == NULL) {
+            printf("Invalid samplerate conversion method, defaulting to SRC_SINC_MEDIUM_QUALITY\n");
+            fflush(stdout);
 
-        fas_samplerate_converter_type = SRC_SINC_MEDIUM_QUALITY;
-    } else {
-        printf("Samplerate conversion method : %s\n", samplerate_converter_type);
-        fflush(stdout);
+            fas_samplerate_converter_type = SRC_SINC_MEDIUM_QUALITY;
+        } else {
+            printf("Samplerate conversion method : %s\n", samplerate_converter_type);
+            fflush(stdout);
+        }
     }
 
     if (print_infos != 1) {

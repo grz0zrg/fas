@@ -290,46 +290,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             gr->env_index[k] += gr->env_step[k];
                         }
                     }
-                } else if (chn_settings->synthesis_method == FAS_SAMPLER) {
-                    int env_type = chn_settings->env_type;
-                    float *gr_env = grain_envelope[env_type];
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
-
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                        struct grain *gr = &curr_synth.grains[n->osc_index];
-
-                        unsigned int sample_index = gr->smp_index[k];
-
-                        struct sample *smp = &samples[sample_index];
-
-                        if (osc->phase_index[k] >= smp->frames) {
-                            gr->smp_index[k] = n->smp_index;
-
-                            smp = &samples[n->smp_index];
-
-                            osc->phase_index[k] = abs(round(smp->frames * fabs(n->alpha)) * smp->chn);
-                            gr->env_step[k] = FAS_ENVS_SIZE / (smp->frames / gr->speed[k]);
-                            gr->env_index[k] = 0;
-                        }
-
-                        uint16_t phi = (float)osc->phase_index[k];
-
-                        float s = smp->data_l[phi];
-
-                        //float savg = s * gr_env[gr->env_index[k]];
-
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
-
-                        output_l += vl; // * savg;
-                        output_r += vr; // * savg;
-
-                        gr->env_index[k] += gr->env_step[k];
-
-                        osc->phase_index[k] += osc->freq / (smp->pitch * (fas_sample_rate / smp->samplerate));
-                    }
                 } else if (chn_settings->synthesis_method == FAS_FM) {
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
@@ -511,8 +471,7 @@ void audioPlay() {
     audio_thread_state = FAS_AUDIO_DO_PLAY;
 }
 
-void change_height(unsigned int new_height) {
-    //lfds711_freelist_cleanup(&freelist_frames, flf_element_cleanup_callback);
+void setHeight(unsigned int new_height) {
     struct lfds711_freelist_element *fe;
     struct _freelist_frames_data *freelist_frames_data;
 
@@ -522,8 +481,10 @@ void change_height(unsigned int new_height) {
         free(freelist_frames_data->data);
     }
 
+    unsigned int nc = (new_height + 1) * frame_data_count + sizeof(unsigned int);
+
     for (int i = 0; i < fas_frames_queue_size; i += 1) {
-        ffd[i].data = malloc(sizeof(struct note) * (new_height + 1) * frame_data_count + sizeof(unsigned int));
+        ffd[i].data = malloc(sizeof(struct note) * nc);
 
         LFDS711_FREELIST_SET_VALUE_IN_ELEMENT(ffd[i].fe, &ffd[i]);
         lfds711_freelist_push(&freelist_frames, &ffd[i].fe, NULL);
@@ -773,7 +734,7 @@ if (remaining_payload != 0) {
 
                     usd->synth_h = usd->synth->settings->h;
 
-                    change_height(usd->synth_h);
+                    setHeight(usd->synth_h);
 
                     usd->synth->oscillators = createOscillators(usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);

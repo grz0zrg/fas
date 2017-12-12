@@ -95,7 +95,7 @@ The granular synthesis algorithm is also prototyped in JavaScript (one channel o
 
 **Note** : Monophonic mode granular synthesis is not implemented.
 
-**Note** : Real-time grain sample change on note-on may result in crackles, this is an implementation issue, FAS abruptly end the grain whose sample changed (the new grain directly replace the old one).
+**Note** : Real-time grain sample change on note-on may result in crackles, this is an implementation issue, FAS abruptly end the grain whose sample changed (the new grain immediately replace the old one).
 
 #### Window type
 
@@ -116,11 +116,9 @@ Spectral synthesis is a mean to generate sounds by using the FFT and IFFT algori
 
 ### Sampler
 
-FAS can interpret the notes data to trigger samples loaded from the `grains` folder.
+Granular synthesis with grain start index of 0 and min/max duration of 1/1 can be used to trigger samples as-is like a regular sampler, samples are loaded from the `grains` folder.
 
 **Note** : Monophonic mode sampler is not implemented.
-
-This is WIP.
 
 #### RGBA interpretation
 
@@ -238,7 +236,7 @@ Synth channels settings, packet identifier 3 :
 
 ```c
 struct _synth_chn_settings {
-    unsigned int synthesis_method; // 0 = additive, 1 = spectral, 2 = granular, 3 = sampler, 4 = FM/PM
+    unsigned int synthesis_method; // 0 = additive, 1 = spectral, 2 = granular, 3 = FM/PM
     int env_type; // granular envelope type for this channel (there is 13 types of envelopes)
     double gmin_size; // granular grain duration (min. bound)
     double gmax_size; // granular grain duration (max. bound)

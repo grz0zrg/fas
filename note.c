@@ -150,7 +150,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
                 double dummy;
                 _note->smp_index = modf(fabs(blue), &dummy) * (samples_count + 1);
 
-                _note->fm_mod_source = modf(fabs(blue), &dummy) * channels;
+                //_note->fm_mod_source = modf(fabs(blue), &dummy) * channels;
             }
 
             index += 1;
@@ -159,6 +159,12 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
 
             y -= 1;
         }
+/*
+        double dummy;
+        for (i = 0; i < osc_count; i += 1) {
+            note_buffer[i].fm_mod_source = modf(fabs(blue), &dummy) * osc_count;
+        }
+*/
 /*
         double a = 0.;
         for (i = 0; i < osc_count; i += 1) {

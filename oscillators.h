@@ -5,10 +5,22 @@
 
     struct oscillator {
         double freq;
+
+        int max_harmonics;
+
+        // filters fb
+        double **fin, **fout;
+
 #ifdef FIXED_WAVETABLE
+        uint16_t **harmo_phase_index;
+        uint16_t *harmo_phase_step;
+
         uint16_t *phase_index;
         uint16_t phase_step;
 #else
+        unsigned int **harmo_phase_index;
+        unsigned int *harmo_phase_step;
+
         unsigned int *phase_index;
         unsigned int phase_step;
 #endif

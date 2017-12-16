@@ -102,8 +102,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 for (k = 0; k < frame_data_count; k += 1) {
                     struct _synth_chn_settings *chn_settings = &curr_synth.chn_settings[k];
 
-                    if (chn_settings->synthesis_method == FAS_GRANULAR ||
-                        chn_settings->synthesis_method == FAS_SAMPLER) {
+                    if (chn_settings->synthesis_method == FAS_GRANULAR) {
                         chn_settings->synthesis_method = FAS_VOID;
                     }
                 }
@@ -344,6 +343,57 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         }
 #endif
                     }
+                } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE) {
+                  // substractive with bandwidth limited oscillators (just like additive!)
+                  for (j = s; j < e; j += 1) {
+                      struct note *n = &curr_notes[j];
+
+                      struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                      // fundamental
+#ifndef FIXED_WAVETABLE
+                      float s = fas_sine_wavetable[osc->phase_index[k]];
+
+                      uint16_t *hphase_index = osc->harmo_phase_index[k];
+#else
+                      float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
+
+                      unsigned int *hphase_index = (unsigned int *)osc->harmo_phase_index[k];
+#endif
+
+                      // harmonics / waveform generation
+                      for (d = 0; d < osc->max_harmonics; d += 1) {
+#ifndef FIXED_WAVETABLE
+                          s += fas_sine_wavetable[hphase_index[d]] * (1.0 / (double)(d+1));
+#else
+                          s += fas_sine_wavetable[hphase_index[d] & fas_wavetable_size_m1] * (1.0 / (double)(d+1));
+#endif
+
+                          hphase_index[d] += osc->harmo_phase_step[d];
+
+#ifndef FIXED_WAVETABLE
+                          if (hphase_index[d] >= fas_wavetable_size) {
+                              hphase_index[d] -= fas_wavetable_size;
+                          }
+#endif
+                      }
+
+                      s = moog_vcf(s, fabs(n->blue), fabs(n->alpha), osc->fin[k], osc->fout[k]);
+
+                      float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                      float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                      output_l += vl * s;
+                      output_r += vr * s;
+
+                      osc->phase_index[k] += osc->phase_step;
+
+#ifndef FIXED_WAVETABLE
+                      if (osc->phase_index[k] >= fas_wavetable_size) {
+                          osc->phase_index[k] -= fas_wavetable_size;
+                      }
+#endif
+                  }
                 }
             }
 
@@ -420,6 +470,17 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                                         gr->env_index[k] = FAS_ENVS_SIZE;
                                     }
+                                }
+                            }
+                        } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE) {
+                            for (j = s; j < e; j += 1) {
+                                struct note *n = &curr_notes[j];
+
+                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+                                    memset(osc->fout[k], 0, sizeof(double) * 4);
+                                    memset(osc->fin[k], 0, sizeof(double) * 4);
                                 }
                             }
                         }

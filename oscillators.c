@@ -13,38 +13,92 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         return NULL;
     }
 
-    int y = 0;
+    int y = 0, i = 0, k = 0;
+    int fit = 0;
     int index = 0;
     double octave_length = (double)n / octaves;
     double frequency;
     uint64_t phase_step;
     int nmo = n - 1;
 
+    double max_frequency = base_frequency * pow(2.0, nmo / octave_length);
+
     for (y = 0; y < n; y += 1) {
         index = nmo - y;
 
-        frequency = base_frequency * pow(2, y / octave_length);
+        frequency = base_frequency * pow(2.0, y / octave_length);
         phase_step = frequency / (double)sample_rate * wavetable_size;
 
-        oscillators[index].freq = frequency;
+        struct oscillator *osc = &oscillators[index];
 
-#ifdef FIXED_WAVETABLE
-        oscillators[index].phase_index = malloc(sizeof(uint16_t) * frame_data_count);
-#else
-        oscillators[index].phase_index = malloc(sizeof(unsigned int) * frame_data_count);
-#endif
+        osc->freq = frequency;
 
-        oscillators[index].noise_index = malloc(sizeof(uint16_t) * frame_data_count);
+        // == substrative specials
+        fit = 0;
+        i = frequency;
+        while (fit <= 64) {
+            fit += 1;
 
-        oscillators[index].value = malloc(sizeof(float) * frame_data_count);
+            if ((i * fit) > max_frequency) {
+                fit -= 1;
 
-        for (int i = 0; i < frame_data_count; i += 1) {
-            oscillators[index].phase_index[i] = rand() / (double)RAND_MAX * wavetable_size;
-            oscillators[index].noise_index[i] = rand() / (double)RAND_MAX * wavetable_size;
-            oscillators[index].value[i] = 0;
+                break;
+            }
         }
 
-        oscillators[index].phase_step = phase_step;
+        osc->max_harmonics = fit;
+        // ==
+
+#ifdef FIXED_WAVETABLE
+        osc->phase_index = malloc(sizeof(uint16_t) * frame_data_count);
+        osc->harmo_phase_step = malloc(sizeof(uint16_t) * fit);
+        osc->harmo_phase_index = malloc(sizeof(uint16_t *) * frame_data_count);
+#else
+        osc->phase_index = malloc(sizeof(unsigned int) * frame_data_count);
+        osc->harmo_phase_step = malloc(sizeof(unsigned int) * fit);
+        osc->harmo_phase_index = malloc(sizeof(unsigned int *) * frame_data_count);
+#endif
+
+        // == substrative specials
+        for (i = 0; i < fit; i += 1) {
+            osc->harmo_phase_step[i] = (frequency * (i + 1)) / (double)sample_rate * wavetable_size;
+        }
+
+        osc->fin = malloc(sizeof(double *) * frame_data_count);
+        osc->fout = malloc(sizeof(double *) * frame_data_count);
+        // ==
+
+        osc->noise_index = malloc(sizeof(uint16_t) * frame_data_count);
+
+        osc->value = malloc(sizeof(float) * frame_data_count);
+
+        for (i = 0; i < frame_data_count; i += 1) {
+            osc->phase_index[i] = rand() / (double)RAND_MAX * wavetable_size;
+            osc->noise_index[i] = rand() / (double)RAND_MAX * wavetable_size;
+            osc->value[i] = 0;
+
+            // == substrative specials
+#ifdef FIXED_WAVETABLE
+            osc->harmo_phase_index[i] = malloc(sizeof(uint16_t) * fit);
+#else
+            osc->harmo_phase_index[i] = malloc(sizeof(unsigned int) * fit);
+#endif
+
+            for (k = 0; k < fit; k += 1) {
+                osc->harmo_phase_index[i][k] = rand() / (double)RAND_MAX * wavetable_size;
+            }
+
+            osc->fin[i] = malloc(sizeof(double) * 4);
+            osc->fout[i] = malloc(sizeof(double) * 4);
+
+            for (k = 0; k < 4; k += 1) {
+                osc->fin[i][k] = 0;
+                osc->fout[i][k] = 0;
+            }
+            // ==
+        }
+
+        osc->phase_step = phase_step;
     }
 
     return oscillators;
@@ -67,22 +121,24 @@ struct oscillator *copyOscillators(struct oscillator **oscs, unsigned int n, uns
 
     int y = 0;
     for (y = 0; y < n; y += 1) {
-        new_oscillators[y].freq = o[y].freq;
-        new_oscillators[y].phase_step = o[y].phase_step;
+        struct oscillator *new_osc = &new_oscillators[y];
+
+        new_osc->freq = o[y].freq;
+        new_osc->phase_step = o[y].phase_step;
 
         #ifdef FIXED_WAVETABLE
-            new_oscillators[y].phase_index = malloc(sizeof(uint16_t) * frame_data_count);
+            new_osc->phase_index = malloc(sizeof(uint16_t) * frame_data_count);
         #else
-            new_oscillators[y].phase_index = malloc(sizeof(unsigned int) * frame_data_count);
+            new_osc->phase_index = malloc(sizeof(unsigned int) * frame_data_count);
         #endif
 
-        new_oscillators[y].noise_index = malloc(sizeof(uint16_t) * frame_data_count);
-        new_oscillators[y].value = malloc(sizeof(float) * frame_data_count);
+        new_osc->noise_index = malloc(sizeof(uint16_t) * frame_data_count);
+        new_osc->value = malloc(sizeof(float) * frame_data_count);
 
         for (int i = 0; i < frame_data_count; i += 1) {
-            new_oscillators[y].phase_index[i] = o[y].phase_index[i];
-            new_oscillators[y].noise_index[i] = o[y].noise_index[i];
-            new_oscillators[y].value[i] = o[y].value[i];
+            new_osc->phase_index[i] = o[y].phase_index[i];
+            new_osc->noise_index[i] = o[y].noise_index[i];
+            new_osc->value[i] = o[y].value[i];
         }
     }
 

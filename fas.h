@@ -31,6 +31,7 @@
     #include "grains.h"
     #include "oscillators.h"
     #include "wavetables.h"
+    #include "filters.h"
     #include "note.h"
     #include "usage.h"
 

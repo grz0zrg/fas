@@ -1,7 +1,7 @@
 Fragment : Additive/Spectral/Granular/PM synthesizer
 =====
 
-Raw additive/spectral/granular/PM synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
+Raw additive/subtractive/spectral/granular/PM synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
 
 This program should compile on most platforms!
 
@@ -15,6 +15,7 @@ Table of Contents
       * [Granular synthesis](#granular-synthesis)
       * [Spectral synthesis (planned)](#spectral-synthesis-(planned))
       * [Sampler](#sampler)
+      * [Subtractive synthesis](#subtractive-synthesis)
       * [PM synthesis](#pm-synthesis)
       * [Samples map](#samples-map)
       * [Performances](#performances)
@@ -51,7 +52,7 @@ Unlike other synthesizers, the notes data format understood by FAS is pixels-bas
 
 The RGBA data collected is 1px wide with an user-defined height, the height is mapped to frequencies with an user-defined logarithmic frequency map.
 
-FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM).
+FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM).
 
 It can be said that FAS is a generic image-synth : any RGBA images can be used to produce an infinite variety of sounds by streaming vertical slices of the image to FAS.
 
@@ -128,6 +129,27 @@ Granular synthesis with grain start index of 0 and min/max duration of 1/1 can b
 |          G | Amplitude value of the RIGHT channel     |
 |          B | Sample index bounded to [0, 1] (cyclic) and grains density when > 2 |
 |          A | Grains start index bounded [0, 1] (cyclic), grains start randomization amount when > 1, play the grain backward when negative |
+
+### Subtractive synthesis
+
+Subtractive synthesis start from harmonically rich waveforms which are then filtered.
+
+This was added for fun, it is a bit slow and there is only one low-pass filter (Moog type) implemented and only a sawtooth waveform (band-limited through additive synthesis), the filter can be unstable depending on provided parameters and frequencies.
+
+This type of synthesis may improve gradually with more waveforms (and a faster way to generate them) and more filters.
+
+**Note** : The waveform is constitued of 64 partials (maximum)
+
+#### RGBA interpretation
+
+| Components | Interpretations                      |
+| ---------: | :----------------------------------- |
+|          R | Amplitude value of the LEFT channel  |
+|          G | Amplitude value of the RIGHT channel |
+|          B | Moog filter cutoff [0, 1]            |
+|          A | Moog filter resonance [0, 4]         |
+
+
 
 ### PM synthesis
 

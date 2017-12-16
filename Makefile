@@ -1,7 +1,7 @@
 compiler = gcc
 cppcompiler = g++
 x86-64-cross-compiler = /usr/bin/x86_64-w64-mingw32-gcc
-source = main.c tools.c samples.c grains.c oscillators.c wavetables.c note.c usage.c Yin.c
+source = main.c tools.c samples.c grains.c oscillators.c wavetables.c note.c usage.c Yin.c filters.c
 cpp_source = essentia_wrapper.cpp
 obj = main.o tools.o samples.o grains.o oscillators.o wavetables.o note.o usage.o Yin.o
 cpp_obj = essentia_wrapper.o

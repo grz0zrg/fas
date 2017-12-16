@@ -9,7 +9,7 @@
         int max_harmonics;
 
         // filters fb
-        double **fin, **fout;
+        double **fp1, **fp2, **fp3;
 
 #ifdef FIXED_WAVETABLE
         uint16_t **harmo_phase_index;
@@ -24,6 +24,8 @@
         unsigned int *phase_index;
         unsigned int phase_step;
 #endif
+
+        float *harmonics;
 
         float *value;
 

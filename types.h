@@ -17,8 +17,8 @@
     struct _synth_chn_settings {
         unsigned int synthesis_method;
         int env_type;
-        double gmin_size;
-        double gmax_size;
+        double p1;
+        double p2;
     };
 
     struct _synth {

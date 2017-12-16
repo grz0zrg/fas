@@ -1,4 +1,4 @@
-Fragment : Additive/Spectral/Granular/PM synthesizer
+Fragment : Additive/Spectral/Granular/Subtractive/PM synthesizer
 =====
 
 Raw additive/subtractive/spectral/granular/PM synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
@@ -134,20 +134,24 @@ Granular synthesis with grain start index of 0 and min/max duration of 1/1 can b
 
 Subtractive synthesis start from harmonically rich waveforms which are then filtered.
 
-This was added for fun, it is a bit slow and there is only one low-pass filter (Moog type) implemented and only a sawtooth waveform (band-limited through additive synthesis), the filter can be unstable depending on provided parameters and frequencies.
+This was added for fun, it is somewhat slow due to additive synthesized waveforms and there is only one low-pass filter (Moog type) implemented.
+
+There is three type of band-limited (no aliasing!) waveforms : sawtooth, square, triangle
 
 This type of synthesis may improve gradually with more waveforms (and a faster way to generate them) and more filters.
 
-**Note** : The waveform is constitued of 64 partials (maximum)
+The filter drive is a channel settings.
+
+**Note** : The waveforms are constitued of a maximum of 64 partials
 
 #### RGBA interpretation
 
-| Components | Interpretations                      |
-| ---------: | :----------------------------------- |
-|          R | Amplitude value of the LEFT channel  |
-|          G | Amplitude value of the RIGHT channel |
-|          B | Moog filter cutoff [0, 1]            |
-|          A | Moog filter resonance [0, 4]         |
+| Components | Interpretations                          |
+| ---------: | :--------------------------------------- |
+|          R | Amplitude value of the LEFT channel      |
+|          G | Amplitude value of the RIGHT channel     |
+|          B | Moog filter cutoff multiplier; the cutoff is set to the fundamental frequency, 1.0 = cutoof at fundamental frequency |
+|          A | Moog filter resonance [0, 1] & waveform selection on integral part (0.x, 1.x, 2.x etc) |
 
 
 
@@ -258,10 +262,10 @@ Synth channels settings, packet identifier 3 :
 
 ```c
 struct _synth_chn_settings {
-    unsigned int synthesis_method; // 0 = additive, 1 = spectral, 2 = granular, 3 = FM/PM
+    unsigned int synthesis_method; // 0 = additive, 1 = spectral, 2 = granular, 3 = FM/PM, 4 = subtractive
     int env_type; // granular envelope type for this channel (there is 13 types of envelopes)
-    double gmin_size; // granular grain duration (min. bound)
-    double gmax_size; // granular grain duration (max. bound)
+    double p1; // granular grain duration (min. bound) or subtractive filter drive
+    double p2; // granular grain duration (max. bound)
 };
 ```
 

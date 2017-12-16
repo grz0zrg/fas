@@ -36,7 +36,7 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         // == substrative specials
         fit = 0;
         i = frequency;
-        while (fit <= 64) {
+        while (fit <= 48) {
             fit += 1;
 
             if ((i * fit) > max_frequency) {
@@ -59,13 +59,22 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         osc->harmo_phase_index = malloc(sizeof(unsigned int *) * frame_data_count);
 #endif
 
+        osc->harmonics = malloc(sizeof(float) * (fit * 2));
+
         // == substrative specials
+        int tri_sign = -1.0;
         for (i = 0; i < fit; i += 1) {
             osc->harmo_phase_step[i] = (frequency * (i + 1)) / (double)sample_rate * wavetable_size;
-        }
+            osc->harmonics[i] = (1.0 / (double)(i + 2.0));
+            osc->harmonics[i + fit] = (1.0 / pow((double)(i + 2), 2.0)) * tri_sign;
 
-        osc->fin = malloc(sizeof(double *) * frame_data_count);
-        osc->fout = malloc(sizeof(double *) * frame_data_count);
+            if (((i + 1) % 2) == 0) {
+                tri_sign = -tri_sign;
+            }
+        }
+        osc->fp1 = malloc(sizeof(double *) * frame_data_count);
+        osc->fp2 = malloc(sizeof(double *) * frame_data_count);
+        osc->fp3 = malloc(sizeof(double *) * frame_data_count);
         // ==
 
         osc->noise_index = malloc(sizeof(uint16_t) * frame_data_count);
@@ -88,12 +97,14 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
                 osc->harmo_phase_index[i][k] = rand() / (double)RAND_MAX * wavetable_size;
             }
 
-            osc->fin[i] = malloc(sizeof(double) * 4);
-            osc->fout[i] = malloc(sizeof(double) * 4);
+            osc->fp1[i] = malloc(sizeof(double) * 4);
+            osc->fp2[i] = malloc(sizeof(double) * 4);
+            osc->fp3[i] = malloc(sizeof(double) * 4);
 
             for (k = 0; k < 4; k += 1) {
-                osc->fin[i][k] = 0;
-                osc->fout[i][k] = 0;
+                osc->fp1[i][k] = 0;
+                osc->fp2[i][k] = 0;
+                osc->fp3[i][k] = 0;
             }
             // ==
         }

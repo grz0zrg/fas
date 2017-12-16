@@ -20,8 +20,14 @@
         float blue;
         float alpha;
 
+        // subtractive related
+        double cutoff;
+        double res;
+        unsigned int waveform;
+        double exp;
+
         // granular related
-        float density;
+        unsigned int density;
 
         //float *mag;
         //float *frq;

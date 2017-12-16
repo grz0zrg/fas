@@ -245,7 +245,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 grain_start = roundf(grain_start * fmaxf(fminf(grain_position, 1.0f), 0.0f) * (1.0f - randf(0.0f, 1.0f) * floorf(fminf(grain_position - 0.0001f, 1.0f))));
 
                                 gr->index[k] = grain_start;
-                                gr->frames[k] = roundf(grain_start + fmaxf(randf(GRAIN_MIN_DURATION + chn_settings->gmin_size, chn_settings->gmax_size), GRAIN_MIN_DURATION) * (smp->frames - grain_start - 1)) + 1;
+                                gr->frames[k] = roundf(grain_start + fmaxf(randf(GRAIN_MIN_DURATION + chn_settings->p1, chn_settings->p2), GRAIN_MIN_DURATION) * (smp->frames - grain_start - 1)) + 1;
                                 gr->env_step[k] = fmax(((double)(FAS_ENVS_SIZE)) / (((double)gr->frames[k] - (double)grain_start) / fabs(gr_speed)), 0.00000001);
                                 gr->env_index[k] = 0.0f;
                                 gr->density[k] = n->density;
@@ -344,7 +344,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
                     }
                 } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE) {
-                  // substractive with bandwidth limited oscillators (just like additive!)
                   for (j = s; j < e; j += 1) {
                       struct note *n = &curr_notes[j];
 
@@ -361,12 +360,13 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                       unsigned int *hphase_index = (unsigned int *)osc->harmo_phase_index[k];
 #endif
 
-                      // harmonics / waveform generation
-                      for (d = 0; d < osc->max_harmonics; d += 1) {
+                      // harmonics / waveform generation through additive synthesis
+                      int odd = n->waveform; // sawtooth - square & triangle (pow function below)
+                      for (d = odd; d < osc->max_harmonics; d += (1 + odd)) {
 #ifndef FIXED_WAVETABLE
-                          s += fas_sine_wavetable[hphase_index[d]] * (1.0 / (double)(d+1));
+                          s += fas_sine_wavetable[hphase_index[d]] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
 #else
-                          s += fas_sine_wavetable[hphase_index[d] & fas_wavetable_size_m1] * (1.0 / (double)(d+1));
+                          s += fas_sine_wavetable[hphase_index[d] & fas_wavetable_size_m1] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
 #endif
 
                           hphase_index[d] += osc->harmo_phase_step[d];
@@ -378,7 +378,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
                       }
 
-                      s = moog_vcf(s, fabs(n->blue), fabs(n->alpha), osc->fin[k], osc->fout[k]);
+                      s = improved_moog(s, osc->freq * n->cutoff, n->res, chn_settings->p1, osc->fp1[k], osc->fp2[k], osc->fp3[k], (double)fas_sample_rate);
 
                       float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                       float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
@@ -473,16 +473,19 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 }
                             }
                         } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE) {
+                          /*
                             for (j = s; j < e; j += 1) {
                                 struct note *n = &curr_notes[j];
 
                                 struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
                                 if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
-                                    memset(osc->fout[k], 0, sizeof(double) * 4);
-                                    memset(osc->fin[k], 0, sizeof(double) * 4);
+                                    memset(osc->fp1[k], 0, sizeof(double) * 4);
+                                    memset(osc->fp2[k], 0, sizeof(double) * 4);
+                                    memset(osc->fp3[k], 0, sizeof(double) * 4);
                                 }
                             }
+                            */
                         }
                     }
                 }
@@ -1025,11 +1028,11 @@ fflush(stdout);
                     for (n = 0; n < (*channels_count); n += 1) {
                         usd->synth->chn_settings[n].synthesis_method = data[4 + i];
                         usd->synth->chn_settings[n].env_type = data[4 + i + 1];
-                        usd->synth->chn_settings[n].gmin_size = data_double[i2];
-                        usd->synth->chn_settings[n].gmax_size = data_double[i2 + 1];
+                        usd->synth->chn_settings[n].p1 = data_double[i2];
+                        usd->synth->chn_settings[n].p2 = data_double[i2 + 1];
 
 #ifdef DEBUG
-printf("chn %i data : %i, %i, %f, %f\n", n, usd->synth->chn_settings[n].synthesis_method, usd->synth->chn_settings[n].env_type, usd->synth->chn_settings[n].gmin_size, usd->synth->chn_settings[n].gmax_size);
+printf("chn %i data : %i, %i, %f, %f, %f\n", n, usd->synth->chn_settings[n].synthesis_method, usd->synth->chn_settings[n].env_type, usd->synth->chn_settings[n].p1, usd->synth->chn_settings[n].p2, usd->synth->chn_settings[n].drive);
 fflush(stdout);
 #endif
 

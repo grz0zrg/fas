@@ -146,10 +146,27 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
                     _note->density = 1;
                 }
 
-                // for granular synthesis, samples and related
-                double dummy;
-                _note->smp_index = modf(fabs(blue), &dummy) * (samples_count + 1);
+                double dummy_int_part;
+                double alpha_int_part;
+                double blue_frac_part = modf(fabs(blue), &dummy_int_part);
+                double alpha_frac_part = modf(fabs(alpha), &alpha_int_part);
 
+                // for granular synthesis, samples and related
+                _note->smp_index = blue_frac_part * (samples_count + 1);
+
+                // for subtractive synthesis
+                _note->cutoff = fabs(blue);
+                _note->res = alpha_frac_part;
+                _note->waveform = ((unsigned int)alpha_int_part) % 2;
+
+                if ((((unsigned int)alpha_int_part + 1) % 3) == 0) {
+                    _note->exp = 1;
+                    _note->waveform = 1;
+                } else {
+                    _note->exp = 0;
+                }
+
+                // for PM/FM
                 //_note->fm_mod_source = modf(fabs(blue), &dummy) * channels;
             }
 

@@ -195,9 +195,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        // experiment with PM/FM synth
-                        //osc->value[k] = s;
-
                         output_l += vl * s;
                         output_r += vr * s;
 
@@ -294,40 +291,17 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         struct note *n = &curr_notes[j];
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                        unsigned int add_phase_step = 0;
-
-                        // additive/self part, experiment not compatible with distributed mode (multiple instances of FAS)
-                        struct _synth_chn_settings *pm_mod_source_chn_settings = &curr_synth.chn_settings[n->fm_mod_source];
-                        if (chn_settings->synthesis_method == FAS_FM ||
-                          chn_settings->synthesis_method == FAS_ADDITIVE) {
-                            unsigned int s2 = 0;
-                            unsigned int e2 = 0;
-                            unsigned int pv_note_buffer_len2 = 0;
-                            unsigned int note_buffer_len2 = 0;
-                            for (int c = 0; c <= n->fm_mod_source; c += 1) {
-                                pv_note_buffer_len2 += note_buffer_len2;
-                                note_buffer_len2 = curr_notes[pv_note_buffer_len2].osc_index;
-                                pv_note_buffer_len2 += 1;
-                                s2 = pv_note_buffer_len2;
-                                e2 = s2 + note_buffer_len2;
-                            }
-
-                            for (int c = s2; c < e2; c += 1) {
-                                struct note *n2 = &curr_notes[c];
-
-                                struct oscillator *mod_osc = &curr_synth.oscillators[n2->osc_index];
-                                float s = mod_osc->value[n->fm_mod_source] * ((n2->volume_l + n2->volume_r) * 0.5);
-                                add_phase_step += s * fas_wavetable_size;
-                            }
-                        }
-                        // end
+                        struct oscillator *osc2 = &curr_synth.oscillators[n->fm_mod_source];
 
 #ifndef FIXED_WAVETABLE
                         float s = fas_sine_wavetable[osc->phase_index[k]];
+                        float s2 = fas_sine_wavetable[osc2->phase_index2[k]];
 #else
                         float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
+                        float s2 = fas_sine_wavetable[osc2->phase_index2[k] & fas_wavetable_size_m1];
 #endif
+
+                        s = huovilainen_moog(s, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
 
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
@@ -335,11 +309,16 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_l += vl * s;
                         output_r += vr * s;
 
-                        osc->phase_index[k] += osc->phase_step + add_phase_step + (s * fas_wavetable_size) * n->alpha;
+                        osc->phase_index[k] += osc->phase_step + (s2 * fas_wavetable_size);
+                        osc2->phase_index2[k] += osc2->phase_step;
 
 #ifndef FIXED_WAVETABLE
                         if (osc->phase_index[k] >= fas_wavetable_size) {
                             osc->phase_index[k] -= fas_wavetable_size;
+                        }
+
+                        if (osc2->phase_index2[k] >= fas_wavetable_size) {
+                            osc2->phase_index2[k] -= fas_wavetable_size;
                         }
 #endif
                     }
@@ -378,7 +357,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
                       }
 
-                      s = improved_moog(s, osc->freq * n->cutoff, n->res, chn_settings->p1, osc->fp1[k], osc->fp2[k], osc->fp3[k], (double)fas_sample_rate);
+                      //s = improved_moog(s, osc->freq * n->cutoff, n->res, chn_settings->p1, osc->fp1[k], osc->fp2[k], osc->fp3[k], (double)fas_sample_rate);
+                      s = huovilainen_moog(s, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
 
                       float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                       float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
@@ -396,9 +376,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                   }
                 }
             }
-
-            //output_l /= (e-s);
-            //output_r /= (e-s);
 
             last_sample_l = output_l * curr_synth.gain->gain_lr;
             last_sample_r = output_r * curr_synth.gain->gain_lr;
@@ -472,20 +449,22 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                     }
                                 }
                             }
-                        } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE) {
-                          /*
+                        } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE || chn_settings->synthesis_method == FAS_FM) {
                             for (j = s; j < e; j += 1) {
                                 struct note *n = &curr_notes[j];
 
                                 struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
+                                // TODO : pre-compute when necessary
+                                huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (double)fas_sample_rate);
+
+                                /*
                                 if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
                                     memset(osc->fp1[k], 0, sizeof(double) * 4);
                                     memset(osc->fp2[k], 0, sizeof(double) * 4);
                                     memset(osc->fp3[k], 0, sizeof(double) * 4);
-                                }
+                                }*/
                             }
-                            */
                         }
                     }
                 }

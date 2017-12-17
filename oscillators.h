@@ -17,12 +17,18 @@
 
         uint16_t *phase_index;
         uint16_t phase_step;
+
+        // fm/pm
+        uint16_t *phase_index2;
 #else
         unsigned int **harmo_phase_index;
         unsigned int *harmo_phase_step;
 
         unsigned int *phase_index;
         unsigned int phase_step;
+
+        // fm/pm
+        unsigned int *phase_index2;
 #endif
 
         float *harmonics;

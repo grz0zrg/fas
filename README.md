@@ -35,13 +35,15 @@ Table of Contents
 
 ## About
 
-Fragment Audio Server (FAS) is a pixels-based additive, spectral, granular and phase modulated (PM) audio synthesizer implemented as a WebSocket server with the C language.
+Fragment Audio Server (FAS) is a pixels-based additive, spectral, granular, subtractive and phase modulated (PM) audio synthesizer implemented as a WebSocket server with the C language.
 
 All the synthesis methods can be used at the same time by using different output channels.
 
 FAS is focused on **real-time performances**, being **cross-platform** and **pixels-based**.
 
 This project was built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
+
+The most pixels-adapted synthesis methods are additive, granular and spectral.
 
 ### Pixels-based
 
@@ -54,7 +56,7 @@ The RGBA data collected is 1px wide with an user-defined height, the height is m
 
 FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM).
 
-It can be said that FAS is a generic image-synth : any RGBA images can be used to produce an infinite variety of sounds by streaming vertical slices of the image to FAS.
+It can be said that FAS/Fragment is a generic image-synth : any RGBA images can be used to produce an infinite variety of sounds by streaming vertical slices of the image to FAS.
 
 ### Additive synthesis
 
@@ -121,26 +123,15 @@ Granular synthesis with grain start index of 0 and min/max duration of 1/1 can b
 
 **Note** : Monophonic mode sampler is not implemented.
 
-#### RGBA interpretation
-
-| Components | Interpretations                          |
-| ---------: | :--------------------------------------- |
-|          R | Amplitude value of the LEFT channel      |
-|          G | Amplitude value of the RIGHT channel     |
-|          B | Sample index bounded to [0, 1] (cyclic) and grains density when > 2 |
-|          A | Grains start index bounded [0, 1] (cyclic), grains start randomization amount when > 1, play the grain backward when negative |
-
 ### Subtractive synthesis
 
 Subtractive synthesis start from harmonically rich waveforms which are then filtered.
 
-This was added for fun, it is somewhat slow due to additive synthesized waveforms and there is only one low-pass filter (Moog type) implemented.
+It is somewhat slow due to additive synthesized waveforms and there is only one high quality low-pass filter (Moog type) implemented.
 
 There is three type of band-limited (no aliasing!) waveforms : sawtooth, square, triangle
 
 This type of synthesis may improve gradually with more waveforms (and a faster way to generate them) and more filters.
-
-The filter drive is a channel settings.
 
 **Note** : The waveforms are constitued of a maximum of 64 partials
 
@@ -150,16 +141,28 @@ The filter drive is a channel settings.
 | ---------: | :--------------------------------------- |
 |          R | Amplitude value of the LEFT channel      |
 |          G | Amplitude value of the RIGHT channel     |
-|          B | Moog filter cutoff multiplier; the cutoff is set to the fundamental frequency, 1.0 = cutoof at fundamental frequency |
+|          B | Moog filter cutoff multiplier; the cutoff is set to the fundamental frequency, 1.0 = cutoff at fundamental frequency |
 |          A | Moog filter resonance [0, 1] & waveform selection on integral part (0.x, 1.x, 2.x etc) |
 
 
 
 ### PM synthesis
 
-Phase modulation (PM) is a mean to generate sounds by modulating the phase of an oscillator from another oscillator, it is very similar to frequency modulation (FM).
+Phase modulation (PM) is a mean to generate sounds by modulating the phase of an oscillator (carrier) from another oscillator (modulator), it is very similar to frequency modulation (FM).
 
-PM synthesis is in construction and the implementation can be subject to changes.
+PM synthesis in Fragment work by giving an oscillator index (based on image-height) to the note, this oscillator will be used as a modulator.
+
+PM synthesis use a high quality low-pass filter (Moog type).
+
+#### RGBA interpretation
+
+| Components | Interpretations                          |
+| ---------: | :--------------------------------------- |
+|          R | Amplitude value of the LEFT channel      |
+|          G | Amplitude value of the RIGHT channel     |
+|          B | Moog filter cutoff multiplier; the cutoff is set to the fundamental frequency, 1.0 = cutoff at fundamental frequency |
+|          A | Moog filter resonance [0, 1] & oscillator selection on integral part (0.x, 1.x, 2.x etc), cyclic |
+
 
 ### Samples map
 
@@ -178,11 +181,13 @@ FAS was executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiB
 
 #### Distributed/multi-core synthesis
 
-Due to the architecture of FAS, distributed sound synthesis is easily doable by running multiple FAS instances on the same or different computer by distributing the pixels data correctly to each instances, on the same machine this only require a sufficient amount of memory.
+Due to the architecture of FAS, distributed sound synthesis is made possible by running multiple FAS instances on the same or different computer by distributing the pixels data correctly to each instances, on the same machine this only require a sufficient amount of memory.
 
 This is the only way to exploit multiple cores on the same machine.
 
-A simple implementation of a distributed synthesis relay can be found [here](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
+This need a relay program which will link each instances with the client and distribute each notes to instances based on a distribution algorithm.
+
+A directly usable implementation with NodeJS of a distributed synthesis relay can be found [here](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
 
 #### Frames drop
 
@@ -202,7 +207,9 @@ The server only send the CPU load of the stream at regular interval (adjustable)
 
 FAS support real-time rendering of the pixels data, the pixels data is compressed on-the-fly into a single file, FAS can then do offline processing and be used again to convert the pixels data into an audio .flac file, this  ensure professional quality audio output.
 
-The ongoing development is to add more synthesis methods (FM/PM is WIP) and with the help of the essentia framework. (a C essentia wrapper is available)
+### Future
+
+The ongoing development is to improve synthesis methods and implement new type of synthesis like spectral with the help of the essentia framework. (a C essentia wrapper is available)
 
 ### OSC
 
@@ -221,6 +228,8 @@ A free list data structure is used to handle data reuse, the program pre-allocat
 Additive synthesis is wavetable-based.
 
 Real-time resampling is done with a simple linear method, better resampling method may come in the future.
+
+All synthesis algorithms (minus filters) are customs.
 
 ## Packets description
 

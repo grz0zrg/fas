@@ -53,10 +53,14 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         osc->phase_index = malloc(sizeof(uint16_t) * frame_data_count);
         osc->harmo_phase_step = malloc(sizeof(uint16_t) * fit);
         osc->harmo_phase_index = malloc(sizeof(uint16_t *) * frame_data_count);
+
+        osc->phase_index2 = malloc(sizeof(uint16_t) * frame_data_count);
 #else
         osc->phase_index = malloc(sizeof(unsigned int) * frame_data_count);
         osc->harmo_phase_step = malloc(sizeof(unsigned int) * fit);
         osc->harmo_phase_index = malloc(sizeof(unsigned int *) * frame_data_count);
+
+        osc->phase_index2 = malloc(sizeof(unsigned int) * frame_data_count);
 #endif
 
         osc->harmonics = malloc(sizeof(float) * (fit * 2));
@@ -86,6 +90,9 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
             osc->noise_index[i] = rand() / (double)RAND_MAX * wavetable_size;
             osc->value[i] = 0;
 
+            // == PM
+            osc->phase_index2[i] = rand() / (double)RAND_MAX * wavetable_size;
+
             // == substrative specials
 #ifdef FIXED_WAVETABLE
             osc->harmo_phase_index[i] = malloc(sizeof(uint16_t) * fit);
@@ -97,15 +104,9 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
                 osc->harmo_phase_index[i][k] = rand() / (double)RAND_MAX * wavetable_size;
             }
 
-            osc->fp1[i] = malloc(sizeof(double) * 4);
-            osc->fp2[i] = malloc(sizeof(double) * 4);
-            osc->fp3[i] = malloc(sizeof(double) * 4);
-
-            for (k = 0; k < 4; k += 1) {
-                osc->fp1[i][k] = 0;
-                osc->fp2[i][k] = 0;
-                osc->fp3[i][k] = 0;
-            }
+            osc->fp1[i] = calloc(6, sizeof(double));
+            osc->fp2[i] = calloc(6, sizeof(double));
+            osc->fp3[i] = calloc(6, sizeof(double));
             // ==
         }
 

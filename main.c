@@ -340,7 +340,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
 
                       // harmonics / waveform generation through additive synthesis
-                      int odd = n->waveform; // sawtooth - square & triangle (pow function below)
+                      int odd = n->waveform; // sawtooth - square & triangle (pow wavetable below)
                       for (d = odd; d < osc->max_harmonics; d += (1 + odd)) {
 #ifndef FIXED_WAVETABLE
                           s += fas_sine_wavetable[hphase_index[d]] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
@@ -458,12 +458,12 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 // TODO : pre-compute when necessary
                                 huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (double)fas_sample_rate);
 
-                                /*
+                                // reset filter on note-off
                                 if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
                                     memset(osc->fp1[k], 0, sizeof(double) * 4);
                                     memset(osc->fp2[k], 0, sizeof(double) * 4);
                                     memset(osc->fp3[k], 0, sizeof(double) * 4);
-                                }*/
+                                }
                             }
                         }
                     }
@@ -577,7 +577,7 @@ void freeSynth(struct _synth **s) {
     struct _synth *synth = *s;
     if (synth) {
         if (synth->oscillators && synth->settings) {
-            synth->oscillators = freeOscillators(&synth->oscillators, synth->settings->h);
+            synth->oscillators = freeOscillators(&synth->oscillators, synth->settings->h, frame_data_count);
         }
 
         freeGrains(&synth->grains, samples_count, synth->settings->h, fas_granular_max_density);
@@ -759,7 +759,7 @@ if (remaining_payload != 0) {
 
                     freeGrains(&usd->synth->grains, samples_count, h, fas_granular_max_density);
 
-                    usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, h);
+                    usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, h, frame_data_count);
 
                     usd->synth->gain = NULL;
 
@@ -784,7 +784,7 @@ if (remaining_payload != 0) {
 
                     // create a global copy of the oscillators for the user (for OSC)
                     if (usd->oscillators) {
-                        usd->oscillators = freeOscillators(&usd->oscillators, h);
+                        usd->oscillators = freeOscillators(&usd->oscillators, h, frame_data_count);
                     }
                     usd->oscillators = (struct oscillator*)malloc(n * sizeof(struct oscillator));
 
@@ -807,7 +807,7 @@ if (remaining_payload != 0) {
 
                         free(usd->synth->chn_settings);
                         free(usd->synth->settings);
-                        usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, usd->synth->settings->h);
+                        usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, usd->synth->settings->h, frame_data_count);
 
                         freeGrains(&usd->synth->grains, samples_count, usd->synth->settings->h, fas_granular_max_density);
 
@@ -1069,7 +1069,7 @@ free_packet:
             freeSynth(&usd->synth);
 
             if (usd->oscillators) {
-                usd->oscillators = freeOscillators(&usd->oscillators, usd->synth_h);
+                usd->oscillators = freeOscillators(&usd->oscillators, usd->synth_h, frame_data_count);
             }
 
             free(usd->prev_frame_data);

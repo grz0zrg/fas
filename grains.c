@@ -68,6 +68,7 @@ struct grain *freeGrains(struct grain **g, unsigned int samples_count, unsigned 
         free(grains[y].env_step);
         free(grains[y].smp_index);
         free(grains[y].density);
+        free(grains[y].speed);
     }
 
     free(grains);

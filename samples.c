@@ -174,6 +174,8 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
                 }
             }
 
+            free(max_value);
+
             if (smp->chn > 1) {
                 // copy l&r
                 index = 0;
@@ -289,8 +291,6 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
                     yin_samples[i] /= sfinfo.channels;
                 }
 
-                free(max_value);
-
                 double uncertainty = 0.05;
 
                 Yin *yin = (Yin *)malloc(sizeof(struct _Yin));
@@ -353,8 +353,6 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
     double sstep = 1.0 / (double)samples_count;
     double scurr = 0.0;
     for (int i = 1; i <= samples_count; i += 1) {
-        struct sample *smp = &samples[i];
-
         printf("Sample %i mapped to [%f, %f)\n", i, scurr, scurr + sstep);
 
         scurr += sstep;

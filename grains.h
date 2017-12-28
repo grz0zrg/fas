@@ -21,6 +21,6 @@
     };
 
     extern struct grain *createGrains(struct sample **samples, unsigned int samples_count, unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int frame_data_count, unsigned int max_density);
-    extern struct grain *freeGrains(struct grain **g, unsigned int samples_count, unsigned int n, unsigned int max_density);
+    extern struct grain *freeGrains(struct grain **g, unsigned int samples_count, unsigned int frame_data_count, unsigned int n, unsigned int max_density);
 
 #endif

@@ -70,7 +70,7 @@
     unsigned int frame_data_count = FAS_OUTPUT_CHANNELS / 2;
     unsigned int fas_stream_load_send_delay = FAS_STREAM_LOAD_SEND_DELAY;
     unsigned int fas_max_drop = FAS_MAX_DROP;
-    int fas_samplerate_converter_type = SRC_SINC_MEDIUM_QUALITY;
+    int fas_samplerate_converter_type = -1; // SRC_SINC_MEDIUM_QUALITY
     double fas_smooth_factor = FAS_SMOOTH_FACTOR;
     float fas_noise_amount = FAS_NOISE_AMOUNT;
     int fas_audio_device = -1;
@@ -109,6 +109,7 @@
     struct sample *samples = NULL;
     unsigned int samples_count = 0;
     unsigned int samples_count_m1 = 0;
+    unsigned int prev_samples_count = 0;
 
     float **grain_envelope;
 

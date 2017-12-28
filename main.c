@@ -79,22 +79,52 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         struct _synth *queue_synth = (struct _synth *)queue_synth_void;
 
         if (queue_synth->oscillators) {
+            if (curr_synth.oscillators) {
+                freeOscillators(&curr_synth.oscillators, curr_synth.settings->h, frame_data_count);
+
+                curr_synth.oscillators = NULL;
+            }
+
             curr_synth.oscillators = queue_synth->oscillators;
         }
 
-        if (queue_synth->settings) {
-            curr_synth.settings = queue_synth->settings;
-        }
-
         if (queue_synth->gain) {
+            if (curr_synth.gain) {
+                free(curr_synth.gain);
+
+                curr_synth.gain = NULL;
+            }
+
             curr_synth.gain = queue_synth->gain;
         }
 
         if (queue_synth->grains) {
+            if (curr_synth.grains) {
+                freeGrains(&curr_synth.grains, curr_synth.samples_count, frame_data_count, curr_synth.settings->h, fas_granular_max_density);
+
+                curr_synth.grains = NULL;
+            }
+
             curr_synth.grains = queue_synth->grains;
         }
 
+        if (queue_synth->settings) {
+            if (curr_synth.settings) {
+                free(curr_synth.settings);
+
+                curr_synth.settings = NULL;
+            }
+
+            curr_synth.settings = queue_synth->settings;
+        }
+
         if (queue_synth->chn_settings) {
+            if (curr_synth.chn_settings) {
+                free(curr_synth.chn_settings);
+
+                curr_synth.chn_settings = NULL;
+            }
+
             curr_synth.chn_settings = queue_synth->chn_settings;
 
             // do not allow synthesis based on samples when there is no samples
@@ -108,6 +138,10 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 }
             }
         }
+
+        curr_synth.samples_count = queue_synth->samples_count;
+
+        free(queue_synth);
     }
 
     int read_status = 0;
@@ -580,10 +614,13 @@ void freeSynth(struct _synth **s) {
             synth->oscillators = freeOscillators(&synth->oscillators, synth->settings->h, frame_data_count);
         }
 
-        freeGrains(&synth->grains, samples_count, synth->settings->h, fas_granular_max_density);
+        if (synth->grains) {
+            freeGrains(&synth->grains, samples_count, frame_data_count, synth->settings->h, fas_granular_max_density);
+        }
 
         free(synth->chn_settings);
         free(synth->settings);
+        free(synth->gain);
         free(synth);
     }
 }
@@ -744,6 +781,8 @@ if (remaining_payload != 0) {
                         usd->synth->oscillators = NULL;
                         usd->synth->grains = NULL;
                         usd->synth->chn_settings = NULL;
+
+                        usd->synth->gain = NULL;
                     } else {
                         h = usd->synth->settings->h;
                     }
@@ -757,9 +796,11 @@ if (remaining_payload != 0) {
                             usd->synth->settings->octave, usd->synth->settings->data_type, usd->synth->settings->base_frequency);
                     #endif
 
-                    freeGrains(&usd->synth->grains, samples_count, h, fas_granular_max_density);
+                    freeGrains(&usd->synth->grains, prev_samples_count, frame_data_count, usd->synth_h, fas_granular_max_density);
 
-                    usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, h, frame_data_count);
+                    usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, usd->synth_h, frame_data_count);
+
+                    free(usd->synth->gain);
 
                     usd->synth->gain = NULL;
 
@@ -772,25 +813,33 @@ if (remaining_payload != 0) {
                     usd->expected_frame_length = 4 * usd->frame_data_size * usd->synth->settings->h;
                     usd->expected_max_frame_length = 4 * usd->frame_data_size * usd->synth->settings->h * frame_data_count;
                     size_t max_frame_data_len = usd->expected_frame_length * frame_data_count + sizeof(unsigned int) * 2;
+
+                    free(usd->frame_data);
+                    free(usd->prev_frame_data);
+
+                    usd->frame_data = NULL;
+                    usd->prev_frame_data = NULL;
+
+                    usd->synth->samples_count = samples_count;
+
                     usd->frame_data = calloc(max_frame_data_len, usd->frame_data_size);
                     usd->prev_frame_data = calloc(max_frame_data_len, usd->frame_data_size);
+
+                    if (usd->oscillators) {
+                        usd->oscillators = freeOscillators(&usd->oscillators, usd->synth_h, frame_data_count);
+                    }
+                    //usd->oscillators = (struct oscillator*)malloc(n * sizeof(struct oscillator));
 
                     usd->synth_h = usd->synth->settings->h;
 
                     setHeight(usd->synth_h);
 
-                    usd->synth->oscillators = createOscillators(usd->synth->settings->h,
-                        usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
-
                     // create a global copy of the oscillators for the user (for OSC)
-                    if (usd->oscillators) {
-                        usd->oscillators = freeOscillators(&usd->oscillators, h, frame_data_count);
-                    }
-                    usd->oscillators = (struct oscillator*)malloc(n * sizeof(struct oscillator));
-
                     usd->oscillators = createOscillators(usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
-                    //
+
+                    usd->synth->oscillators = createOscillators(usd->synth->settings->h,
+                        usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
 
                     usd->synth->grains = createGrains(&samples, samples_count, usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, frame_data_count, fas_granular_max_density);
 
@@ -809,7 +858,7 @@ if (remaining_payload != 0) {
                         free(usd->synth->settings);
                         usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, usd->synth->settings->h, frame_data_count);
 
-                        freeGrains(&usd->synth->grains, samples_count, usd->synth->settings->h, fas_granular_max_density);
+                        freeGrains(&usd->synth->grains, samples_count, frame_data_count, usd->synth->settings->h, fas_granular_max_density);
 
                         free(usd->synth);
                         usd->synth = NULL;
@@ -956,6 +1005,8 @@ if (remaining_payload != 0) {
                     usd->synth->grains = NULL;
                     usd->synth->chn_settings = NULL;
 
+                    usd->synth->samples_count = samples_count;
+
                     memcpy(usd->synth->gain, &((char *) usd->packet)[PACKET_HEADER_LENGTH], 8);
 #ifdef DEBUG
     printf("GAIN_CHANGE : %f\n", usd->synth->gain->gain_lr);
@@ -1011,7 +1062,7 @@ fflush(stdout);
                         usd->synth->chn_settings[n].p2 = data_double[i2 + 1];
 
 #ifdef DEBUG
-printf("chn %i data : %i, %i, %f, %f, %f\n", n, usd->synth->chn_settings[n].synthesis_method, usd->synth->chn_settings[n].env_type, usd->synth->chn_settings[n].p1, usd->synth->chn_settings[n].p2, usd->synth->chn_settings[n].drive);
+printf("chn %i data : %i, %i, %f, %f\n", n, usd->synth->chn_settings[n].synthesis_method, usd->synth->chn_settings[n].env_type, usd->synth->chn_settings[n].p1, usd->synth->chn_settings[n].p2);
 fflush(stdout);
 #endif
 
@@ -1023,6 +1074,8 @@ fflush(stdout);
                     usd->synth->settings = NULL;
                     usd->synth->gain = NULL;
                     usd->synth->grains = NULL;
+
+                    usd->synth->samples_count = samples_count;
 
                     if (lfds711_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
                         printf("Skipping packet, the synth commands queue is full.\n");
@@ -1043,6 +1096,10 @@ fflush(stdout);
 
                     audioPause();
 
+                    clearQueues();
+
+                    prev_samples_count = samples_count;
+
                     free_samples(&samples, samples_count);
                     samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type);
                     samples_count_m1 = samples_count - 1;
@@ -1062,7 +1119,10 @@ free_packet:
             break;
 
         case LWS_CALLBACK_WS_PEER_INITIATED_CLOSE:
-            audioPause();
+        case LWS_CALLBACK_CLOSED:
+            if (reason != LWS_CALLBACK_CLOSED) {
+                audioPause();
+            }
 
             clearQueues();
 
@@ -1072,9 +1132,8 @@ free_packet:
                 usd->oscillators = freeOscillators(&usd->oscillators, usd->synth_h, frame_data_count);
             }
 
-            free(usd->prev_frame_data);
-            free(usd->frame_data);
-            free(usd->packet);
+            //free(usd->prev_frame_data);
+            //free(usd->frame_data);
 
             printf("Connection from %s (%s) closed.\n", usd->peer_name, usd->peer_ip);
             fflush(stdout);
@@ -1453,6 +1512,12 @@ int main(int argc, char **argv)
     initializeSineModelCEssentia(cessentia, fas_sample_rate, window_size, hop_size);
 #endif
 
+    curr_synth.oscillators = NULL;
+    curr_synth.gain = NULL;
+    curr_synth.grains = NULL;
+    curr_synth.settings = NULL;
+    curr_synth.chn_settings = NULL;
+
     // PortAudio related
     PaStreamParameters outputParameters;
     PaError err;
@@ -1634,8 +1699,31 @@ quit:
 
     Pa_Terminate();
 
+    // free callback synth copy
+    if (curr_synth.oscillators) {
+        freeOscillators(&curr_synth.oscillators, curr_synth.settings->h, frame_data_count);
+    }
+
+    free(curr_synth.gain);
+
+    if (curr_synth.grains) {
+        freeGrains(&curr_synth.grains, curr_synth.samples_count, frame_data_count, curr_synth.settings->h, fas_granular_max_density);
+    }
+
+    free(curr_synth.settings);
+    free(curr_synth.chn_settings);
+    //
+
     free(fas_sine_wavetable);
     free(fas_white_noise_table);
+
+    freeEnvelopes(grain_envelope);
+    free_samples(&samples, samples_count);
+
+    #ifdef WITH_ESSENTIA
+        freeSineModelCEssentia(cessentia);
+        delCEssentia(cessentia);
+    #endif
 
     if (re) {
         lfds711_ringbuffer_cleanup(&rs, rb_element_cleanup_callback);
@@ -1684,7 +1772,7 @@ error:
     free(fas_sine_wavetable);
     free(fas_white_noise_table);
 
-    free(samples);
+    free_samples(&samples, samples_count);
 
     return err;
 }

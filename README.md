@@ -43,7 +43,7 @@ FAS is focused on **real-time performances**, being **cross-platform** and **pix
 
 This project was built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
 
-The most pixels-adapted synthesis methods are additive, granular and spectral.
+The most pixels-adapted synthesis methods are additive, granular and spectral; re-synthesis is possible with them.
 
 ### Pixels-based
 
@@ -173,7 +173,7 @@ Each samples loaded from the `grains` folder are processed, one of the most impo
 
 ### Performances
 
-This program is tailored for performances, it is memory intensive, most things are pre-allocated with near zero real-time allocations.
+This program is tailored for performances, it is memory intensive (about 1 Gb is needed without samples, about 2 Gb with few samples), most things are pre-allocated with near zero real-time allocations.
 
 #### Raspberry PI
 
@@ -230,6 +230,8 @@ Additive synthesis is wavetable-based.
 Real-time resampling is done with a simple linear method, better resampling method may come in the future.
 
 All synthesis algorithms (minus filters) are customs.
+
+This program is tested with Valgrind and should be free of memory leaks.
 
 ## Packets description
 
@@ -436,7 +438,7 @@ Usage: fas [list_of_parameters]
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio will be delayed**
  * --commands_queue_size 16 **should be a positive integer power of 2**
  * --stream_load_send_delay 2 **FAS will send the stream CPU load every two seconds**
- * --samplerate_conv_type 1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time, -1 can be used to skip resampling step**
+ * --samplerate_conv_type -1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time, this settings can be ignored most of the time since FAS do real-time resampling, -1 skip the resampling step**
 
 Self-signed certificates are provided in case you compile/run it with SSL. (Note: This is useless for many reasons and HTTP should _**ALWAYS**_ be the prefered protocol for online Fragment application, this is explained in [this issue](https://github.com/grz0zrg/fas/issues/1).)
 

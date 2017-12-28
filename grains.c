@@ -54,21 +54,33 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
     return g;
 }
 
-struct grain *freeGrains(struct grain **g, unsigned int samples_count, unsigned int n, unsigned int max_density) {
+struct grain *freeGrains(struct grain **g, unsigned int samples_count, unsigned int frame_data_count, unsigned int n, unsigned int max_density) {
+    if (samples_count == 0) {
+        return NULL;
+    }
+
     struct grain *grains = *g;
+
+    if (grains == NULL) {
+        return NULL;
+    }
 
     unsigned int grains_count = n * max_density * samples_count;
 
     int y = 0;
-    for (y = 0; y < grains_count; y += 1) {
-        free(grains[y].frame);
-        free(grains[y].frames);
-        free(grains[y].index);
-        free(grains[y].env_index);
-        free(grains[y].env_step);
-        free(grains[y].smp_index);
-        free(grains[y].density);
-        free(grains[y].speed);
+    for (y = 0; y < grains_count; y += samples_count) {
+        for (int k = 0; k < samples_count; k += 1) {
+            int gr_index = y + k;
+
+            free(grains[gr_index].frame);
+            free(grains[gr_index].frames);
+            free(grains[gr_index].index);
+            free(grains[gr_index].env_index);
+            free(grains[gr_index].env_step);
+            free(grains[gr_index].smp_index);
+            free(grains[gr_index].density);
+            free(grains[gr_index].speed);
+        }
     }
 
     free(grains);

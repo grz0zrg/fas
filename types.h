@@ -28,6 +28,8 @@
         struct grain *grains;
         struct _synth_chn_settings *chn_settings;
 
+        unsigned int samples_count;
+
         float lerp_t;
         unsigned long curr_sample;
     } curr_synth;

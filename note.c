@@ -9,7 +9,7 @@
 void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsigned int channels, unsigned int data_frame_size, struct note *note_buffer, unsigned int h, struct oscillator **o, size_t data_length, void *prev_data, void *data) {
     struct oscillator *oscs = *o;
 
-    double pvl = 0, pvr = 0, pl, pr, l, r;
+    double pvl = 0, pvr = 0, pl, pr, pb, pa, l, r;
     unsigned int i, j, frame_data_index = 8;
     unsigned int li = 0, ri = 1;
     unsigned int index = 0, note_osc_index = 0, osc_count = 0;
@@ -53,6 +53,9 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
                 l = cdata[frame_data_index + li];
                 r = cdata[frame_data_index + ri];
 
+                pb = pdata[frame_data_index + 2];
+                pa = pdata[frame_data_index + 3];
+
                 blue = cdata[frame_data_index + 2];
                 alpha = cdata[frame_data_index + 3];
             } else {
@@ -64,6 +67,9 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
 
                 l = cdata[frame_data_index + li];
                 r = cdata[frame_data_index + ri];
+
+                pb = pdata[frame_data_index + 2] * inv_full_brightness;
+                pa = pdata[frame_data_index + 3] * inv_full_brightness;
 
                 blue = cdata[frame_data_index + 2] * inv_full_brightness;
                 alpha = cdata[frame_data_index + 3] * inv_full_brightness;
@@ -137,6 +143,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
                 _note->blue = blue;
 
                 _note->density = fabs(round(blue));
+                _note->pdensity = fabs(round(pb));
 
                 if (_note->density < 1) {
                     _note->density = 1;
@@ -146,13 +153,23 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
                     _note->density = 1;
                 }
 
+                if (_note->pdensity < 1) {
+                    _note->pdensity = 1;
+                }
+
+                if (_note->pdensity >= max_density) {
+                    _note->pdensity = 1;
+                }
+
                 double dummy_int_part;
                 double alpha_int_part;
                 double blue_frac_part = modf(fabs(blue), &dummy_int_part);
+                double pblue_frac_part = modf(fabs(pb), &dummy_int_part);
                 double alpha_frac_part = modf(fabs(alpha), &alpha_int_part);
 
                 // for granular synthesis, samples and related
                 _note->smp_index = blue_frac_part * (samples_count + 1);
+                _note->psmp_index = pblue_frac_part * (samples_count + 1);
 
                 // for subtractive synthesis
                 _note->cutoff = fabs(blue);

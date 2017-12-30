@@ -28,12 +28,13 @@
 
         // granular related
         unsigned int density;
+        unsigned int pdensity;
+        unsigned int smp_index;
+        unsigned int psmp_index;
 
         //float *mag;
         //float *frq;
         //float *pha;
-
-        unsigned int smp_index;
 
         // fm related
         unsigned int fm_mod_source;

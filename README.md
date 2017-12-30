@@ -94,11 +94,11 @@ Both asynchronous and synchronous granular synthesis is implemented and can be u
 
 Granular synthesis implementation is less optimal than additive synthesis but has good performances.
 
-The granular synthesis algorithm is also prototyped in JavaScript (one channel only) and can be tried in a browser by opening the `lab/granular/algorithm.html`, it should always be up-to-date
+The granular synthesis algorithm is also prototyped in JavaScript (one channel only) and can be tried in a browser by opening the `lab/granular/algorithm.html`
+
+All granular synthesis parameters excluding density and envelope type can be changed in real-time without issues.
 
 **Note** : Monophonic mode granular synthesis is not implemented.
-
-**Note** : Real-time grain sample change on note-on may result in crackles, this is an implementation issue, FAS abruptly end the grain whose sample changed (the new grain immediately replace the old one).
 
 #### Window type
 

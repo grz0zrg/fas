@@ -67,9 +67,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 {
     LFDS711_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_LOGICAL_CORE;
 
-    static float last_sample_r = 0;
-    static float last_sample_l = 0;
-
     float *out = (float*)outputBuffer;
 
     unsigned int i, j, k, d, s, e;
@@ -161,9 +158,12 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         audio_thread_state == FAS_AUDIO_DO_WAIT_SETTINGS) {
         for (i = 0; i < framesPerBuffer; i += 1) {
             for (j = 0; j < frame_data_count; j += 1) {
-                *out++ = 0.0f;
-                *out++ = 0.0f;
+                *out++ = last_sample_l[j] * (1.0f - curr_synth.lerp_t);
+                *out++ = last_sample_r[j] * (1.0f - curr_synth.lerp_t);
             }
+
+            curr_synth.lerp_t += (1.0f / (float)framesPerBuffer);
+            curr_synth.lerp_t = fminf(curr_synth.lerp_t, 1.0f);
         }
 
         curr_notes = NULL;
@@ -344,7 +344,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #ifndef FIXED_WAVETABLE
                       float s = fas_sine_wavetable[osc->phase_index[k]];
 
-                      uint16_t *hphase_index = osc->harmo_phase_index[k];
+                      uint16_t *hphase_index = (uint16_t *)osc->harmo_phase_index[k];
 #else
                       float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
 
@@ -355,16 +355,16 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                       int odd = n->waveform; // sawtooth - square & triangle (pow wavetable below)
                       for (d = odd; d < osc->max_harmonics; d += (1 + odd)) {
 #ifndef FIXED_WAVETABLE
-                          s += fas_sine_wavetable[hphase_index[d]] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
+                          s += fas_sine_wavetable[osc->harmo_phase_index[k][d]] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
 #else
-                          s += fas_sine_wavetable[hphase_index[d] & fas_wavetable_size_m1] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
+                          s += fas_sine_wavetable[osc->harmo_phase_index[k][d] & fas_wavetable_size_m1] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
 #endif
 
-                          hphase_index[d] += osc->harmo_phase_step[d];
+                          osc->harmo_phase_index[k][d] += osc->harmo_phase_step[d];
 
 #ifndef FIXED_WAVETABLE
-                          if (hphase_index[d] >= fas_wavetable_size) {
-                              hphase_index[d] -= fas_wavetable_size;
+                          if (osc->harmo_phase_index[k][d] >= fas_wavetable_size) {
+                              osc->harmo_phase_index[k][d] -= fas_wavetable_size;
                           }
 #endif
                       }
@@ -389,11 +389,11 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 }
             }
 
-            last_sample_l = output_l * curr_synth.gain->gain_lr;
-            last_sample_r = output_r * curr_synth.gain->gain_lr;
+            last_sample_l[k] = output_l * curr_synth.gain->gain_lr;
+            last_sample_r[k] = output_r * curr_synth.gain->gain_lr;
 
-            *out++ = last_sample_l;
-            *out++ = last_sample_r;
+            *out++ = last_sample_l[k];
+            *out++ = last_sample_r[k];
         }
 
         curr_synth.lerp_t += lerp_t_step * fas_smooth_factor;
@@ -750,6 +750,7 @@ if (remaining_payload != 0) {
 
 #ifdef DEBUG
     printf("Packet id: %u\n", pid);
+    fflush(stdout);
 #endif
 
                 if (pid == SYNTH_SETTINGS) {
@@ -843,18 +844,21 @@ if (remaining_payload != 0) {
 
                     usd->synth->grains = createGrains(&samples, samples_count, usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, frame_data_count, fas_granular_max_density);
 
+                    free(usd->synth->chn_settings);
+                    usd->synth->chn_settings = NULL;
+/*
                     usd->synth->chn_settings = (struct _synth_chn_settings*)malloc(sizeof(struct _synth_chn_settings) * frame_data_count);
                     if (usd->synth->chn_settings == NULL) {
                         printf("chn_settings alloc. error.");
                         fflush(stdout);
                     }
                     memset(usd->synth->chn_settings, 0, sizeof(struct _synth_chn_settings) * frame_data_count);
-
+*/
                     if (lfds711_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
                         printf("Skipping packet, the synth commands queue is full.\n");
                         fflush(stdout);
 
-                        free(usd->synth->chn_settings);
+                        //free(usd->synth->chn_settings);
                         free(usd->synth->settings);
                         usd->synth->oscillators = freeOscillators(&usd->synth->oscillators, usd->synth->settings->h, frame_data_count);
 
@@ -1132,8 +1136,11 @@ free_packet:
                 usd->oscillators = freeOscillators(&usd->oscillators, usd->synth_h, frame_data_count);
             }
 
-            //free(usd->prev_frame_data);
-            //free(usd->frame_data);
+            free(usd->prev_frame_data);
+            free(usd->frame_data);
+
+            usd->prev_frame_data = NULL;
+            usd->frame_data = NULL;
 
             printf("Connection from %s (%s) closed.\n", usd->peer_name, usd->peer_ip);
             fflush(stdout);
@@ -1517,6 +1524,8 @@ int main(int argc, char **argv)
     curr_synth.grains = NULL;
     curr_synth.settings = NULL;
     curr_synth.chn_settings = NULL;
+    curr_synth.samples_count = 0;
+    curr_synth.lerp_t = 0;
 
     // PortAudio related
     PaStreamParameters outputParameters;
@@ -1591,6 +1600,9 @@ int main(int argc, char **argv)
     }
 
     frame_data_count = fas_output_channels / 2;
+
+    last_sample_l = calloc(frame_data_count, sizeof(float));
+    last_sample_r = calloc(frame_data_count, sizeof(float));
 
     printf("\nPortAudio: Using device '%s' with %u output channels\n", Pa_GetDeviceInfo(outputParameters.device)->name, fas_output_channels);
 
@@ -1741,6 +1753,9 @@ quit:
         free(synth_commands_queue_element);
     }
 
+    free(last_sample_l);
+    free(last_sample_r);
+
     printf("Bye.\n");
 
     return err;
@@ -1773,6 +1788,9 @@ error:
     free(fas_white_noise_table);
 
     free_samples(&samples, samples_count);
+
+    free(last_sample_l);
+    free(last_sample_r);
 
     return err;
 }

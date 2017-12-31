@@ -62,7 +62,7 @@ double improved_moog(double input, double cutoff, double resonance, double drive
 const double huovilainen_thermal = 0.000025;
 
 // GNU GENERAL PUBLIC LICENSE (Version 3, 29 June 2007)
-//http://www.gnu.org/licenses/gpl-3.0.txt
+// http://www.gnu.org/licenses/gpl-3.0.txt
 
 // https://github.com/ddiakopoulos/MoogLadders/blob/master/src/HuovilainenModel.h
 double huovilainen_moog(double input, double cutoff_computed, double res_computed, double *delay, double *stage, double *stageTanh, int oversample) {

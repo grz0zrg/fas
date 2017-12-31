@@ -98,6 +98,9 @@
     double note_time_samples;
     double lerp_t_step;
 
+    float *last_sample_l = NULL;
+    float *last_sample_r = NULL;
+
     atomic_int audio_thread_state = FAS_AUDIO_PLAY;
 
     time_t stream_load_begin;

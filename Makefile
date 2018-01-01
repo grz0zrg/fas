@@ -73,7 +73,7 @@ ssl-win-release-static-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${standard_options} ${win_static_options} ${adv_optimization_options} ${compat_options} $(win_static_libs) $(win_ssl_libs) -o $(output)
 
 win-cross-x86-64:
-	$(x86-64-cross-compiler) $(source) $(win_cross_include_path) ${release_options} ${compat_options} ${adv_optimization_options} ${standard_options} $(win_cross_libs) -o fas.exe
+	$(x86-64-cross-compiler) $(source) $(win_cross_include_path) ${release_options} ${compat_options} -DBANDLIMITED_NOISE ${adv_optimization_options} ${standard_options} $(win_cross_libs) -o fas.exe
 
 32:
 	$(compiler) -m32 $(source) $(include_path) ${release_options} ${standard_options} $(libs) -o $(output)

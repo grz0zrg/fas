@@ -51,7 +51,7 @@ float **createEnvelopes(unsigned int n) {
 
             case 2: // HAMMING
               for (int j = 0; j < n; j++) {
-                  envs[i][j] = 0.54 - 0.46 * cos(2 * M_PI * (double)j / (double)(n - 1));
+                  envs[i][j] = 0.54 - 0.46 * cos(2 * M_PI * (double)j / (double)(n - 1)) - 0.075;
               }
               break;
 
@@ -72,7 +72,7 @@ float **createEnvelopes(unsigned int n) {
 
             case 5: // CONFINED GAUSSIAN
                 fN = (float)n;
-                float sigma = fN * 0.3f;
+                float sigma = fN * 0.2f;
                 float L = (float)(n - 1);
 
                 float numerator = 0.0f;
@@ -132,7 +132,7 @@ float **createEnvelopes(unsigned int n) {
 
             case 10: // NUTALL
               for (int j = 0; j < n; j++) {
-                  envs[i][j] = 0.3635819 - 0.3635819 * cos(2*(float)(M_PI)*(double)j/(n-1)) + 0.1365995* cos(4*(float)(M_PI)*(double)j/(n-1)) - 0.0106411*cos(6*(float)(M_PI)*(double)j/(n-1));
+                  envs[i][j] = 0.3635819 - 0.3635819 * cos(2*(float)(M_PI)*(double)j/(n-1)) + 0.1365995* cos(4*(float)(M_PI)*(double)j/(n-1)) - 0.130411*cos(6*(float)(M_PI)*(double)j/(n-1));
               }
               break;
 

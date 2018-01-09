@@ -132,7 +132,7 @@
 
             // hamming
             if (envelopes["HAMMING"]) {
-              y = 0.54 - 0.46 * Math.cos(2 * Math.PI * j / (n - 1));
+              y = 0.54 - 0.46 * Math.cos(2 * Math.PI * j / (n - 1)) - 0.075;
               plot(x, y, '#ffff80');
             }
 
@@ -154,7 +154,7 @@
             // confined gaussian
             if (envelopes["CONFINED GAUSSIAN"]) {
               fn = j;
-              sigma = fN * 0.3;
+              sigma = fN * 0.2;
               numerator = gaussian(-0.5, L, sigma) * (gaussian(fn + fN, L, sigma) + gaussian(fn - fN, L, sigma));
               denominator = gaussian(-0.5 + fN, L, sigma) + gaussian(-0.5 - fN, L, sigma);
               y = gaussian(fn, L, sigma) - numerator / denominator;
@@ -196,7 +196,7 @@
 
             // NUTALL
             if (envelopes["NUTALL"]) {
-              y = 0.3635819 - 0.3635819 * Math.cos(2*(Math.PI)*j/(n-1)) + 0.1365995* Math.cos(4*(Math.PI)*j/(n-1)) - 0.0106411*Math.cos(6*(Math.PI)*j/(n-1));
+              y = 0.3635819 - 0.3635819 * Math.cos(2*(Math.PI)*j/(n-1)) + 0.1365995* Math.cos(4*(Math.PI)*j/(n-1)) - 0.130411*Math.cos(6*(Math.PI)*j/(n-1));
               plot(x, y, '#800040');
             }
 

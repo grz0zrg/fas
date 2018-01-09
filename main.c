@@ -264,7 +264,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float gr_out_l = 0, gr_out_r = 0;
                         computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, 0, gr_env, samples, n->psmp_index, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
 /*
-                        // allow real-time density change
+                        // WIP :  allow real-time density change
                         unsigned density_difference = n->density - n->pdensity;
                         if (density_difference < 0) {
                             gr->density[k] = -density_difference;
@@ -282,6 +282,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, 0, gr_env, samples, n->psmp_index, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
                         }
 */
+                        // allow real-time sample change : cross-fade between old & new on a sudden sample change
                         if (n->psmp_index != n->smp_index) {
                             output_l += (vl * gr->density[k]) * gr_out_l * (1.0f - curr_synth.lerp_t);
                             output_r += (vr * gr->density[k]) * gr_out_r * (1.0f - curr_synth.lerp_t);
@@ -313,7 +314,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float s2 = fas_sine_wavetable[osc2->phase_index2[k] & fas_wavetable_size_m1];
 #endif
 
-                        s = huovilainen_moog(s, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
+                        s = huovilainen_moog(s, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 4);
 
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;

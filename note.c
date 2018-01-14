@@ -182,9 +182,6 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
                 } else {
                     _note->exp = 0;
                 }
-
-                // FM/PM part
-                _note->fm_mod_source = (int)alpha_int_part % (h - 1);
             }
 
             index += 1;

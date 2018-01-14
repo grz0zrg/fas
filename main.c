@@ -284,19 +284,19 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 */
                         // allow real-time sample change : cross-fade between old & new on a sudden sample change
                         if (n->psmp_index != n->smp_index) {
-                            output_l += (vl * gr->density[k]) * gr_out_l * (1.0f - curr_synth.lerp_t);
-                            output_r += (vr * gr->density[k]) * gr_out_r * (1.0f - curr_synth.lerp_t);
+                            output_l += (vl / n->density/* * gr->density[k]*/) * gr_out_l * (1.0f - curr_synth.lerp_t);
+                            output_r += (vr / n->density/* * gr->density[k]*/) * gr_out_r * (1.0f - curr_synth.lerp_t);
 
                             grain_index = n->osc_index * samples_count + n->smp_index;
 
                             gr_out_l = 0; gr_out_r = 0;
                             computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, 0, gr_env, samples, n->smp_index, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
 
-                            output_l += (vl * gr->density[k]) * gr_out_l;
-                            output_r += (vr * gr->density[k]) * gr_out_r;
+                            output_l += (vl / n->density/* * gr->density[k]*/) * gr_out_l;
+                            output_r += (vr / n->density/* * gr->density[k]*/) * gr_out_r;
                         } else {
-                            output_l += (vl * gr->density[k]) * gr_out_l;
-                            output_r += (vr * gr->density[k]) * gr_out_r;
+                            output_l += (vl / n->density/* * gr->density[k]*/) * gr_out_l;
+                            output_r += (vr / n->density/* * gr->density[k]*/) * gr_out_r;
                         }
                     }
                 } else if (chn_settings->synthesis_method == FAS_FM) {

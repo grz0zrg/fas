@@ -43,7 +43,7 @@ FAS is focused on **real-time performances**, being **cross-platform** and **pix
 
 This project was built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
 
-The most pixels-adapted synthesis methods are additive, granular and spectral; re-synthesis is possible with them.
+The most pixels-adapted synthesis methods are (in order) additive/spectral, granular/PM; re-synthesis is possible with them.
 
 ### Pixels-based
 
@@ -144,7 +144,7 @@ This type of synthesis may improve gradually with more waveforms (and a faster w
 |          B | Moog filter cutoff multiplier; the cutoff is set to the fundamental frequency, 1.0 = cutoff at fundamental frequency |
 |          A | Moog filter resonance [0, 1] & waveform selection on integral part (0.x, 1.x, 2.x etc) |
 
-
+**Note** : Monophonic mode subtractive synthesis is not implemented.
 
 ### PM synthesis
 
@@ -152,7 +152,7 @@ Phase modulation (PM) is a mean to generate sounds by modulating the phase of an
 
 PM synthesis in Fragment use a simple algorithm with one carrier and one modulator, the modulator amplitude and frequency can be set with B or A channel.
 
-PM synthesis is one of the fastest method to generate sounds with Fragment.
+PM synthesis is one of the fastest method to generate sounds with Fragment and is able to do re-synthesis.
 
 #### RGBA interpretation
 
@@ -163,6 +163,7 @@ PM synthesis is one of the fastest method to generate sounds with Fragment.
 |          B | Fractionnal part : Modulator amplitude |
 |          A | Modulator frequency                    |
 
+**Note** : Monophonic mode PM synthesis is not implemented.
 
 ### Samples map
 

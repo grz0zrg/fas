@@ -304,17 +304,16 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         struct note *n = &curr_notes[j];
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-                        struct oscillator *osc2 = &curr_synth.oscillators[n->fm_mod_source];
+
+                        double phase_step = n->alpha / (double)fas_sample_rate * fas_wavetable_size_m1;
 
 #ifndef FIXED_WAVETABLE
                         float s = fas_sine_wavetable[osc->phase_index[k]];
-                        float s2 = fas_sine_wavetable[osc2->phase_index2[k]];
+                        float s2 = fas_sine_wavetable[osc->phase_index2[k]];
 #else
                         float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
-                        float s2 = fas_sine_wavetable[osc2->phase_index2[k] & fas_wavetable_size_m1];
+                        float s2 = fas_sine_wavetable[osc->phase_index2[k] & fas_wavetable_size_m1];
 #endif
-
-                        s = huovilainen_moog(s, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 4);
 
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
@@ -322,16 +321,16 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_l += vl * s;
                         output_r += vr * s;
 
-                        osc->phase_index[k] += osc->phase_step + (s2 * fas_wavetable_size);
-                        osc2->phase_index2[k] += osc2->phase_step;
+                        osc->phase_index[k] += osc->phase_step + ((s2 * n->blue_frac_part) * fas_wavetable_size);
+                        osc->phase_index2[k] += phase_step;
 
 #ifndef FIXED_WAVETABLE
                         if (osc->phase_index[k] >= fas_wavetable_size) {
                             osc->phase_index[k] -= fas_wavetable_size;
                         }
 
-                        if (osc2->phase_index2[k] >= fas_wavetable_size) {
-                            osc2->phase_index2[k] -= fas_wavetable_size;
+                        if (osc->phase_index2[k] >= fas_wavetable_size) {
+                            osc->phase_index2[k] -= fas_wavetable_size;
                         }
 #endif
                     }

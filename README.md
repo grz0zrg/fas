@@ -150,18 +150,18 @@ This type of synthesis may improve gradually with more waveforms (and a faster w
 
 Phase modulation (PM) is a mean to generate sounds by modulating the phase of an oscillator (carrier) from another oscillator (modulator), it is very similar to frequency modulation (FM).
 
-PM synthesis in Fragment work by giving an oscillator index (based on image-height) to the note, this oscillator will be used as a modulator.
+PM synthesis in Fragment use a simple algorithm with one carrier and one modulator, the modulator amplitude and frequency can be set with B or A channel.
 
-PM synthesis use a high quality low-pass filter (Moog type).
+PM synthesis is one of the fastest method to generate sounds with Fragment.
 
 #### RGBA interpretation
 
-| Components | Interpretations                          |
-| ---------: | :--------------------------------------- |
-|          R | Amplitude value of the LEFT channel      |
-|          G | Amplitude value of the RIGHT channel     |
-|          B | Moog filter cutoff multiplier; the cutoff is set to the fundamental frequency, 1.0 = cutoff at fundamental frequency |
-|          A | Moog filter resonance [0, 1] & oscillator selection on integral part (0.x, 1.x, 2.x etc), cyclic |
+| Components | Interpretations                        |
+| ---------: | :------------------------------------- |
+|          R | Amplitude value of the LEFT channel    |
+|          G | Amplitude value of the RIGHT channel   |
+|          B | Fractionnal part : Modulator amplitude |
+|          A | Modulator frequency                    |
 
 
 ### Samples map

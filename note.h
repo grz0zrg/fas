@@ -20,6 +20,8 @@
         float blue;
         float alpha;
 
+        float blue_frac_part;
+
         // subtractive related
         double cutoff;
         double res;

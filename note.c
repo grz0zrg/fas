@@ -163,12 +163,12 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
 
                 double dummy_int_part;
                 double alpha_int_part;
-                double blue_frac_part = modf(fabs(blue), &dummy_int_part);
+                _note->blue_frac_part = modf(fabs(blue), &dummy_int_part);
                 double pblue_frac_part = modf(fabs(pb), &dummy_int_part);
                 double alpha_frac_part = modf(fabs(alpha), &alpha_int_part);
 
                 // for granular synthesis, samples and related
-                _note->smp_index = blue_frac_part * (samples_count + 1);
+                _note->smp_index = _note->blue_frac_part * (samples_count + 1);
                 _note->psmp_index = pblue_frac_part * (samples_count + 1);
 
                 // for subtractive synthesis

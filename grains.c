@@ -54,7 +54,7 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
     return g;
 }
 
-inline void computeGrains(unsigned int channel, struct grain *g, unsigned int grain_index, float alpha, unsigned int si, unsigned int density, unsigned int density_offset, float *gr_env, struct sample *samples, unsigned int smp_index, double min_duration, double max_duration, float *out_l, float *out_r) {
+inline void computeGrains(unsigned int channel, struct grain *g, unsigned int grain_index, float alpha, unsigned int si, unsigned int density, unsigned int density_offset, float *gr_env, struct sample *samples, unsigned int smp_index, unsigned int sample_rate, double min_duration, double max_duration, float *out_l, float *out_r) {
     struct grain *gr = &g[grain_index];
     struct sample *smp = &samples[smp_index];
 
@@ -73,8 +73,10 @@ inline void computeGrains(unsigned int channel, struct grain *g, unsigned int gr
             grain_start = roundf(grain_start * fmaxf(fminf(grain_position, 1.0f), 0.0f) * (1.0f - randf(0.0f, 1.0f) * floorf(fminf(grain_position - 0.0001f, 1.0f))));
 
             //gr->index[k] = grain_start;
-            gr->frames[channel] = roundf(grain_start + fmaxf(randf(GRAIN_MIN_DURATION + min_duration, max_duration), GRAIN_MIN_DURATION) * (smp->frames - grain_start - 1)) + 1;
-            gr->env_step[channel] = fmax(((double)(FAS_ENVS_SIZE)) / (((double)gr->frames[channel] - (double)grain_start) / fabs(gr_speed)), 0.00000001);
+            // old algorithm (percent of sample length, no cycle)
+            // roundf(grain_start + fmaxf(randf(GRAIN_MIN_DURATION + min_duration, max_duration), GRAIN_MIN_DURATION) * (smp->frames - grain_start - 1)) + 1;
+            gr->frames[channel] = roundf(fmaxf(randf(GRAIN_MIN_DURATION + min_duration, max_duration), GRAIN_MIN_DURATION) * (float)sample_rate);
+            gr->env_step[channel] = fmax(((double)(FAS_ENVS_SIZE)) / (((double)gr->frames[channel]/* - (double)grain_start*/) / fabs(gr_speed)), 0.00000001);
             gr->env_index[channel] = 0.0f;
             gr->density[channel] = density;
 
@@ -83,11 +85,14 @@ inline void computeGrains(unsigned int channel, struct grain *g, unsigned int gr
                     gr->speed[channel] = -gr_speed;
                 }
 
-                gr->frame[channel] = gr->frames[channel];
+                gr->frame[channel] = grain_start + gr->frames[channel];
             } else {
                 gr->speed[channel] = fabs(gr_speed);
 
-                gr->frame[channel] = grain_start;
+                gr->frame[channel] = grain_start + gr->frames[channel];
+                if (gr->frame[channel] > ((float)smp->frames - 1.0f)) {
+                    gr->frame[channel] = 0;
+                }
             }
         }
 
@@ -113,6 +118,14 @@ inline void computeGrains(unsigned int channel, struct grain *g, unsigned int gr
         *out_r += smp_rv * env;
 
         gr->frame[channel] += gr->speed[channel];
+
+        if (gr->frame[channel] < 0) {
+            gr->frame[channel] = ((float)smp->frames - 1.0f);
+        }
+
+        if (gr->frame[channel] > ((float)smp->frames - 1.0f)) {
+            gr->frame[channel] = 0;
+        }
 
         gr->env_index[channel] += gr->env_step[channel];
     }

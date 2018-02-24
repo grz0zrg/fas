@@ -45,6 +45,8 @@
     #define FAS_STREAM_LOAD_SEND_DELAY 2
     #define FAS_MAX_DROP 32
 
+    #define FAS_USE_CUBIC_INTERP
+
     // audio thread state&commands
     #define FAS_AUDIO_PLAY 0
     #define FAS_AUDIO_PAUSE 1

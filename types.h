@@ -19,6 +19,7 @@
         int env_type;
         double p1;
         double p2;
+        double p3;
     };
 
     struct _synth {

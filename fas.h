@@ -25,6 +25,10 @@
     #include "lo/lo.h"
     #include "essentia_wrapper.h"
 
+    #ifdef WITH_SOUNDPIPE
+      #include "soundpipe.h"
+    #endif
+
     // fas
     #include "tools.h"
     #include "types.h"

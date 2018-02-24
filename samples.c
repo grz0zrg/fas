@@ -149,7 +149,13 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
                 fix_samplerate(smp, samplerate, converter_type);
             }
 
-            int padded_frames_len = smp->frames + 1; // lerp usage
+#ifdef FAS_USE_CUBIC_INTERP
+            int pad_length = 4;
+#else
+            int pad_length = 1;
+#endif
+
+            int padded_frames_len = smp->frames + pad_length; // make room for interpolation methods
 
             smp->data_l = (float *)calloc(padded_frames_len, sizeof(float));
             smp->data_r = (float *)calloc(padded_frames_len, sizeof(float));
@@ -209,9 +215,10 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
                 }
             }
 
-            // pad TODO : accomodate for pad length > 1 (assume 1 for now)
-            smp->data_l[smp->frames] = 0;
-            smp->data_r[smp->frames] = 0;
+            for (i = 0; i < pad_length; i += 1) {
+                smp->data_l[smp->frames - i] = 0;
+                smp->data_r[smp->frames - i] = 0;
+            }
 
             free(smp->data);
 

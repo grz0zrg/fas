@@ -34,7 +34,7 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         osc->freq = frequency;
 
         // == substrative specials
-        partials = fmin((max_frequency - frequency) / frequency, 48) + 1;
+        partials = fmin((max_frequency - frequency) / frequency, 128) + 1;
 
         osc->max_harmonics = partials;
         // ==

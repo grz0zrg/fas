@@ -36,6 +36,7 @@ float **createEnvelopes(unsigned int n) {
         envs[i] = (float *)malloc(n * sizeof(float));
 
         // thank to http://michaelkrzyzaniak.com/AudioSynthesis/2_Audio_Synthesis/11_Granular_Synthesis/1_Window_Functions/
+        // NOTE : some fix is applied to ensure the boundaries land on 0
         switch(i) {
             case 0: // SINE
               for (int j = 0; j < n; j++) {
@@ -45,28 +46,28 @@ float **createEnvelopes(unsigned int n) {
 
             case 1: // HANN
               for (int j = 0; j < n; j++) {
-                  envs[i][j] = 0.5 * (1.0 - cos(2.0 * M_PI * (double)j / (double)(n - 1)));
+                  envs[i][j] = 0.5f * (1.0f - cos(2.0f * M_PI * (double)j / (double)(n - 1)));
               }
               break;
 
             case 2: // HAMMING
               for (int j = 0; j < n; j++) {
-                  envs[i][j] = 0.54 - 0.46 * cos(2 * M_PI * (double)j / (double)(n - 1)) - 0.075;
+                  envs[i][j] = 0.54f - 0.46f * cos(2 * M_PI * (double)j / (double)(n - 1)) - 0.08f;
               }
               break;
 
             case 3: // TUKEY
               for (int j = 0; j < n; j++) {
-                  float truncationHeight = 0.5;
-                  float f = 1.0 / (2.0 * truncationHeight) * (1.0 - cos(2.0 * M_PI * (double)j / (double)(n - 1)));
+                  float truncationHeight = 0.5f;
+                  float f = 1.0f / (2.0f * truncationHeight) * (1.0f - cos(2.0f * M_PI * (double)j / (double)(n - 1)));
                   envs[i][j] = f < 1 ? f : 1;
               }
               break;
 
             case 4: // GAUSSIAN
               for (int j = 0; j < n; j++) {
-                  float sigma = 0.3;
-                  envs[i][j] = pow(E, -0.5* pow(((j - (double)(n - 1) /   2) / (sigma * (double)(n - 1) / 2)), 2) );
+                  float sigma = 0.3f;
+                  envs[i][j] = fabsf(pow(E, -0.5f * pow(((j - (double)(n - 1) /   2) / (sigma * (double)(n - 1) / 2)), 2) ) - 0.003866f);
               }
               break;
 
@@ -83,7 +84,7 @@ float **createEnvelopes(unsigned int n) {
                     fn = (float)j;
                     numerator = gaussian(-0.5f, L, sigma) * (gaussian(fn + fN, L, sigma) + gaussian(fn - fN, L, sigma));
                     denominator = gaussian(-0.5f + fN, L, sigma) + gaussian(-0.5f - fN, L, sigma);
-                    envs[i][j] = gaussian(fn, L, sigma) - numerator / denominator;
+                    envs[i][j] = fmaxf(gaussian(fn, L, sigma) - numerator / denominator - 0.000020f, 0.f);
                 }
               break;
 
@@ -93,7 +94,7 @@ float **createEnvelopes(unsigned int n) {
                   float x = (float) j / n;
                   float f1 = slope * x;
                   float f2 = -1 * slope * (x-(slope-1) / slope) + 1;
-                  envs[i][j] = x < 0.5 ? (f1 < 1 ? f1 : 1) : (f2 < 1 ? f2 : 1);
+                  envs[i][j] = fmaxf((x < 0.5f ? (f1 < 1 ? f1 : 1) : (f2 < 1 ? f2 : 1)) - 0.000152f, 0.f);
               }
               break;
 
@@ -106,6 +107,7 @@ float **createEnvelopes(unsigned int n) {
                     envs[i][j] = a0;
                     envs[i][j] -= a1 * cos((1.0f * 2.0f * (float)(M_PI) * j) / L);
                     envs[i][j] += a2 * cos((2.0f * 2.0f * (float)(M_PI) * j) / L);
+                    envs[i][j] -= 0.006879f;
                 }
               break;
 
@@ -121,31 +123,34 @@ float **createEnvelopes(unsigned int n) {
                     envs[i][j] -= a1 * cos((1.0f * 2.0f * (float)(M_PI) * j) / L);
                     envs[i][j] += a2 * cos((2.0f * 2.0f * (float)(M_PI) * j) / L);
                     envs[i][j] -= a3 * cos((3.0f * 2.0f * (float)(M_PI) * j) / L);
+                    envs[i][j] = fmaxf(envs[i][j] - 0.000060f, 0.0f);
                 }
               break;
 
             case 9: // PARZEN
               for (int j = 0; j < n; j++) {
-                  envs[i][j] = 1.0 - fabs(((double)j - 0.5 * (double)(n - 1)) / (0.5 * (double)(n + 1)));
+                  envs[i][j] = fmaxf(1.0f - fabs(((double)j - 0.5f * (double)(n - 1)) / (0.5f * (double)(n + 1))) - 0.000031f, 0.f);
               }
               break;
 
             case 10: // NUTALL
               for (int j = 0; j < n; j++) {
-                  envs[i][j] = 0.3635819 - 0.3635819 * cos(2*(float)(M_PI)*(double)j/(n-1)) + 0.1365995* cos(4*(float)(M_PI)*(double)j/(n-1)) - 0.130411*cos(6*(float)(M_PI)*(double)j/(n-1));
+                  envs[i][j] = 0.3635819f - 0.3635819f * cos(2*(float)(M_PI)*(double)j/(n-1)) + 0.1365995f * cos(4*(float)(M_PI)*(double)j/(n-1)) - 0.130411f *cos(6*(float)(M_PI)*(double)j/(n-1));
+                  envs[i][j] -= 0.006188f;
               }
               break;
 
             case 11: // FLATTOP
               for (int j = 0; j < n; j++) {
-                  envs[i][j] = 1 - 1.93*cos(2*(float)(M_PI)*(double)j/(n-1)) + 1.29*cos(4*(float)(M_PI)*(double)j/(n-1)) - 0.388*cos(6*(float)(M_PI)*(double)j/(n-1)) + 0.032*cos(8*(float)(M_PI)*(double)j/(n-1)) * 0.215;
+                  envs[i][j] = fmaxf(1 - 1.93f*cos(2*(float)(M_PI)*(double)j/(n-1)) + 1.29f*cos(4*(float)(M_PI)*(double)j/(n-1)) - 0.388f*cos(6*(float)(M_PI)*(double)j/(n-1)) + 0.032f*cos(8*(float)(M_PI)*(double)j/(n-1)) * 0.215f, 0.0f);
               }
               break;
 
             case 12: // KAISER
               for (int j = 0; j < n; j++) {
-                  double alpha = 3.0;
+                  double alpha = 3.0f;
                   envs[i][j] = bessi0((float)(M_PI) * alpha * sqrt(1 - pow((2 * (double)j / (n - 1)) - 1, 2))) / bessi0((float)(M_PI) * alpha);
+                  envs[i][j] -= 0.000612f;
               }
               break;
 

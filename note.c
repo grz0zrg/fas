@@ -143,7 +143,8 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
                 _note->blue = blue;
 
                 _note->density = fabs(round(blue));
-                _note->pdensity = fabs(round(pb));
+                _note->norm_density = 1.0f / _note->density;
+                //_note->pdensity = fabs(round(pb));
 
                 if (_note->density < 1) {
                     _note->density = 1;
@@ -152,7 +153,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
                 if (_note->density >= max_density) {
                     _note->density = 1;
                 }
-
+/*
                 if (_note->pdensity < 1) {
                     _note->pdensity = 1;
                 }
@@ -160,7 +161,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
                 if (_note->pdensity >= max_density) {
                     _note->pdensity = 1;
                 }
-
+*/
                 double dummy_int_part;
                 double alpha_int_part;
                 _note->blue_frac_part = modf(fabs(blue), &dummy_int_part);

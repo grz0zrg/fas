@@ -9,6 +9,7 @@ cpp_options = -std=c++11
 essentia_libs = libessentia.a -lfftw3 -lfftw3f
 libs = liblfds711.a -lportaudio -lwebsockets -lrt -lm -lasound -ljack -pthread -lsndfile liblo.so.7.3.0
 static_libs = liblfds711.a libportaudio.a libsamplerate.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread -lsndfile liblo.so.7.3.0
+soundpipe_libs = libsoundpipe.a
 ssl_libs = -lssl -lcrypto
 win_ssl_libs = -lssl -lcrypto -lws2_32 -lgdi32
 win_static_libs = liblfds711.a libwebsockets_static.a libportaudio.a -lm -lz -lws2_32
@@ -20,7 +21,7 @@ win_static_options = -static -static-libgcc
 adv_optimization_options = -DFIXED_WAVETABLE
 debug_options = -g -DDEBUG
 include_path = -I lo -I inc -I inc/portaudio
-win_cross_include_path = -I lo -I inc -I inc/portaudio -I cross
+win_cross_include_path = -I lo -I inc -I inc/portaudio -I inc/soundpipe -I cross
 release_options = -O2
 
 all:
@@ -37,6 +38,9 @@ debug-esentia:
 	$(cppcompiler) $(cpp_source) -DWITH_ESSENTIA $(cpp_options) $(include_path) -c
 	$(cppcompiler) $(obj) $(cpp_obj) $(static_libs) $(essentia_libs) -o $(output)
 
+debug-soundpipe:
+	$(compiler) $(source) $(include_path) ${debug_options} ${adv_optimization_options} ${standard_options} $(static_libs) ${soundpipe_libs} -DWITH_SOUNDPIPE -o $(output)
+
 profile:
 	$(compiler) $(source) $(include_path) ${release_options} ${standard_options} -DPROFILE $(libs) -o $(output)
 
@@ -49,8 +53,14 @@ release-static:
 release-static-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
 
+release-static-sp-o:
+	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) ${soundpipe_libs} -DWITH_SOUNDPIPE -o $(output)
+
 release-bln-static-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} -DBANDLIMITED_NOISE ${standard_options} $(static_libs) -o $(output)
+
+release-bln-static-sp-o:
+	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} -DBANDLIMITED_NOISE -DWITH_SOUNDPIPE ${standard_options} $(static_libs) ${soundpipe_libs} -o $(output)
 
 release-essentia-static:
 	$(compiler) $(source) $(include_path) ${release_options} -DBANDLIMITED_NOISE ${adv_optimization_options} ${standard_options} -c

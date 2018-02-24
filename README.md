@@ -133,7 +133,7 @@ There is three type of band-limited (no aliasing!) waveforms : sawtooth, square,
 
 This type of synthesis may improve gradually with more waveforms (and a faster way to generate them) and more filters.
 
-**Note** : The waveforms are constitued of a maximum of 64 partials
+**Note** : The waveforms are constitued of a maximum of 128 partials
 
 #### RGBA interpretation
 
@@ -210,7 +210,7 @@ FAS support real-time rendering of the pixels data, the pixels data is compresse
 
 ### Future
 
-The ongoing development is to improve synthesis methods and implement new type of synthesis like spectral with the help of the essentia framework. (a C essentia wrapper is available)
+The ongoing development is to improve synthesis methods and implement new type of synthesis like spectral with the help of the essentia framework (a C essentia wrapper is available) or Soundpipe library.
 
 ### OSC
 
@@ -228,9 +228,11 @@ A free list data structure is used to handle data reuse, the program pre-allocat
 
 Additive synthesis is wavetable-based.
 
-Real-time resampling is done with a simple linear method, better resampling method may come in the future.
+Real-time resampling is done with a simple linear method, granular synthesis can also be resampled by using cubic interpolation method.
 
-All synthesis algorithms (minus filters) are customs.
+All synthesis algorithms (minus filters) are customs
+
+[Soundpipe library](https://github.com/PaulBatchelor/Soundpipe) modules are optionally used, this provide some high quality and battle tested algorithms and fx
 
 This program is tested with Valgrind and should be free of memory leaks.
 
@@ -298,6 +300,7 @@ Requirements :
  * [libwebsockets](https://libwebsockets.org/)
  * [liblo](http://liblo.sourceforge.net/)
  * libsamplerate
+ * [Soundpipe](https://github.com/PaulBatchelor/Soundpipe) (Optional)
 
 The granular synthesis part make use of [libsndfile](https://github.com/erikd/libsndfile) and [tinydir](https://github.com/cxong/tinydir) (bundled)
 
@@ -334,8 +337,11 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
   * uncompress, go into the directory "libsamplerate-0.1.9"
   * ./configure
   * copy the library found in "src/.libs/libsamplerate.a" to FAS root folder
+* Get latest [Soundpipe](https://github.com/PaulBatchelor/Soundpipe)
+  * make
+  * "libsoundpipe.a" can now be found in the Soundpipe directory
 
-Copy the \*.a into "fas" root directory then compile by using one of the rule below (recommended rule for Linux and similar is "release-static-o").
+Copy the \*.a into "fas" root directory then compile by using one of the rule below (recommended rule for Linux and similar is `release-static-o` **without** Soundpipe and `release-static-sp-o` **with** Soundpipe).
 
 Recommended launch parameters with HiFiBerry DAC+ :
     ./fas --alsa_realtime_scheduling 1 --frames_queue_size 63 --sample_rate 48000 --device 2
@@ -386,6 +392,8 @@ Debug : **make**
 
 Debug (with libessentia) : **make debug-essentia**
 
+Debug (with Soundpipe) : **make debug-soundpipe**
+
 Profile (benchmark) : **make profile**
 
 Release : **make release**
@@ -394,7 +402,11 @@ Statically linked : **make release-static**
 
 Statically linked and advanced optimizations : **make release-static-o**
 
+Statically linked + Soundpipe and advanced optimizations : **make release-static-sp-o**
+
 Statically linked with bandlimited-noise, advanced optimizations (default build) : **make release-bln-static-o**
+
+Statically linked + Soundpipe with bandlimited-noise, advanced optimizations (default build) : **make release-bln-static-sp-o**
 
 Statically linked, advanced optimizations and profiling: **make release-static-o-profile**
 

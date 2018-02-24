@@ -30,7 +30,8 @@
 
         // granular related
         unsigned int density;
-        unsigned int pdensity;
+        float norm_density;
+        //unsigned int pdensity;
         unsigned int smp_index;
         unsigned int psmp_index;
 

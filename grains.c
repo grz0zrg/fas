@@ -54,7 +54,7 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
     return g;
 }
 
-inline void computeGrains(unsigned int channel, struct grain *g, unsigned int grain_index, float alpha, unsigned int si, unsigned int density, unsigned int density_offset, float *gr_env, struct sample *samples, unsigned int smp_index, unsigned int sample_rate, double min_duration, double max_duration, float *out_l, float *out_r) {
+inline void computeGrains(unsigned int channel, struct grain *g, unsigned int grain_index, float alpha, unsigned int si, unsigned int density, double density_offset, float *gr_env, struct sample *samples, unsigned int smp_index, unsigned int sample_rate, double min_duration, double max_duration, float *out_l, float *out_r) {
     struct grain *gr = &g[grain_index];
     struct sample *smp = &samples[smp_index];
 
@@ -70,10 +70,10 @@ inline void computeGrains(unsigned int channel, struct grain *g, unsigned int gr
 
             float grain_start = (float)smp->frames - 1.0f;
             float grain_position = fabs(alpha);
-            grain_start = roundf(grain_start * fmaxf(fminf(grain_position, 1.0f), 0.0f) * (1.0f - randf(0.0f, 1.0f) * floorf(fminf(grain_position - 0.0001f, 1.0f))));
+            grain_start = roundf(grain_start * fmaxf(fminf(grain_position, 1.0f), 0.0f) + (grain_start * (density_offset * randf(0.0f, 1.0f))));//(1.0f - randf(0.0f, 1.0f) * floorf(fminf(grain_position - 0.0001f, 1.0f))));
 
             //gr->index[k] = grain_start;
-            // old algorithm (percent of sample length, no cycle)
+            // old algorithm (percent of sample length, no cycles)
             // roundf(grain_start + fmaxf(randf(GRAIN_MIN_DURATION + min_duration, max_duration), GRAIN_MIN_DURATION) * (smp->frames - grain_start - 1)) + 1;
             gr->frames[channel] = roundf(fmaxf(randf(GRAIN_MIN_DURATION + min_duration, max_duration), GRAIN_MIN_DURATION) * (float)sample_rate);
             gr->env_step[channel] = fmax(((double)(FAS_ENVS_SIZE)) / (((double)gr->frames[channel]/* - (double)grain_start*/) / fabs(gr_speed)), 0.00000001);
@@ -91,7 +91,7 @@ inline void computeGrains(unsigned int channel, struct grain *g, unsigned int gr
 
                 gr->frame[channel] = grain_start + gr->frames[channel];
                 if (gr->frame[channel] > ((float)smp->frames - 1.0f)) {
-                    gr->frame[channel] = 0;
+                    gr->frame[channel] -= ((float)smp->frames - 1.0f) + 1;
                 }
             }
         }
@@ -109,8 +109,22 @@ inline void computeGrains(unsigned int channel, struct grain *g, unsigned int gr
 
         float mu = pos - (float)sample_index;
 
+#ifdef FAS_USE_CUBIC_INTERP
+        unsigned int sample_index3 = sample_index2 + 1;
+        unsigned int sample_index4 = sample_index3 + 1;
+
+        float smp_l3 = smp->data_l[sample_index3];
+        float smp_r3 = smp->data_r[sample_index3];
+
+        float smp_l4 = smp->data_l[sample_index4];
+        float smp_r4 = smp->data_r[sample_index4];
+
+        float smp_lv = smp_l2 + 0.5 * mu*(smp_l3 - smp_l + mu*(2.0*smp_l - 5.0*smp_l2 + 4.0*smp_l3 - smp_l4 + mu*(3.0*(smp_l2 - smp_l3) + smp_l4 - smp_l)));
+        float smp_rv = smp_r2 + 0.5 * mu*(smp_r3 - smp_r + mu*(2.0*smp_r - 5.0*smp_r2 + 4.0*smp_r3 - smp_r4 + mu*(3.0*(smp_r2 - smp_r3) + smp_r4 - smp_r)));
+#else
         float smp_lv = smp_l + mu * (smp_l2 - smp_l);
         float smp_rv = smp_r + mu * (smp_r2 - smp_r);
+#endif
 
         float env = gr_env[(unsigned int)round(env_index)];
 

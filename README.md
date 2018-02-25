@@ -228,7 +228,7 @@ A free list data structure is used to handle data reuse, the program pre-allocat
 
 Additive synthesis is wavetable-based.
 
-Real-time resampling is done with a simple linear method, granular synthesis can also be resampled by using cubic interpolation method.
+Real-time resampling is done with a simple linear method, granular synthesis can also be resampled by using cubic interpolation method which is slower than linear.
 
 All synthesis algorithms (minus filters) are customs
 

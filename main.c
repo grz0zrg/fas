@@ -233,7 +233,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_r += vr * s;
 
 #ifdef BANDLIMITED_NOISE
-                        osc->phase_index[k] += osc->phase_step * (1.0f + fas_white_noise_table[osc->noise_index[k]++] * n->blue);
+                        osc->phase_index[k] += osc->phase_step * (1.0f + (fas_white_noise_table[osc->noise_index[k]++] * fas_noise_amount) * n->blue);
 #else
                         osc->phase_index[k] += osc->phase_step;
 #endif
@@ -305,7 +305,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        double phase_step = n->alpha / (double)fas_sample_rate * fas_wavetable_size_m1;
+                        double phase_step = n->alpha / (double)fas_sample_rate * fas_wavetable_size;
 
 #ifndef FIXED_WAVETABLE
                         float s = fas_sine_wavetable[osc->phase_index[k]];
@@ -386,6 +386,37 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                       }
 #endif
                   }
+                } else if (chn_settings->synthesis_method == FAS_PHYSICAL_MODELLING) {
+                    for (j = s; j < e; j += 1) {
+                        struct note *n = &curr_notes[j];
+
+                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                        double phase_step = osc->freq / (double)fas_sample_rate * (osc->buffer_len + 0.5);
+
+                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                        unsigned int curr_sample = k * osc->buffer_len + ((int)(roundf(osc->fphase_index[k])) % osc->buffer_len);
+
+                        // allpass
+                        float in = fminf(n->blue, 0.5f) * (osc->buffer[curr_sample] + osc->pvalue[k]);
+
+                        float delay = fabsf((double)osc->buffer_len - ((double)fas_sample_rate / osc->freq));
+                        float c = (1.0f - delay) / (1.0f + delay);
+
+                        osc->buffer[curr_sample] = osc->fp1[k][0] + c * in;
+                        osc->fp1[k][0] = in - c * osc->buffer[curr_sample];
+
+                        float ol = osc->buffer[curr_sample];
+
+                        osc->pvalue[k] = ol;
+
+                        output_l += vl * ol;
+                        output_r += vr * ol;
+
+                        osc->fphase_index[k] += phase_step;
+                    }
                 }
             }
 
@@ -497,6 +528,21 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                     memset(osc->fp1[k], 0, sizeof(double) * 4);
                                     memset(osc->fp2[k], 0, sizeof(double) * 4);
                                     memset(osc->fp3[k], 0, sizeof(double) * 4);
+                                }
+                            }
+                        } else if (chn_settings->synthesis_method == FAS_PHYSICAL_MODELLING) {
+                            for (j = s; j < e; j += 1) {
+                                struct note *n = &curr_notes[j];
+
+                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+                                    osc->pvalue[k] = randf(-1.f, 1.f);
+                                    osc->fphase_index[k] = randf(0.f, 1.f) * osc->buffer_len;
+                                    osc->fp1[k][0] = randf(0.f, 1.f);
+                                    for (d = 0; d < osc->buffer_len; d += 1) {
+                                        osc->buffer[k * osc->buffer_len + d] = randf(-1.0f, 1.0f) * n->alpha;
+                                    }
                                 }
                             }
                         }
@@ -1494,7 +1540,7 @@ int main(int argc, char **argv)
                 return EXIT_FAILURE;
             }
 
-            fas_white_noise_table = wnoise_wavetable_init(65536, fas_noise_amount);
+            fas_white_noise_table = wnoise_wavetable_init(65536, 1.0);
             if (fas_white_noise_table == NULL) {
                 fprintf(stderr, "wnoise_wavetable_init() failed.\n");
                 free(fas_sine_wavetable);

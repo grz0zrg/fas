@@ -1,7 +1,7 @@
-Fragment : Additive/Spectral/Granular/Subtractive/PM synthesizer
+Fragment : Additive/Spectral/Granular/Subtractive/PM/Physical modelling synthesizer
 =====
 
-Raw additive/subtractive/spectral/granular/PM synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
+Raw additive/subtractive/spectral/granular/PM/Physical modelling synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
 
 This program should compile on most platforms!
 
@@ -43,7 +43,7 @@ FAS is focused on **real-time performances**, being **cross-platform** and **pix
 
 This project was built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
 
-The most pixels-adapted synthesis methods are (in order) additive/spectral, granular/PM; re-synthesis is possible with them.
+The most pixels-adapted synthesis methods are (in order) additive/spectral, granular/PM/Physical modelling; re-synthesis is possible with them.
 
 ### Pixels-based
 
@@ -54,7 +54,7 @@ Unlike other synthesizers, the notes data format understood by FAS is pixels-bas
 
 The RGBA data collected is 1px wide with an user-defined height, the height is mapped to frequencies with an user-defined logarithmic frequency map.
 
-FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM).
+FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM) or physical modelling.
 
 It can be said that FAS/Fragment is a generic image-synth : any RGBA images can be used to produce an infinite variety of sounds by streaming vertical slices of the image to FAS.
 
@@ -164,6 +164,27 @@ PM synthesis is one of the fastest method to generate sounds with Fragment and i
 |          A | Modulator frequency                    |
 
 **Note** : Monophonic mode PM synthesis is not implemented.
+
+### Physical modelling
+
+Physical modelling synthesis refers to sound synthesis methods in which the waveform of the sound to be generated is computed using a mathematical model, a set of equations and algorithms to simulate a physical source of sound, usually a musical instrument.
+
+Physical modelling in Fragment use Karplus-Strong string synthesis (for now) with an allpass filter.
+
+This is a fast method which generate pleasant sounds.
+
+Physical modelling is WIP and may be subject to major changes.
+
+#### RGBA interpretation
+
+| Components | Interpretations                        |
+| ---------: | :------------------------------------- |
+|          R | Amplitude value of the LEFT channel    |
+|          G | Amplitude value of the RIGHT channel   |
+|          B | Feedback amount (up to 0.5)            |
+|          A | Noise wavetable multiplier             |
+
+**Note** : Monophonic mode Physical modelling synthesis is not implemented.
 
 ### Samples map
 

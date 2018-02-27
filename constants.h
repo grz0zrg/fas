@@ -45,7 +45,7 @@
     #define FAS_STREAM_LOAD_SEND_DELAY 2
     #define FAS_MAX_DROP 32
 
-    #define FAS_USE_CUBIC_INTERP
+    //#define FAS_USE_CUBIC_INTERP
 
     // audio thread state&commands
     #define FAS_AUDIO_PLAY 0
@@ -60,9 +60,10 @@
     #define FAS_ADDITIVE 0
     #define FAS_SPECTRAL 1
     #define FAS_GRANULAR 2
-    #define FAS_FM 3 // experiments (may not work)
+    #define FAS_FM 3
     #define FAS_SUBTRACTIVE 4
-    #define FAS_VOID 5
+    #define FAS_PHYSICAL_MODELLING 5
+    #define FAS_VOID 6
 
     // granular constants
     #define GRAIN_MIN_DURATION 0.0001

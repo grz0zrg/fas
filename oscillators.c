@@ -53,6 +53,8 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         osc->phase_index2 = malloc(sizeof(unsigned int) * frame_data_count);
 #endif
 
+        osc->fphase_index = malloc(sizeof(float) * frame_data_count);
+
         osc->harmonics = malloc(sizeof(float) * ((partials + 1) * 2));
 
         // == substrative specials
@@ -71,14 +73,17 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         osc->fp3 = malloc(sizeof(double *) * frame_data_count);
         // ==
 
+        osc->buffer_len = (double)sample_rate / frequency;
+        osc->buffer = malloc(sizeof(float) * osc->buffer_len * frame_data_count);
+
         osc->noise_index = malloc(sizeof(uint16_t) * frame_data_count);
 
-        osc->value = malloc(sizeof(float) * frame_data_count);
+        osc->pvalue = malloc(sizeof(float) * frame_data_count);
 
         for (i = 0; i < frame_data_count; i += 1) {
             osc->phase_index[i] = rand() / (double)RAND_MAX * wavetable_size;
             osc->noise_index[i] = rand() / (double)RAND_MAX * wavetable_size;
-            osc->value[i] = 0;
+            osc->pvalue[i] = 0;
 
             // == PM
             osc->phase_index2[i] = rand() / (double)RAND_MAX * wavetable_size;
@@ -106,7 +111,7 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
     return oscillators;
 }
 
-// TODO : update it with subtractive specials (for now this function is unused but can be useful)
+// TODO : update it with subtractive specials (for now this function is unused and have to be updated to be used properly)
 struct oscillator *copyOscillators(struct oscillator **oscs, unsigned int n, unsigned int frame_data_count) {
     struct oscillator *o = *oscs;
 
@@ -136,12 +141,12 @@ struct oscillator *copyOscillators(struct oscillator **oscs, unsigned int n, uns
         #endif
 
         new_osc->noise_index = malloc(sizeof(uint16_t) * frame_data_count);
-        new_osc->value = malloc(sizeof(float) * frame_data_count);
+        new_osc->pvalue = malloc(sizeof(float) * frame_data_count);
 
         for (int i = 0; i < frame_data_count; i += 1) {
             new_osc->phase_index[i] = o[y].phase_index[i];
             new_osc->noise_index[i] = o[y].noise_index[i];
-            new_osc->value[i] = o[y].value[i];
+            new_osc->pvalue[i] = o[y].pvalue[i];
         }
     }
 
@@ -158,8 +163,10 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
     int y = 0, i = 0;
     for (y = 0; y < n; y += 1) {
         free(oscs[y].phase_index);
+        free(oscs[y].fphase_index);
         free(oscs[y].noise_index);
-        free(oscs[y].value);
+        free(oscs[y].pvalue);
+        free(oscs[y].buffer);
         free(oscs[y].harmo_phase_step);
 
         free(oscs[y].phase_index2);

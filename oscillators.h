@@ -10,7 +10,7 @@
         int max_harmonics;
 
         // filters fb
-        double **fp1, **fp2, **fp3;
+        double **fp1, **fp2, **fp3, **fp4;
 
 #ifdef FIXED_WAVETABLE
         uint16_t **harmo_phase_index;
@@ -37,8 +37,10 @@
 
         float *pvalue;
 
-        float *buffer;
+        double *buffer;
         unsigned int buffer_len;
+
+        unsigned int triggered;
 
         uint16_t *noise_index;
     };

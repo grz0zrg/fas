@@ -29,6 +29,9 @@
         struct grain *grains;
         struct _synth_chn_settings *chn_settings;
 
+        int note;
+        int chn;
+
         unsigned int samples_count;
 
         float lerp_t;

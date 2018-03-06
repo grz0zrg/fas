@@ -71,10 +71,13 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         osc->fp1 = malloc(sizeof(double *) * frame_data_count);
         osc->fp2 = malloc(sizeof(double *) * frame_data_count);
         osc->fp3 = malloc(sizeof(double *) * frame_data_count);
+        osc->fp4 = malloc(sizeof(double *) * frame_data_count);
         // ==
 
+        osc->triggered = 0;
+
         osc->buffer_len = (double)sample_rate / frequency;
-        osc->buffer = malloc(sizeof(float) * osc->buffer_len * frame_data_count);
+        osc->buffer = malloc(sizeof(double) * osc->buffer_len * frame_data_count);
 
         osc->noise_index = malloc(sizeof(uint16_t) * frame_data_count);
 
@@ -102,6 +105,7 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
             osc->fp1[i] = calloc(6, sizeof(double));
             osc->fp2[i] = calloc(6, sizeof(double));
             osc->fp3[i] = calloc(6, sizeof(double));
+            osc->fp4[i] = calloc(6, sizeof(double));
             // ==
         }
 

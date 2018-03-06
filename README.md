@@ -169,9 +169,9 @@ PM synthesis is one of the fastest method to generate sounds with Fragment and i
 
 Physical modelling synthesis refers to sound synthesis methods in which the waveform of the sound to be generated is computed using a mathematical model, a set of equations and algorithms to simulate a physical source of sound, usually a musical instrument.
 
-Physical modelling in Fragment use Karplus-Strong string synthesis (for now) with an allpass filter.
+Physical modelling in Fragment use Karplus-Strong string synthesis (for now).
 
-This is a fast method which generate pleasant sounds.
+This is a fast method which generate pleasant string-like sounds.
 
 Physical modelling is WIP and may be subject to major changes.
 
@@ -181,8 +181,8 @@ Physical modelling is WIP and may be subject to major changes.
 | ---------: | :------------------------------------- |
 |          R | Amplitude value of the LEFT channel    |
 |          G | Amplitude value of the RIGHT channel   |
-|          B | Feedback amount (up to 0.5)            |
-|          A | Noise wavetable multiplier             |
+|          B | Noise wavetable cutoff lp filter / fractional part : stretching factor       |
+|          A | Noise wavetable res. lp filter         |
 
 **Note** : Monophonic mode Physical modelling synthesis is not implemented.
 

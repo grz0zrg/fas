@@ -59,6 +59,30 @@ unsigned int smp_s = 0;
 float phase = 0.;
 float *b = 0;
 
+void reset_granular(unsigned int chn, struct oscillator *osc, struct note *n) {
+
+}
+
+void reset_phys_modelling(unsigned int chn, struct oscillator *osc, struct note *n) {
+    unsigned int d = 0;
+
+    memset(osc->fp1[chn], 0, sizeof(double) * 4);
+    memset(osc->fp2[chn], 0, sizeof(double) * 4);
+    memset(osc->fp3[chn], 0, sizeof(double) * 4);
+    memset(osc->fp4[chn], 0, sizeof(double) * 4);
+
+    osc->pvalue[chn] = 0.0f;
+    osc->fphase_index[chn] = 0.0f;
+    //osc->fp4[chn][0] = randf(0., 1.);
+
+    // fill with noise & filter
+    for (d = 0; d < osc->buffer_len; d += 1) {
+        unsigned int bindex = chn * osc->buffer_len + d;
+        osc->buffer[bindex] = fas_white_noise_table[d % fas_wavetable_size];
+        osc->buffer[bindex] = huovilainen_moog(osc->buffer[bindex], n->cutoff, n->res, osc->fp1[chn], osc->fp2[chn], osc->fp3[chn], 2);
+    }
+}
+
 static int paCallback( const void *inputBuffer, void *outputBuffer,
                             unsigned long framesPerBuffer,
                             const PaStreamCallbackTimeInfo* timeInfo,
@@ -134,6 +158,19 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                     }
                 }
             }
+        }
+
+        // note retrigger (only used for physical modelling)
+        if (queue_synth->chn > 0) {
+            struct oscillator *osc = &curr_synth.oscillators[queue_synth->note];
+
+            k = queue_synth->chn - 1;
+
+            osc->triggered = 1;
+
+            //struct note *n = &curr_notes[queue_synth->note];
+
+            //reset_phys_modelling(k, osc, n);
         }
 
         curr_synth.samples_count = queue_synth->samples_count;
@@ -397,16 +434,30 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        unsigned int curr_sample = k * osc->buffer_len + ((int)(roundf(osc->fphase_index[k])) % osc->buffer_len);
+                        unsigned int curr_sample_index = osc->fphase_index[k];
+                        unsigned int curr_sample_index2 = curr_sample_index + 1;
+
+                        float mu = osc->fphase_index[k] - curr_sample_index;
+
+                        unsigned int curr_sample = k * osc->buffer_len + (curr_sample_index % osc->buffer_len);
+                        unsigned int curr_sample2 = k * osc->buffer_len + (curr_sample_index2 % osc->buffer_len);
+
+                        float smp = osc->buffer[curr_sample];
+
+                        float stretch = n->blue_frac_part;
+                        float in = 0.0f;
+                        if (stretch <= randf(0.f, 1.f)) {
+                            in = 0.5f * ((smp + mu * (osc->buffer[curr_sample2] - smp)) + osc->pvalue[k]);
+                        } else {
+                            in = smp;
+                        }
 
                         // allpass
-                        float in = fminf(n->blue, 0.5f) * (osc->buffer[curr_sample] + osc->pvalue[k]);
-
                         float delay = fabsf((double)osc->buffer_len - ((double)fas_sample_rate / osc->freq));
                         float c = (1.0f - delay) / (1.0f + delay);
 
-                        osc->buffer[curr_sample] = osc->fp1[k][0] + c * in;
-                        osc->fp1[k][0] = in - c * osc->buffer[curr_sample];
+                        osc->buffer[curr_sample] = osc->fp4[k][0] + c * in;
+                        osc->fp4[k][0] = in - c * osc->buffer[curr_sample];
 
                         float ol = osc->buffer[curr_sample];
 
@@ -432,6 +483,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
         curr_synth.curr_sample += 1;
 
+        // process the next event
         if (curr_synth.curr_sample >= note_time_samples) {
             lerp_t_step = 0;
 
@@ -458,7 +510,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                 fas_drop_counter = 0;
 
-                // do some more processing on notes for later use (optimization)
+                // once we have notes data we prepare some pre-processing for later use (optimization, reseting filters on note-on etc.)
                 note_buffer_len = 0;
                 pv_note_buffer_len = 0;
 
@@ -536,13 +588,12 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                                 struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
-                                    osc->pvalue[k] = randf(-1.f, 1.f);
-                                    osc->fphase_index[k] = randf(0.f, 1.f) * osc->buffer_len;
-                                    osc->fp1[k][0] = randf(0.f, 1.f);
-                                    for (d = 0; d < osc->buffer_len; d += 1) {
-                                        osc->buffer[k * osc->buffer_len + d] = randf(-1.0f, 1.0f) * n->alpha;
-                                    }
+                                huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (double)fas_sample_rate);
+
+                                if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || osc->triggered == 1) {
+                                    reset_phys_modelling(k, osc, n);
+
+                                    osc->triggered = 0;
                                 }
                             }
                         }
@@ -562,8 +613,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     fflush(stdout);
 #endif
             } else {
-                // allow some frame drop, hold the current note to FAS_MAX_DROP if that happen
-                // ensure smooth audio for all situations (the only downside : it may sound delayed, the impact depend on how many frames are dropped)
+                // allow some frame drop, hold the current note events to FAS_MAX_DROP if that happen
+                // ensure smooth audio in most situations (the only downside : it may sound delayed, the impact depend on how many frames are dropped)
                 fas_drop_counter += 1;
                 if (fas_drop_counter >= fas_max_drop) {
                     if (curr_notes) {
@@ -828,11 +879,14 @@ if (remaining_payload != 0) {
                         usd->synth->oscillators = NULL;
                         usd->synth->grains = NULL;
                         usd->synth->chn_settings = NULL;
+                        usd->synth->chn = 0;
 
                         usd->synth->gain = NULL;
                     } else {
                         h = usd->synth->settings->h;
                     }
+
+                    usd->synth->chn = 0;
 
                     clearQueues();
 
@@ -882,8 +936,10 @@ if (remaining_payload != 0) {
                     setHeight(usd->synth_h);
 
                     // create a global copy of the oscillators for the user (for OSC)
-                    usd->oscillators = createOscillators(usd->synth->settings->h,
-                        usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
+                    if (fas_osc_out) {
+                        usd->oscillators = createOscillators(usd->synth->settings->h,
+                            usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
+                    }
 
                     usd->synth->oscillators = createOscillators(usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
@@ -1003,7 +1059,7 @@ if (remaining_payload != 0) {
                         memset(freelist_frames_data->data[0].frq, 0, sizeof(float) * hop_size);
                     }
 */
-                    fillNotesBuffer(samples_count_m1, fas_granular_max_density, (*channels), usd->frame_data_size, freelist_frames_data->data, usd->synth_h, &usd->oscillators, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
+                    fillNotesBuffer(samples_count_m1, fas_granular_max_density, (*channels), usd->frame_data_size, freelist_frames_data->data, usd->synth_h, &usd->synth->oscillators, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
 
                     oscSend(usd->oscillators, freelist_frames_data->data);
 
@@ -1054,6 +1110,7 @@ if (remaining_payload != 0) {
                     usd->synth->settings = NULL;
                     usd->synth->grains = NULL;
                     usd->synth->chn_settings = NULL;
+                    usd->synth->chn = 0;
 
                     usd->synth->samples_count = samples_count;
 
@@ -1125,6 +1182,7 @@ fflush(stdout);
                     usd->synth->settings = NULL;
                     usd->synth->gain = NULL;
                     usd->synth->grains = NULL;
+                    usd->synth->chn = 0;
 
                     usd->synth->samples_count = samples_count;
 
@@ -1140,22 +1198,64 @@ fflush(stdout);
                     }
 
                     usd->synth = NULL;
-                } else if (pid == ACTION) { // since we have one action for now, don't care about content, just reload samples
+                } else if (pid == ACTION) {
+                    static unsigned char action_type[1];
+                    memcpy(&action_type, &((char *) usd->packet)[PACKET_HEADER_LENGTH], sizeof(action_type));
+
 #ifdef DEBUG
-    printf("ACTION\n");
+printf("ACTION : type %i\n", action_type[0]);
+fflush(stdout);
 #endif
 
-                    audioPause();
+                    if (action_type[0] == 0) { // RELOAD SAMPLES
+                        audioPause();
 
-                    clearQueues();
+                        clearQueues();
 
-                    prev_samples_count = samples_count;
+                        prev_samples_count = samples_count;
 
-                    free_samples(&samples, samples_count);
-                    samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type);
-                    samples_count_m1 = samples_count - 1;
+                        free_samples(&samples, samples_count);
+                        samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type);
+                        samples_count_m1 = samples_count - 1;
 
-                    audioPlay();
+                        audioPlay();
+                    } else if (action_type[0] == 1) { // RE-TRIGGER note
+                      unsigned int *data_uint = (unsigned int *)&usd->packet[PACKET_HEADER_LENGTH];
+#ifdef DEBUG
+printf("re-trigger chn : %i, note : %i\n", data_uint[0], data_uint[1]);
+fflush(stdout);
+#endif
+                        if (usd->synth == NULL) {
+                            usd->synth = (struct _synth*)malloc(sizeof(struct _synth));
+                            if (usd->synth == NULL) {
+                                printf("Skipping packet due to synth data alloc. error.\n");
+                                fflush(stdout);
+
+                                goto free_packet;
+                            }
+                        }
+
+                        usd->synth->oscillators = NULL;
+                        usd->synth->settings = NULL;
+                        usd->synth->gain = NULL;
+                        usd->synth->grains = NULL;
+                        usd->synth->chn_settings = NULL;
+
+                        usd->synth->samples_count = samples_count;
+
+                        usd->synth->chn = data_uint[0];
+                        usd->synth->note = data_uint[1];
+
+                        if (lfds711_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
+                            printf("Skipping packet, the synth commands queue is full.\n");
+                            fflush(stdout);
+
+                            free(usd->synth);
+                            usd->synth = NULL;
+                        }
+
+                        usd->synth = NULL;
+                    }
                 }
 
 free_packet:
@@ -1557,6 +1657,8 @@ int main(int argc, char **argv)
 
             if (fas_lo_addr) {
                 printf("\nOSC: Ready to send data to '%s:%s'\n", fas_osc_addr, fas_osc_port);
+            } else {
+                fas_osc_out = 0;
             }
         }
     }
@@ -1813,7 +1915,7 @@ ws_error:
     lws_context_destroy(context);
 
 error:
-    if (fas_osc_out && fas_lo_addr) {
+    if (fas_osc_out) {
         lo_address_free(fas_lo_addr);
     }
 

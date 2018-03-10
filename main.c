@@ -531,6 +531,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             for (j = s; j < e; j += 1) {
                                 struct note *n = &curr_notes[j];
 
+                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
                                 // reset granular envelope; force grains creation
                                 if (n->smp_index != n->psmp_index) {
                                     unsigned int grain_index = n->osc_index * samples_count + n->smp_index;
@@ -935,11 +937,9 @@ if (remaining_payload != 0) {
 
                     setHeight(usd->synth_h);
 
-                    // create a global copy of the oscillators for the user (for OSC)
-                    if (fas_osc_out) {
-                        usd->oscillators = createOscillators(usd->synth->settings->h,
-                            usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
-                    }
+                    // create a global copy of the oscillators for the user (for OSC but also to have a permanent copy)
+                    usd->oscillators = createOscillators(usd->synth->settings->h,
+                        usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
 
                     usd->synth->oscillators = createOscillators(usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
@@ -1059,7 +1059,7 @@ if (remaining_payload != 0) {
                         memset(freelist_frames_data->data[0].frq, 0, sizeof(float) * hop_size);
                     }
 */
-                    fillNotesBuffer(samples_count_m1, fas_granular_max_density, (*channels), usd->frame_data_size, freelist_frames_data->data, usd->synth_h, &usd->synth->oscillators, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
+                    fillNotesBuffer(samples_count_m1, fas_granular_max_density, (*channels), usd->frame_data_size, freelist_frames_data->data, usd->synth_h, &usd->oscillators, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
 
                     oscSend(usd->oscillators, freelist_frames_data->data);
 

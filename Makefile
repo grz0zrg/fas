@@ -7,7 +7,7 @@ obj = main.o tools.o samples.o grains.o oscillators.o wavetables.o note.o usage.
 cpp_obj = essentia_wrapper.o
 cpp_options = -std=c++11
 essentia_libs = libessentia.a -lfftw3 -lfftw3f
-libs = liblfds711.a -lportaudio -lwebsockets -lrt -lm -lasound -ljack -pthread -lsndfile liblo.so.7.3.0
+libs = liblfds711.a -lportaudio -lsamplerate -lwebsockets -lrt -lm -lasound -ljack -pthread -lsndfile liblo.so.7.3.0
 static_libs = liblfds711.a libportaudio.a libsamplerate.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread -lsndfile liblo.so.7.3.0
 soundpipe_libs = libsoundpipe.a
 ssl_libs = -lssl -lcrypto

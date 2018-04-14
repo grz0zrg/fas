@@ -408,7 +408,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                       float s;
                       double t = osc->fphase[k] / M_PI2;
 
-                      int waveform = fabs(n->alpha) % 3;
+                      int waveform = ((int)fabs(round(n->alpha))) % 3;
 
                       switch (waveform) {
                           case 0:

@@ -408,11 +408,9 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                       float s;
                       double t = osc->fphase[k] / M_PI2;
 
-                      if (n->exp) {
-                          n->waveform = 2;
-                      }
-                      
-                      switch (n->waveform) {
+                      int waveform = fabs(n->alpha) % 3;
+
+                      switch (waveform) {
                           case 0:
                               s = raw_waveform(osc->fphase[k], 1);
                               s -= poly_blep(osc->phase_increment, t);

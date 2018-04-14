@@ -22,20 +22,20 @@ double poly_blep(double phase_increment, double t) {
 double raw_waveform(double phase, int type) {
     double value;
     switch (type) {
-        case 0:
+        case 0: // SINE
             value = sin(phase);
             break;
-        case 1:
+        case 1: // SAW
             value = (2.0 * phase / M_PI2) - 1.0;
             break;
-        case 2:
+        case 2: // SQUARE
             if (phase < M_PI) {
                 value = 1.0;
             } else {
                 value = -1.0;
             }
             break;
-        case 3:
+        case 3: // TRIANGLE
             value = -1.0 + (2.0 * phase / M_PI2);
             value = 2.0 * (fabs(value) - 0.5);
             break;

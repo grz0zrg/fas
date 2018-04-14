@@ -68,10 +68,10 @@ const double huovilainen_thermal = 0.000025;
 double huovilainen_moog(double input, double cutoff_computed, double res_computed, double *delay, double *stage, double *stageTanh, int oversample) {
     for (int j = 0; j < oversample; j++) {
         float in = input - res_computed * delay[5];
-        delay[0] = stage[0] = delay[0] + cutoff_computed * (fast_tanh(in * huovilainen_thermal) - stageTanh[0]);
+        delay[0] = stage[0] = delay[0] + cutoff_computed * (tanh(in * huovilainen_thermal) - stageTanh[0]);
         for (int k = 1; k < 4; k++) {
             in = stage[k-1];
-            stage[k] = delay[k] + cutoff_computed * ((stageTanh[k-1] = fast_tanh(in * huovilainen_thermal)) - (k != 3 ? stageTanh[k] : fast_tanh(delay[k] * huovilainen_thermal)));
+            stage[k] = delay[k] + cutoff_computed * ((stageTanh[k-1] = tanh(in * huovilainen_thermal)) - (k != 3 ? stageTanh[k] : tanh(delay[k] * huovilainen_thermal)));
             delay[k] = stage[k];
         }
 

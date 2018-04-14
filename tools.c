@@ -1,5 +1,50 @@
 #include "tools.h"
 
+// http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/
+// http://www.kvraudio.com/forum/viewtopic.php?t=375517
+double poly_blep(double phase_increment, double t) {
+    double dt = phase_increment / M_PI2;
+    // 0 <= t < 1
+    if (t < dt) {
+        t /= dt;
+        return t+t - t*t - 1.0;
+    }
+    // -1 < t < 0
+    else if (t > 1.0 - dt) {
+        t = (t - 1.0) / dt;
+        return t*t + t+t + 1.0;
+    }
+    // 0 otherwise
+    else return 0.0;
+}
+
+// http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/
+double raw_waveform(double phase, int type) {
+    double value;
+    switch (type) {
+        case 0:
+            value = sin(phase);
+            break;
+        case 1:
+            value = (2.0 * phase / M_PI2) - 1.0;
+            break;
+        case 2:
+            if (phase < M_PI) {
+                value = 1.0;
+            } else {
+                value = -1.0;
+            }
+            break;
+        case 3:
+            value = -1.0 + (2.0 * phase / M_PI2);
+            value = 2.0 * (fabs(value) - 0.5);
+            break;
+        default:
+            break;
+    }
+    return value;
+}
+
 float randf(float min, float max) {
     if (min == 0.f && max == 0.f) {
         return 0.f;

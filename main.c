@@ -66,13 +66,15 @@ void reset_granular(unsigned int chn, struct oscillator *osc, struct note *n) {
 void reset_phys_modelling(unsigned int chn, struct oscillator *osc, struct note *n) {
     unsigned int d = 0;
 
-    memset(osc->fp1[chn], 0, sizeof(double) * 4);
-    memset(osc->fp2[chn], 0, sizeof(double) * 4);
-    memset(osc->fp3[chn], 0, sizeof(double) * 4);
-    memset(osc->fp4[chn], 0, sizeof(double) * 4);
+    if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+        memset(osc->fp1[chn], 0, sizeof(double) * 4);
+        memset(osc->fp2[chn], 0, sizeof(double) * 4);
+        memset(osc->fp3[chn], 0, sizeof(double) * 4);
+        memset(osc->fp4[chn], 0, sizeof(double) * 4);
+    }
 
     osc->pvalue[chn] = 0.0f;
-    osc->fphase_index[chn] = 0.0f;
+    osc->fphase[chn] = 0.0f;
     //osc->fp4[chn][0] = randf(0., 1.);
 
     // fill with noise & filter
@@ -167,10 +169,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             k = queue_synth->chn - 1;
 
             osc->triggered = 1;
-
-            //struct note *n = &curr_notes[queue_synth->note];
-
-            //reset_phys_modelling(k, osc, n);
         }
 
         curr_synth.samples_count = queue_synth->samples_count;
@@ -358,7 +356,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_l += vl * s;
                         output_r += vr * s;
 
-                        osc->phase_index[k] += osc->phase_step + ((s2 * n->blue_frac_part) * fas_wavetable_size);
+                        osc->phase_index[k] += osc->phase_step + ((s2 * n->blue_frac_part) * fas_wavetable_size)  ;
                         osc->phase_index2[k] += phase_step;
 
 #ifndef FIXED_WAVETABLE
@@ -377,34 +375,66 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                       struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
+#ifndef POLYBLEP // Additive synthesis method to generate anti-aliased waveforms
                       // fundamental
-#ifndef FIXED_WAVETABLE
+ #ifndef FIXED_WAVETABLE
                       float s = fas_sine_wavetable[osc->phase_index[k]];
 
                       uint16_t *hphase_index = (uint16_t *)osc->harmo_phase_index[k];
-#else
+ #else
                       float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
 
                       unsigned int *hphase_index = (unsigned int *)osc->harmo_phase_index[k];
-#endif
+ #endif
 
                       // harmonics / waveform generation through additive synthesis
                       int odd = n->waveform; // sawtooth - square & triangle (pow wavetable below)
                       for (d = odd; d < osc->max_harmonics; d += (1 + odd)) {
-#ifndef FIXED_WAVETABLE
+ #ifndef FIXED_WAVETABLE
                           s += fas_sine_wavetable[osc->harmo_phase_index[k][d]] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
-#else
+ #else
                           s += fas_sine_wavetable[osc->harmo_phase_index[k][d] & fas_wavetable_size_m1] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
-#endif
+ #endif
 
                           osc->harmo_phase_index[k][d] += osc->harmo_phase_step[d];
 
-#ifndef FIXED_WAVETABLE
+ #ifndef FIXED_WAVETABLE
                           if (osc->harmo_phase_index[k][d] >= fas_wavetable_size) {
                               osc->harmo_phase_index[k][d] -= fas_wavetable_size;
                           }
-#endif
+ #endif
                       }
+#else // implementation from http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/
+                      float s;
+                      double t = osc->fphase[k] / M_PI2;
+
+                      if (n->exp) {
+                          n->waveform = 2;
+                      }
+                      
+                      switch (n->waveform) {
+                          case 0:
+                              s = raw_waveform(osc->fphase[k], 1);
+                              s -= poly_blep(osc->phase_increment, t);
+                              break;
+                          case 1:
+                              s = raw_waveform(osc->fphase[k], 2);
+                              s += poly_blep(osc->phase_increment, t);
+                              s -= poly_blep(osc->phase_increment, fmod(t + 0.5, 1.0));
+                              break;
+                          case 2:
+                              s = osc->phase_increment * s + (1 - osc->phase_increment) * osc->pvalue[k];
+                              osc->pvalue[k] = s;
+                              break;
+                          default:
+                              break;
+                      }
+
+                      osc->fphase[k] += osc->phase_increment;
+                      while (osc->fphase[k] >= M_PI2) {
+                          osc->fphase[k] -= M_PI2;
+                      }
+#endif
 
                       //s = improved_moog(s, osc->freq * n->cutoff, n->res, chn_settings->p1, osc->fp1[k], osc->fp2[k], osc->fp3[k], (double)fas_sample_rate);
                       s = huovilainen_moog(s, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
@@ -415,12 +445,14 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                       output_l += vl * s;
                       output_r += vr * s;
 
+#ifndef POLYBLEP
                       osc->phase_index[k] += osc->phase_step;
 
-#ifndef FIXED_WAVETABLE
+ #ifndef FIXED_WAVETABLE
                       if (osc->phase_index[k] >= fas_wavetable_size) {
                           osc->phase_index[k] -= fas_wavetable_size;
                       }
+ #endif
 #endif
                   }
                 } else if (chn_settings->synthesis_method == FAS_PHYSICAL_MODELLING) {
@@ -434,10 +466,10 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        unsigned int curr_sample_index = osc->fphase_index[k];
+                        unsigned int curr_sample_index = osc->fphase[k];
                         unsigned int curr_sample_index2 = curr_sample_index + 1;
 
-                        float mu = osc->fphase_index[k] - curr_sample_index;
+                        float mu = osc->fphase[k] - curr_sample_index;
 
                         unsigned int curr_sample = k * osc->buffer_len + (curr_sample_index % osc->buffer_len);
                         unsigned int curr_sample2 = k * osc->buffer_len + (curr_sample_index2 % osc->buffer_len);
@@ -466,7 +498,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_l += vl * ol;
                         output_r += vr * ol;
 
-                        osc->fphase_index[k] += phase_step;
+                        osc->fphase[k] += phase_step;
                     }
                 }
             }

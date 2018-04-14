@@ -31,11 +31,13 @@
         // fm/pm
         unsigned int *phase_index2;
 #endif
-        float *fphase_index;
+        double *fphase;
 
         float *harmonics;
 
         float *pvalue;
+
+        double phase_increment;
 
         double *buffer;
         unsigned int buffer_len;

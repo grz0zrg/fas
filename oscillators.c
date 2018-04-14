@@ -18,6 +18,7 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
     int index = 0;
     double octave_length = (double)n / octaves;
     double frequency;
+    double phase_increment;
     uint64_t phase_step;
     int nmo = n - 1;
 
@@ -28,6 +29,7 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
 
         frequency = base_frequency * pow(2.0, y / octave_length);
         phase_step = frequency / (double)sample_rate * wavetable_size;
+        phase_increment = frequency * 2 * 3.141592653589 / (double)sample_rate;
 
         struct oscillator *osc = &oscillators[index];
 
@@ -53,7 +55,7 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         osc->phase_index2 = malloc(sizeof(unsigned int) * frame_data_count);
 #endif
 
-        osc->fphase_index = malloc(sizeof(float) * frame_data_count);
+        osc->fphase = malloc(sizeof(double) * frame_data_count);
 
         osc->harmonics = malloc(sizeof(float) * ((partials + 1) * 2));
 
@@ -91,6 +93,8 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
             // == PM
             osc->phase_index2[i] = rand() / (double)RAND_MAX * wavetable_size;
 
+            osc->fphase[i] = 0;
+
             // == substrative specials
 #ifdef FIXED_WAVETABLE
             osc->harmo_phase_index[i] = malloc(sizeof(uint16_t) * (partials + 1));
@@ -110,6 +114,7 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         }
 
         osc->phase_step = phase_step;
+        osc->phase_increment = phase_increment;
     }
 
     return oscillators;
@@ -167,7 +172,7 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
     int y = 0, i = 0;
     for (y = 0; y < n; y += 1) {
         free(oscs[y].phase_index);
-        free(oscs[y].fphase_index);
+        free(oscs[y].fphase);
         free(oscs[y].noise_index);
         free(oscs[y].pvalue);
         free(oscs[y].buffer);

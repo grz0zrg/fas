@@ -7,6 +7,10 @@
         #define M_PI (3.141592653589)
     #endif
 
+    #ifndef M_PI2
+        #define M_PI2 (3.141592653589 * 2.0)
+    #endif
+
     #define E 2.718281828459045
 
     #define PEER_NAME_BUFFER_LENGTH 64
@@ -43,9 +47,10 @@
     #define FAS_SMOOTH_FACTOR 8.0
     #define FAS_GRANULAR_MAX_DENSITY 128
     #define FAS_STREAM_LOAD_SEND_DELAY 2
-    #define FAS_MAX_DROP 32
+    #define FAS_MAX_DROP 60 // 1 second
 
     //#define FAS_USE_CUBIC_INTERP
+    #define POLYBLEP
 
     // audio thread state&commands
     #define FAS_AUDIO_PLAY 0

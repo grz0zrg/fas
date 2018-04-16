@@ -397,13 +397,21 @@ For those which are using cmake, a custom cmake toolchain file must be used
 `set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)`
 `set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)`
 
+##### PortAudio with ASIO etc.
+
+`./configure --build=x86_64 --host=x86_64-w64-mingw32 --with-jack --with-alsa -with-winapi=asio,directx,wdmks,wmme --with-asiodir=~/crosscompile/ASIOSDK2.3`
+
+`make clean`
+
+`make`
+
 ##### With liblo
 
-`cmake -DCMAKE_TOOLCHAIN_FILE=/home/julien/toolchain.cmake ../cmake`
+`cmake -DCMAKE_TOOLCHAIN_FILE=~/toolchain.cmake ../cmake`
 
 ##### With libwebsockets
 
-`cmake -DLWS_WITH_SSL=0 -DCMAKE_TOOLCHAIN_FILE=/home/julien/toolchain.cmake ..`
+`cmake -DLWS_WITH_SSL=0 -DCMAKE_TOOLCHAIN_FILE=~/toolchain.cmake ..`
 
 ##### For libsndfile & libsamplerate
 

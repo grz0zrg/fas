@@ -1,6 +1,5 @@
 #include "inc/sndfile.h"
 #include "inc/tinydir.h"
-#include "inc/Yin.h"
 
 #include "samples.h"
 
@@ -27,6 +26,11 @@ char *notes[240] = {
   "c7","cs7","d7","ds7","e7","f7","fs7","g7","gs7","a7","as7","b7",
   "c8","cs8","d8","ds8","e8","f8","fs8","g8","gs8","a8","as8","b8",
   "c9","cs9","d9","ds9","e9","f9","fs9","g9","gs9","a9","as9","b9"
+};
+
+struct fas_path {
+    char *name;
+    struct fas_path *next;
 };
 
 // https://github.com/tidalcycles/Dirt
@@ -74,7 +78,40 @@ void fix_samplerate (struct sample *sample, unsigned int samplerate, int convert
     }
 }
 
+char *create_filepath(char *directory, char *filename) {
+    size_t filename_length = strlen(filename);
+    size_t directory_length = strlen(directory);
+
+    char *dir = directory;
+
+    if (directory[directory_length - 1] != '/') {
+        directory_length = directory_length + 1;
+
+        dir = (char *)malloc(directory_length);
+        dir[0] = '\0';
+        strcat(dir, directory);
+        dir[directory_length - 1] = '/';
+        dir[directory_length] = '\0';
+    }
+
+    size_t filepath_len = strlen(dir) + filename_length;
+
+    char *filepath = (char *)malloc(filepath_len + 1);
+    filepath[0] = '\0';
+    strcat(filepath, dir);
+    strcat(filepath, filename);
+    filepath[filepath_len] = '\0';
+
+    if (dir != directory) {
+        free(dir);
+    }
+
+    return filepath;
+}
+
 unsigned int load_samples(struct sample **s, char *directory, unsigned int samplerate, int converter_type) {
+    int f = 0;
+
     unsigned int samples_count = 0;
     size_t path_len;
 
@@ -84,7 +121,7 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
     memset(&sfinfo, 0, sizeof(sfinfo));
 
     tinydir_dir dir;
-    int ret = tinydir_open(&dir, directory);
+    int ret = tinydir_open_sorted(&dir, directory);
 
     if (ret == -1) {
         printf("tinydir_open failed for directory '%s'.\n", directory);
@@ -96,20 +133,79 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
 
     double ratio = pow(2.0, 1.0 / 12.0);
 
-    while (dir.has_next) {
+    size_t dir_length = strlen(directory);
+    char *current_dir = (char *)malloc(sizeof(char) * (dir_length + 1));
+    memcpy(current_dir, directory, dir_length + 1);
+
+    struct fas_path *level_dir = (struct fas_path *)malloc(sizeof(struct fas_path));
+    level_dir->name = NULL;
+    level_dir->next = NULL;
+    struct fas_path *first_dir = level_dir;
+
+    //while (dir.has_next) {
+    for (f = 0; f <= dir.n_files; f++) {
+        if (f == dir.n_files) {
+            if (first_dir->name != NULL) {
+                tinydir_close(&dir);
+                ret = tinydir_open_sorted(&dir, first_dir->name);
+
+                if (ret == -1) {
+                    printf("tinydir_open failed for directory '%s'.\n", first_dir->name);
+
+                    break;
+                }
+
+                char *tmp = current_dir;
+
+                size_t dir_length = strlen(first_dir->name);
+                current_dir = (char *)malloc(sizeof(char) * (dir_length + 1));
+                memcpy(current_dir, first_dir->name, dir_length + 1);
+
+                printf("switching to %s first dir %s\n", current_dir, first_dir->name);
+                fflush(stdout);
+
+                free(tmp);
+
+                struct fas_path *tmp_path = first_dir;
+
+                first_dir = first_dir->next;
+
+                free(tmp_path->name);
+                free(tmp_path);
+
+                f = 0;
+                continue;
+            } else {
+                free(current_dir);
+                free(first_dir->name);
+                free(first_dir->next);
+                free(first_dir);
+                break;
+            }
+        }
+
         int i, j, k;
         tinydir_file file;
-        tinydir_readfile(&dir, &file);
+        //tinydir_readfile(&dir, &file);
+        tinydir_readfile_n(&dir, &file, f);
 
-        if (file.is_reg) {
-            size_t filename_length = strlen(file.name);
-            size_t filepath_len = strlen(directory) + filename_length;
+        size_t filename_length = strlen(file.name);
 
-            char *filepath = (char *)malloc(filepath_len + 1);
-            filepath[0] = '\0';
-            strcat(filepath, directory);
-            strcat(filepath, file.name);
-            filepath[filepath_len] = '\0';
+        // place all folders into a list, they will be fetched next recursively
+        if (file.is_dir) {
+            if ((file.name[0] != '.' && file.name[1] != '.' && filename_length != 2)
+             && (file.name[0] != '.' && filename_length != 1)) {
+                char *filepath = create_filepath(current_dir, file.name);
+
+                level_dir->name = filepath;
+                level_dir->next = (struct fas_path *)malloc(sizeof(struct fas_path));
+                level_dir->next->name = NULL;
+                level_dir->next->next = NULL;
+
+                level_dir = level_dir->next;
+            }
+        } else if (file.is_reg) {
+            char *filepath = create_filepath(current_dir, file.name);
 
             SNDFILE *audio_file;
             if (!(audio_file = sf_open(filepath, SFM_READ, &sfinfo))) {
@@ -117,8 +213,7 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
 
                 free(filepath);
 
-                tinydir_next(&dir);
-
+                //tinydir_next(&dir);
                 continue;
             }
 
@@ -349,7 +444,7 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
             sf_close(audio_file);
         }
 
-        tinydir_next(&dir);
+        //tinydir_next(&dir);
     }
 
     tinydir_close(&dir);

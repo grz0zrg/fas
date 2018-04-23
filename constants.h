@@ -68,7 +68,8 @@
     #define FAS_FM 3
     #define FAS_SUBTRACTIVE 4
     #define FAS_PHYSICAL_MODELLING 5
-    #define FAS_VOID 6
+    #define FAS_WAVETABLE_SYNTH 6
+    #define FAS_VOID 7
 
     // granular constants
     #define GRAIN_MIN_DURATION 0.0001

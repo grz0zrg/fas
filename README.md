@@ -1,7 +1,7 @@
-Fragment : Additive/Spectral/Granular/Subtractive/PM/Physical modelling synthesizer
+Fragment : Additive/Spectral/Granular/Subtractive/PM/Wavetable/Physical modelling synthesizer
 =====
 
-Raw additive/subtractive/spectral/granular/PM/Physical modelling synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
+Raw additive/subtractive/spectral/granular/PM/Wavetable/Physical modelling synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
 
 This program should compile on most platforms!
 
@@ -17,6 +17,7 @@ Table of Contents
       * [Sampler](#sampler)
       * [Subtractive synthesis](#subtractive-synthesis)
       * [PM synthesis](#pm-synthesis)
+      * [Wavetable synthesis](#wavetable-synthesis)
       * [Samples map](#samples-map)
       * [Performances](#performances)
          * [Raspberry PI](#raspberry-pi)
@@ -35,7 +36,7 @@ Table of Contents
 
 ## About
 
-Fragment Audio Server (FAS) is a pixels-based additive, spectral, granular, subtractive and phase modulated (PM) audio synthesizer implemented as a WebSocket server with the C language.
+Fragment Audio Server (FAS) is a pixels-based additive, spectral, granular, subtractive, wavetable and phase modulated (PM) audio synthesizer implemented as a WebSocket server with the C language.
 
 All the synthesis methods can be used at the same time by using different output channels.
 
@@ -43,18 +44,18 @@ FAS is focused on **real-time performances**, being **cross-platform** and **pix
 
 This project was built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
 
-The most pixels-adapted synthesis methods are (in order) additive/spectral, granular/PM/Physical modelling; re-synthesis is possible with them.
+The most pixels-adapted synthesis methods are (in order) additive/spectral, wavetable, granular/PM/Physical modelling; re-synthesis is possible with them.
 
 ### Pixels-based
 
-Unlike other synthesizers, the notes data format understood by FAS is pixels-based, the notes data format can be
+Unlike other synthesizers, the notes data format understood by FAS is entirely pixels-based, the notes data format can be
 
 - **8-bit RGBA**
 - **32-bit float RGBA**
 
 The RGBA data collected is 1px wide with an user-defined height, the height is mapped to frequencies with an user-defined logarithmic frequency map.
 
-FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM) or physical modelling.
+FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, wavetable synthesis (with visuals directing the wavetable content!), by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM) or physical modelling.
 
 It can be said that FAS/Fragment is a generic image-synth : any RGBA images can be used to produce an infinite variety of sounds by streaming vertical slices of the image to FAS.
 
@@ -166,6 +167,29 @@ PM synthesis is one of the fastest method to generate sounds with Fragment and i
 |          A | Modulator frequency                    |
 
 **Note** : Monophonic mode PM synthesis is not implemented.
+
+### Wavetable synthesis
+
+Wavetable synthesis is a sound synthesis technique that employs arbitrary periodic waveforms in the production of musical tones or notes.
+
+Wavetable synthesis use single cycle waveforms / samples loaded from the `grains` folder.
+
+The wavetable can be switched with the alpha channel (integral part), a linear interpolation will happen between current & next wavetable upon switch.
+
+Wavetable synthesis is fast.
+
+There is only one high quality low-pass filter (Moog type) implemented.
+
+#### RGBA interpretation
+
+| Components | Interpretations                                              |
+| ---------: | :----------------------------------------------------------- |
+|          R | Amplitude value of the LEFT channel                          |
+|          G | Amplitude value of the RIGHT channel                         |
+|          B | Filter cutoff parameter                                      |
+|          A | Filter resonance [0, 1] & wavetable selection on integral part (0.x, 1.x, 2.x etc) |
+
+**Note** : Monophonic mode Wavetable synthesis is not implemented.
 
 ### Physical modelling
 

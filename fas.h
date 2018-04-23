@@ -118,6 +118,10 @@
     unsigned int samples_count_m1 = 0;
     unsigned int prev_samples_count = 0;
 
+    struct sample *waves = NULL;
+    unsigned int waves_count = 0;
+    unsigned int waves_count_m1 = 0;
+
     float **grain_envelope;
 
 

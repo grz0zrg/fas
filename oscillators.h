@@ -4,6 +4,8 @@
     #include <stdint.h>
     #include <math.h>
 
+    #include "tools.h"
+
     struct oscillator {
         double freq;
 

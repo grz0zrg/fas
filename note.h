@@ -35,6 +35,9 @@
         unsigned int smp_index;
         unsigned int psmp_index;
 
+        unsigned int wav_index;
+        unsigned int pwav_index;
+
         //float *mag;
         //float *frq;
         //float *pha;

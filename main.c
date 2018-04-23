@@ -54,14 +54,12 @@ void flf_element_cleanup_callback(struct lfds711_freelist_state *fs, struct lfds
     free(freelist_frames_data->data);
 }
 
+// spectral global junk
 unsigned int smp_s = 0;
 
 float phase = 0.;
 float *b = 0;
-
-void reset_granular(unsigned int chn, struct oscillator *osc, struct note *n) {
-
-}
+//
 
 void reset_phys_modelling(unsigned int chn, struct oscillator *osc, struct note *n) {
     unsigned int d = 0;
@@ -356,7 +354,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_l += vl * s;
                         output_r += vr * s;
 
-                        osc->phase_index[k] += osc->phase_step + ((s2 * n->blue_frac_part) * fas_wavetable_size)  ;
+                        osc->phase_index[k] += osc->phase_step + ((s2 * n->blue_frac_part) * fas_wavetable_size);
                         osc->phase_index2[k] += phase_step;
 
 #ifndef FIXED_WAVETABLE
@@ -408,7 +406,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                       float s;
                       double t = osc->fphase[k] / M_PI2;
 
-                      int waveform = ((int)fabs(round(n->alpha))) % 3;
+                      int waveform = ((int)fabs(round(n->alpha))) % 4;
 
                       switch (waveform) {
                           case 0:
@@ -421,9 +419,19 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                               s -= poly_blep(osc->phase_increment, fmod(t + 0.5, 1.0));
                               break;
                           case 2:
-                              s = osc->phase_increment * s + (1 - osc->phase_increment) * osc->pvalue[k];
+                              s = raw_waveform(osc->fphase[k], 3);
+                              s += poly_blep(osc->phase_increment, t);
+                              s -= poly_blep(osc->phase_increment, fmod(t + 0.5, 1.0));
+                              s = osc->phase_increment * s + (1.0 - osc->phase_increment) * osc->pvalue[k];
                               osc->pvalue[k] = s;
                               break;
+                          case 3: // Noise
+                              s += fas_white_noise_table[osc->phase_index[k] & fas_wavetable_size_m1];
+                              osc->phase_index[k] += osc->phase_step;
+                              if (osc->phase_index[k] >= fas_wavetable_size) {
+                                  osc->phase_index[k] -= fas_wavetable_size;
+                              }
+                          break;
                           default:
                               break;
                       }
@@ -467,7 +475,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         unsigned int curr_sample_index = osc->fphase[k];
                         unsigned int curr_sample_index2 = curr_sample_index + 1;
 
-                        float mu = osc->fphase[k] - curr_sample_index;
+                        float mu = osc->fphase[k] - (float)curr_sample_index;
 
                         unsigned int curr_sample = k * osc->buffer_len + (curr_sample_index % osc->buffer_len);
                         unsigned int curr_sample2 = k * osc->buffer_len + (curr_sample_index2 % osc->buffer_len);
@@ -497,6 +505,63 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_r += vr * ol;
 
                         osc->fphase[k] += phase_step;
+                    }
+                } else if (chn_settings->synthesis_method == FAS_WAVETABLE_SYNTH) {
+                    for (j = s; j < e; j += 1) {
+                        struct note *n = &curr_notes[j];
+
+                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                        unsigned int psmp_index = n->pwav_index;
+                        unsigned int smp_index = n->wav_index;
+
+                        struct sample *smp = &samples[smp_index];
+                        struct sample *psmp = &samples[psmp_index];
+
+                        unsigned int curr_sample_index = osc->fp4[k][1];
+                        unsigned int curr_sample_index2 = curr_sample_index + 1;
+
+                        float mu = osc->fp4[k][1] - (float)curr_sample_index;
+
+                        float sl2 = smp->data_l[curr_sample_index] + mu * (smp->data_l[curr_sample_index2] - smp->data_l[curr_sample_index]);
+
+                        float s = 0.0f;
+
+                        if (psmp_index != smp_index) {
+                            unsigned int curr_psample_index = osc->fp4[k][0];
+                            unsigned int curr_psample_index2 = curr_psample_index + 1;
+
+                            float pmu = osc->fp4[k][0] - (float)curr_psample_index;
+                            float sl1 = psmp->data_l[curr_psample_index] + pmu * (psmp->data_l[curr_psample_index2] - psmp->data_l[curr_psample_index]);
+
+    /*
+                            float sr1 = psmp->data_r[curr_psample_index] + pmu * (psmp->data_r[curr_psample_index] - psmp->data_r[curr_psample_index]);
+                            float sr2 = smp->data_r[curr_sample_index] + mu * (smp->data_r[curr_sample_index2] - smp->data_r[curr_sample_index]);
+    */
+                            s = (sl1 + (sl2 - sl1) * curr_synth.lerp_t);
+    //                        float sr = (sr1 + (sr2 - sr1) * curr_synth.lerp_t);
+
+                        } else {
+                            s = sl2;
+                        }
+
+                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                        s = huovilainen_moog(s, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
+
+                        output_l += vl * s;
+                        output_r += vr * s;
+
+                        osc->fp4[k][0] += osc->fp4[k][2];
+                        if (osc->fp4[k][0] >= (psmp->frames - 1.0)) {
+                            osc->fp4[k][0] -= (psmp->frames - 1.0);
+                        }
+                        
+                        osc->fp4[k][1] += osc->fp4[k][3];
+                        if (osc->fp4[k][1] >= (smp->frames - 1.0)) {
+                            osc->fp4[k][1] -= (smp->frames - 1.0);
+                        }
                     }
                 }
             }
@@ -626,6 +691,29 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                     reset_phys_modelling(k, osc, n);
 
                                     osc->triggered = 0;
+                                }
+                            }
+                        } else if (chn_settings->synthesis_method == FAS_WAVETABLE_SYNTH) {
+                            for (j = s; j < e; j += 1) {
+                                struct note *n = &curr_notes[j];
+
+                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                                huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (double)fas_sample_rate);
+
+                                unsigned int psmp_index = n->pwav_index;
+                                unsigned int smp_index = n->wav_index;
+                                struct sample *psmp = &samples[psmp_index];
+                                struct sample *smp = &samples[smp_index];
+
+                                osc->fp4[k][2] = osc->freq / psmp->pitch / ((double)fas_sample_rate / (double)psmp->samplerate);
+                                osc->fp4[k][3] = osc->freq / smp->pitch / ((double)fas_sample_rate / (double)smp->samplerate);
+
+                                // reset filter on note-off
+                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+                                    memset(osc->fp1[k], 0, sizeof(double) * 4);
+                                    memset(osc->fp2[k], 0, sizeof(double) * 4);
+                                    memset(osc->fp3[k], 0, sizeof(double) * 4);
                                 }
                             }
                         }
@@ -1653,6 +1741,9 @@ int main(int argc, char **argv)
 
     if (print_infos != 1) {
         time(&stream_load_begin);
+
+        //char *fas_waves_path = "./waves/";
+        //waves_count = load_waves(&waves, fas_waves_path);
 
         samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type);
         samples_count_m1 = samples_count - 1;

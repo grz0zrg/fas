@@ -3,6 +3,7 @@
 
   #include <math.h>
   #include "inc/samplerate.h"
+  #include "inc/Yin.h"
 
     struct sample {
         float *data; // unused after load
@@ -16,6 +17,7 @@
         int samplerate;
     };
 
+    extern unsigned int load_waves(struct sample **waves, char* directory);
     extern unsigned int load_samples(struct sample **samples, char *directory, unsigned int sample_rate, int converter_type);
     extern void free_samples(struct sample **s, unsigned int samples_count);
 

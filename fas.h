@@ -48,6 +48,9 @@
     char* fas_default_grains_path = "./grains/";
     char* fas_install_default_grains_path = "/usr/local/share/fragment/grains/";
 
+    char* fas_default_waves_path = "./waves/";
+    char* fas_install_default_waves_path = "/usr/local/share/fragment/waves/";
+
     // program settings with associated default value
     unsigned int fas_sample_rate = FAS_SAMPLE_RATE;
     unsigned int fas_frames_per_buffer = FAS_FRAMES_PER_BUFFER;
@@ -84,6 +87,7 @@
     char *fas_render_target = NULL;
     char *fas_render_convert = NULL;
     char *fas_grains_path = NULL;
+    char *fas_waves_path = NULL;
 
     unsigned int fas_drop_counter = 0;
 

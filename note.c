@@ -6,7 +6,7 @@
 
 // fill the notes buffer for each output channels
 // data argument is the raw RGBA values received with the channels count indicated as the first entry
-void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsigned int channels, unsigned int data_frame_size, struct note *note_buffer, unsigned int h, struct oscillator **o, size_t data_length, void *prev_data, void *data) {
+void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsigned int max_density, unsigned int channels, unsigned int data_frame_size, struct note *note_buffer, unsigned int h, struct oscillator **o, size_t data_length, void *prev_data, void *data) {
     struct oscillator *oscs = *o;
 
     double pvl = 0, pvr = 0, pl, pr, pb, pa, l, r;
@@ -166,8 +166,8 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int max_density, unsig
                 _note->psmp_index = pblue_frac_part * (samples_count + 1);
 
                 // for wavetable synthesis
-                _note->wav_index = (int)alpha_int_part % (samples_count + 1);
-                _note->pwav_index = (int)palpha_int_part % (samples_count + 1);
+                _note->wav_index = (int)alpha_int_part % (waves_count + 1);
+                _note->pwav_index = (int)palpha_int_part % (waves_count + 1);
 
                 // for subtractive synthesis
                 _note->cutoff = fabs(blue);

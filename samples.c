@@ -109,7 +109,7 @@ char *create_filepath(char *directory, char *filename) {
     return filepath;
 }
 
-unsigned int load_samples(struct sample **s, char *directory, unsigned int samplerate, int converter_type) {
+unsigned int load_samples(struct sample **s, char *directory, unsigned int samplerate, int converter_type, int smooth_end) {
     int f = 0;
 
     unsigned int samples_count = 0;
@@ -193,17 +193,26 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
 
         // place all folders into a list, they will be fetched next recursively
         if (file.is_dir) {
-            if ((file.name[0] != '.' && file.name[1] != '.' && filename_length != 2)
-             && (file.name[0] != '.' && filename_length != 1)) {
-                char *filepath = create_filepath(current_dir, file.name);
-
-                level_dir->name = filepath;
-                level_dir->next = (struct fas_path *)malloc(sizeof(struct fas_path));
-                level_dir->next->name = NULL;
-                level_dir->next->next = NULL;
-
-                level_dir = level_dir->next;
+            if (filename_length >= 2) {
+                if (file.name[0] == '.' && file.name[1] == '.') {
+                    continue;
+                }
             }
+
+            if (filename_length == 1) {
+                if (file.name[0] == '.') {
+                    continue;
+                }
+            }
+
+            char *filepath = create_filepath(current_dir, file.name);
+
+            level_dir->name = filepath;
+            level_dir->next = (struct fas_path *)malloc(sizeof(struct fas_path));
+            level_dir->next->name = NULL;
+            level_dir->next->next = NULL;
+
+            level_dir = level_dir->next;
         } else if (file.is_reg) {
             char *filepath = create_filepath(current_dir, file.name);
 
@@ -218,9 +227,6 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
             }
 
             free(filepath);
-
-            //printf("%i\n", sfinfo.frames);
-            //printf("%i\n", sfinfo.channels);
 
             samples_count++;
 
@@ -298,7 +304,7 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
             float factor_step = 1.0f / (float)smooth_samples;
             float factor = 0.0f;
 
-            if (smp->frames > (smooth_samples * 4)) {
+            if (smp->frames > (smooth_samples * 4) && smooth_end) {
                 for (i = 0; i < smooth_samples; i ++) {
                     smp->data_l[i] *= factor;
                     smp->data_r[i] *= factor;

@@ -55,7 +55,7 @@ Unlike other synthesizers, the notes data format understood by FAS is entirely p
 
 The RGBA data collected is 1px wide with an user-defined height, the height is mapped to frequencies with an user-defined logarithmic frequency map.
 
-FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, wavetable synthesis (with visuals directing the wavetable content!), by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM) or physical modelling.
+FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, wavetable synthesis, by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM) or physical modelling.
 
 It can be said that FAS/Fragment is a generic image-synth : any RGBA images can be used to produce an infinite variety of sounds by streaming vertical slices of the image to FAS.
 
@@ -172,7 +172,7 @@ PM synthesis is one of the fastest method to generate sounds with Fragment and i
 
 Wavetable synthesis is a sound synthesis technique that employs arbitrary periodic waveforms in the production of musical tones or notes.
 
-Wavetable synthesis use single cycle waveforms / samples loaded from the `grains` folder.
+Wavetable synthesis use single cycle waveforms / samples loaded from the `waves` folder.
 
 The wavetable can be switched with the alpha channel (integral part), a linear interpolation will happen between current & next wavetable upon switch.
 
@@ -214,7 +214,7 @@ Physical modelling is WIP and may be subject to major changes.
 
 ### Samples map
 
-Each samples loaded from the `grains` folder are processed, one of the most important process is the sample pitch mapping, this process try to gather informations or guess the sample pitch to map it correctly onto the user-defined image height when used, in order :
+Each samples loaded from the `grains` or `waves` folder are processed, one of the most important process is the sample pitch mapping, this process try to gather informations or guess the sample pitch to map it correctly onto the user-defined image height when used, in order :
 
 1. from the filename, the filename should contain a specific pattern which indicate the sample pitch such as `A#4` or a frequency between "#" character such as `flute_#440#.wav`
 2. with Yin pitch detection algorithm, this method can be heavily inaccurate and depend on the sample content
@@ -239,7 +239,7 @@ A directly usable implementation with NodeJS of a distributed synthesis relay ca
 
 #### Frames drop
 
-Frames drop can happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues like a slow client, etc.
+Frames drop happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues like a slow client, etc.
 
 When a frame is dropped, FAS hold the audio till a frame is received or the `max_drop` program option is reached, this ensure smooth audio even if the client has issues sending its frames, latency can be heard if too much frames are dropped however.
 
@@ -249,7 +249,7 @@ Only one client is supported at the moment (many can connect but it is not teste
 
 ### What is sent
 
-The server only send the CPU load of the stream at regular interval (adjustable) to the client (double type).
+The server send the CPU load of the stream at regular interval (adjustable) to the client (double type).
 
 ### Offline rendering (planned)
 
@@ -497,6 +497,7 @@ Usage: fas [list_of_parameters]
  * --osc_port 57120 **the OSC server port**
  * --grains_folder ./grains/
  * --granular_max_density 128 **this control how dense grains can be**
+ * --waves_folder ./waves/
  * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**
  * --iface 127.0.0.1 **the listening address**

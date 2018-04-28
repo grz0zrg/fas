@@ -24,7 +24,7 @@
 */
 
 /*
-    Additive/spectral/granular/PM synthesizer built for the Fragment Synthesizer, a web-based image-synth collaborative audio/visual synthesizer.
+    Additive/spectral/granular/Wavetable/PM synthesizer built for the Fragment Synthesizer, a web-based image-synth collaborative audio/visual synthesizer.
 
     This collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound from it in real-time for a smooth experience.
 
@@ -32,7 +32,7 @@
 
     You can tweak this program by passing settings to its arguments, for help : fas --h
 
-    Can be used as a generic additive/spectral/granular/PM synthesizer if you feed it correctly!
+    Can be used as a generic synthesizer if you feed it correctly!
 
     https://www.fsynth.com
 
@@ -515,8 +515,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         unsigned int psmp_index = n->pwav_index;
                         unsigned int smp_index = n->wav_index;
 
-                        struct sample *smp = &samples[smp_index];
-                        struct sample *psmp = &samples[psmp_index];
+                        struct sample *smp = &waves[smp_index];
+                        struct sample *psmp = &waves[psmp_index];
 
                         unsigned int curr_sample_index = osc->fp4[k][1];
                         unsigned int curr_sample_index2 = curr_sample_index + 1;
@@ -534,13 +534,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             float pmu = osc->fp4[k][0] - (float)curr_psample_index;
                             float sl1 = psmp->data_l[curr_psample_index] + pmu * (psmp->data_l[curr_psample_index2] - psmp->data_l[curr_psample_index]);
 
-    /*
-                            float sr1 = psmp->data_r[curr_psample_index] + pmu * (psmp->data_r[curr_psample_index] - psmp->data_r[curr_psample_index]);
-                            float sr2 = smp->data_r[curr_sample_index] + mu * (smp->data_r[curr_sample_index2] - smp->data_r[curr_sample_index]);
-    */
                             s = (sl1 + (sl2 - sl1) * curr_synth.lerp_t);
-    //                        float sr = (sr1 + (sr2 - sr1) * curr_synth.lerp_t);
-
                         } else {
                             s = sl2;
                         }
@@ -557,7 +551,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         if (osc->fp4[k][0] >= (psmp->frames - 1.0)) {
                             osc->fp4[k][0] -= (psmp->frames - 1.0);
                         }
-                        
+
                         osc->fp4[k][1] += osc->fp4[k][3];
                         if (osc->fp4[k][1] >= (smp->frames - 1.0)) {
                             osc->fp4[k][1] -= (smp->frames - 1.0);
@@ -703,8 +697,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                                 unsigned int psmp_index = n->pwav_index;
                                 unsigned int smp_index = n->wav_index;
-                                struct sample *psmp = &samples[psmp_index];
-                                struct sample *smp = &samples[smp_index];
+                                struct sample *psmp = &waves[psmp_index];
+                                struct sample *smp = &waves[smp_index];
 
                                 osc->fp4[k][2] = osc->freq / psmp->pitch / ((double)fas_sample_rate / (double)psmp->samplerate);
                                 osc->fp4[k][3] = osc->freq / smp->pitch / ((double)fas_sample_rate / (double)smp->samplerate);
@@ -1177,7 +1171,7 @@ if (remaining_payload != 0) {
                         memset(freelist_frames_data->data[0].frq, 0, sizeof(float) * hop_size);
                     }
 */
-                    fillNotesBuffer(samples_count_m1, fas_granular_max_density, (*channels), usd->frame_data_size, freelist_frames_data->data, usd->synth_h, &usd->oscillators, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
+                    fillNotesBuffer(samples_count_m1, waves_count_m1, fas_granular_max_density, (*channels), usd->frame_data_size, freelist_frames_data->data, usd->synth_h, &usd->oscillators, usd->expected_frame_length, usd->prev_frame_data, usd->frame_data);
 
                     oscSend(usd->oscillators, freelist_frames_data->data);
 
@@ -1333,8 +1327,13 @@ fflush(stdout);
                         prev_samples_count = samples_count;
 
                         free_samples(&samples, samples_count);
-                        samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type);
+                        free_samples(&waves, waves_count);
+
+                        samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type, 1);
                         samples_count_m1 = samples_count - 1;
+
+                        waves_count = load_samples(&waves, fas_waves_path, fas_sample_rate, fas_samplerate_converter_type, 0);
+                        waves_count_m1 = waves_count - 1;
 
                         audioPlay();
                     } else if (action_type[0] == 1) { // RE-TRIGGER note
@@ -1507,11 +1506,12 @@ int main(int argc, char **argv)
         { "osc_addr",                   required_argument, 0, 18 },
         { "osc_port",                   required_argument, 0, 19 },
         { "grains_folder",              required_argument, 0, 20 },
-        { "smooth_factor",              required_argument, 0, 21 },
-        { "granular_max_density",       required_argument, 0, 22 },
-        { "stream_load_send_delay",     required_argument, 0, 23 },
-        { "max_drop",                   required_argument, 0, 24 },
-        { "samplerate_conv_type",       required_argument, 0, 25 },
+        { "waves_folder",               required_argument, 0, 21 },
+        { "smooth_factor",              required_argument, 0, 22 },
+        { "granular_max_density",       required_argument, 0, 23 },
+        { "stream_load_send_delay",     required_argument, 0, 24 },
+        { "max_drop",                   required_argument, 0, 25 },
+        { "samplerate_conv_type",       required_argument, 0, 26 },
         //{ "render",                   required_argument, 0, 26 },
         //{ "render_convert",           required_argument, 0, 27 },
         { 0, 0, 0, 0 }
@@ -1586,18 +1586,21 @@ int main(int argc, char **argv)
                 fas_grains_path = optarg;
                 break;
             case 21:
-                fas_smooth_factor = strtod(optarg, NULL);
+                fas_waves_path = optarg;
               break;
             case 22:
-                fas_granular_max_density = strtoul(optarg, NULL, 0);
+                fas_smooth_factor = strtod(optarg, NULL);
               break;
             case 23:
-                fas_stream_load_send_delay = strtoul(optarg, NULL, 0);
+                fas_granular_max_density = strtoul(optarg, NULL, 0);
               break;
             case 24:
-              fas_max_drop = strtoul(optarg, NULL, 0);
+                fas_stream_load_send_delay = strtoul(optarg, NULL, 0);
               break;
             case 25:
+              fas_max_drop = strtoul(optarg, NULL, 0);
+              break;
+            case 26:
               fas_samplerate_converter_type = strtol(optarg, NULL, 0);
               break;
             /*case 26:
@@ -1633,6 +1636,31 @@ int main(int argc, char **argv)
         }
 #else
         fas_grains_path = fas_default_grains_path;
+#endif
+    }
+
+    if (fas_waves_path == NULL) {
+#ifdef __unix__
+        struct stat s;
+        int err = stat("/usr/local/share/fragment/waves/", &s);
+        if (err == -1) {
+            if (ENOENT == errno) {
+                fas_waves_path = fas_default_waves_path;
+            } else {
+                printf("stat() error while checking for '/usr/local/share/fragment/waves/' directory.\n");
+                return EXIT_FAILURE;
+            }
+        } else {
+            if (S_ISDIR(s.st_mode)) {
+                fas_waves_path = fas_install_default_waves_path;
+                printf("'/usr/local/share/fragment/waves/' directory detected, default waves folder.\n");
+            } else {
+                printf("'/usr/local/share/fragment/waves/' is not a directory, defaulting to non-install waves path.\n");
+                fas_waves_path = fas_default_waves_path;
+            }
+        }
+#else
+        fas_waves_path = fas_default_waves_path;
 #endif
     }
 
@@ -1742,10 +1770,10 @@ int main(int argc, char **argv)
     if (print_infos != 1) {
         time(&stream_load_begin);
 
-        //char *fas_waves_path = "./waves/";
-        //waves_count = load_waves(&waves, fas_waves_path);
+        waves_count = load_samples(&waves, fas_waves_path, fas_sample_rate, fas_samplerate_converter_type, 0);
+        waves_count_m1 = waves_count - 1;
 
-        samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type);
+        samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type, 1);
         samples_count_m1 = samples_count - 1;
 
         // fas setup
@@ -2000,6 +2028,7 @@ quit:
     free(fas_white_noise_table);
 
     freeEnvelopes(grain_envelope);
+    free_samples(&waves, waves_count);
     free_samples(&samples, samples_count);
 
     #ifdef WITH_ESSENTIA
@@ -2058,6 +2087,7 @@ error:
     free(fas_white_noise_table);
 
     free_samples(&samples, samples_count);
+    free_samples(&waves, waves_count);
 
     free(last_sample_l);
     free(last_sample_r);

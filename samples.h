@@ -18,7 +18,7 @@
     };
 
     extern unsigned int load_waves(struct sample **waves, char* directory);
-    extern unsigned int load_samples(struct sample **samples, char *directory, unsigned int sample_rate, int converter_type);
+    extern unsigned int load_samples(struct sample **samples, char *directory, unsigned int sample_rate, int converter_type, int smooth_end);
     extern void free_samples(struct sample **s, unsigned int samples_count);
 
 #endif

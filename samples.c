@@ -79,6 +79,8 @@ void fix_samplerate (struct sample *sample, unsigned int samplerate, int convert
 }
 
 char *create_filepath(char *directory, char *filename) {
+    int cdir = 0;
+
     size_t filename_length = strlen(filename);
     size_t directory_length = strlen(directory);
 
@@ -88,21 +90,35 @@ char *create_filepath(char *directory, char *filename) {
         directory_length = directory_length + 1;
 
         dir = (char *)malloc(directory_length);
+        if (!dir) {
+            return NULL;
+        }
+
         dir[0] = '\0';
         strcat(dir, directory);
         dir[directory_length - 1] = '/';
         dir[directory_length] = '\0';
+
+        cdir = 1;
     }
 
     size_t filepath_len = strlen(dir) + filename_length;
 
     char *filepath = (char *)malloc(filepath_len + 1);
+    if (!filepath) {
+        if (cdir) {
+            free(dir);
+        }
+
+        return NULL;
+    }
+
     filepath[0] = '\0';
     strcat(filepath, dir);
     strcat(filepath, filename);
     filepath[filepath_len] = '\0';
 
-    if (dir != directory) {
+    if (cdir) {
         free(dir);
     }
 
@@ -207,6 +223,10 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
 
             char *filepath = create_filepath(current_dir, file.name);
 
+            if (!filepath) {
+                continue;
+            }
+
             level_dir->name = filepath;
             level_dir->next = (struct fas_path *)malloc(sizeof(struct fas_path));
             level_dir->next->name = NULL;
@@ -215,6 +235,10 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
             level_dir = level_dir->next;
         } else if (file.is_reg) {
             char *filepath = create_filepath(current_dir, file.name);
+
+            if (!filepath) {
+                continue;
+            }
 
             SNDFILE *audio_file;
             if (!(audio_file = sf_open(filepath, SFM_READ, &sfinfo))) {
@@ -413,6 +437,7 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
                         buffer_length = pow(2, p);
 
                         if (buffer_length > (smp->frames / 8 / 2)) {
+                            Yin_free(yin);
                             break;
                         }
 

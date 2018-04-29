@@ -366,7 +366,7 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
    * go into the directory "build/gcc_gnumake"
    * make
    * "liblfds711.a" can now be found in the "bin" directory
- * Get latest libwebsockets 2.1 package from github
+ * Get latest libwebsockets 2.2.x package from github
    * sudo apt-get install cmake
    * go into the libwebsockets directory
    * mkdir build

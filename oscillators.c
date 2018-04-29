@@ -186,6 +186,7 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
             free(oscs[y].fp1[i]);
             free(oscs[y].fp2[i]);
             free(oscs[y].fp3[i]);
+            free(oscs[y].fp4[i]);
         }
 
         free(oscs[y].harmo_phase_index);
@@ -193,6 +194,7 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
         free(oscs[y].fp1);
         free(oscs[y].fp2);
         free(oscs[y].fp3);
+        free(oscs[y].fp4);
     }
 
     free(oscs);

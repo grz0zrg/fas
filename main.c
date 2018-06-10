@@ -1992,7 +1992,6 @@ int main(int argc, char **argv)
 	}
     } while (1);
 #else
-      sleep(1);
     } while (keep_running);
 #endif
 

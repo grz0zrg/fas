@@ -1476,6 +1476,10 @@ int start_server(void) {
     return 0;
 }
 
+void int_handler(int dummy) {
+    keep_running = 0;
+}
+
 int main(int argc, char **argv)
 {
     int print_infos = 0;
@@ -1977,10 +1981,7 @@ int main(int argc, char **argv)
 
     // websocket stuff
 #ifdef __unix__
-    struct timeval tv = { 0, 0 };
-    fd_set fdset;
-    int select_result;
-    int fd = fileno(stdin);
+    signal(SIGINT, int_handler);
 #endif
     do {
         lws_service(context, 1);
@@ -1991,9 +1992,8 @@ int main(int argc, char **argv)
 	}
     } while (1);
 #else
-        FD_ZERO(&fdset);
-        FD_SET(fd, &fdset);
-    } while ((select_result = select(fd + 1, &fdset, NULL, NULL, &tv)) == 0);
+      sleep(1);
+    } while (keep_running);
 #endif
 
 quit:

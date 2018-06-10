@@ -489,7 +489,7 @@ Usage: fas [list_of_parameters]
  * --smooth_factor 8.0 **this is the samples interpolation factor between frames**
  * --ssl 0
  * --deflate 0
- * --max_drop 32 **this allow smooth audio in the case of frames drop, allow 16 frames drop by default**
+ * --max_drop 60 **this allow smooth audio in the case of frames drop, allow 60 frames drop by default which equal to approximately 1 sec.**
  * --render target.fs **real-time pixels-data offline rendering, this will save pixels data to "target.fs" file**
  * --render_convert target.fs **this will convert the pixels data contained by the .fs file to a .flac file of the same name**
  * --osc_out 0 **you can enable OSC output of notes by setting this argument to 1**
@@ -511,6 +511,6 @@ Usage: fas [list_of_parameters]
 
 Self-signed certificates are provided in case you compile/run it with SSL. (Note: This is useless for many reasons and HTTP should _**ALWAYS**_ be the prefered protocol for online Fragment application, this is explained in [this issue](https://github.com/grz0zrg/fas/issues/1).)
 
-**You can stop the application by pressing any keys while it is running.**
+**You can stop the application by pressing any keys while it is running on Windows or by sending SIGINT (Ctrl+C etc.) under Unix systems.**
 
 https://www.fsynth.com

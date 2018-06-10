@@ -16,6 +16,7 @@
 
     #ifdef __unix__
         #include <sys/stat.h>
+        #include <signal.h>
     #endif
 
     // libraries
@@ -128,6 +129,7 @@
 
     float **grain_envelope;
 
+    int keep_running = 1;
 
     // liblfds related
     enum lfds711_misc_flag overwrite_occurred_flag;

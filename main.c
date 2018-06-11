@@ -1775,10 +1775,14 @@ int main(int argc, char **argv)
         time(&stream_load_begin);
 
         waves_count = load_samples(&waves, fas_waves_path, fas_sample_rate, fas_samplerate_converter_type, 0);
-        waves_count_m1 = waves_count - 1;
+        if (waves_count > 0) {
+            waves_count_m1 = waves_count - 1;
+        }
 
         samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type, 1);
-        samples_count_m1 = samples_count - 1;
+        if (samples_count > 0) {
+            samples_count_m1 = samples_count - 1;
+        }
 
         // fas setup
         note_time = 1 / (double)fas_fps;

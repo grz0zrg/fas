@@ -22,9 +22,10 @@
     // libraries
     #include "portaudio.h"
     #include "libwebsockets.h"
-    #include "inc/liblfds711.h"
+    #include "inc/liblfds720.h"
     #include "lo/lo.h"
     #include "essentia_wrapper.h"
+    #include "lib/lodepng.h"
 
     #ifdef WITH_SOUNDPIPE
       #include "soundpipe.h"
@@ -41,7 +42,7 @@
     #include "usage.h"
 
     struct _freelist_frames_data {
-        struct lfds711_freelist_element fe;
+        struct lfds720_freelist_n_element fe;
 
         struct note *data;
     };
@@ -78,6 +79,7 @@
     unsigned int frame_data_count = FAS_OUTPUT_CHANNELS / 2;
     unsigned int fas_stream_load_send_delay = FAS_STREAM_LOAD_SEND_DELAY;
     unsigned int fas_max_drop = FAS_MAX_DROP;
+    unsigned int fas_render_width = FAS_RENDER_WIDTH;
     int fas_samplerate_converter_type = -1; // SRC_SINC_MEDIUM_QUALITY
     double fas_smooth_factor = FAS_SMOOTH_FACTOR;
     float fas_noise_amount = FAS_NOISE_AMOUNT;
@@ -85,6 +87,7 @@
     char *fas_iface = NULL;
     char *fas_osc_addr = "127.0.0.1";
     char *fas_osc_port = "57120";
+    char *fas_audio_device_name = NULL;
     char *fas_render_target = NULL;
     char *fas_render_convert = NULL;
     char *fas_grains_path = NULL;
@@ -93,6 +96,11 @@
     unsigned int fas_drop_counter = 0;
 
     lo_address fas_lo_addr;
+
+    unsigned long int fas_render_counter = 0;
+    unsigned long int fas_render_frame_counter = 0;
+
+    unsigned char *fas_render_buffer = NULL;
 
     float *fas_sine_wavetable = NULL;
     float *fas_white_noise_table = NULL;
@@ -131,12 +139,13 @@
 
     int keep_running = 1;
 
-    // liblfds related
-    enum lfds711_misc_flag overwrite_occurred_flag;
 
-    struct lfds711_ringbuffer_state rs; // frames related data structure
-    struct lfds711_queue_bss_state synth_commands_queue_state;
-    struct lfds711_freelist_state freelist_frames;
+    // liblfds related
+    enum lfds720_misc_flag overwrite_occurred_flag;
+
+    struct lfds720_ringbuffer_n_state rs; // frames related data structure
+    struct lfds720_queue_bss_state synth_commands_queue_state;
+    struct lfds720_freelist_n_state freelist_frames;
 
     struct _freelist_frames_data *ffd;
     //
@@ -145,14 +154,17 @@
     struct _freelist_frames_data *curr_freelist_frames_data = NULL;
     unsigned long frames_read = 0;
 
-    void q_element_cleanup_callback(struct lfds711_queue_bss_state *qbsss, void *key, void *value) {
+    void q_element_cleanup_callback(struct lfds720_queue_bss_state *qbsss, void *key, void *value) {
 
     }
 
-    void rb_element_cleanup_callback(struct lfds711_ringbuffer_state *rs, void *key, void *value, enum lfds711_misc_flag unread_flag) {
-        if (unread_flag == LFDS711_MISC_FLAG_RAISED) {
+    void rb_element_cleanup_callback(struct lfds720_ringbuffer_n_state *rs, void *key, void *value, enum lfds720_misc_flag unread_flag) {
+        if (unread_flag == LFDS720_MISC_FLAG_RAISED) {
 
         }
     }
+
+    #define _MAX(a,b) ((a) > (b) ? a : b)
+    #define _MIN(a,b) ((a) < (b) ? a : b)
 
 #endif

@@ -1,26 +1,27 @@
 compiler = gcc
 cppcompiler = g++
 x86-64-cross-compiler = /usr/bin/x86_64-w64-mingw32-gcc
-source = main.c tools.c samples.c grains.c oscillators.c wavetables.c note.c usage.c Yin.c filters.c
+source = main.c tools.c samples.c grains.c oscillators.c wavetables.c note.c usage.c lib/lodepng.c lib/Yin.c filters.c
 cpp_source = essentia_wrapper.cpp
-obj = main.o tools.o samples.o grains.o oscillators.o wavetables.o note.o usage.o Yin.o
+obj = main.o tools.o samples.o grains.o oscillators.o wavetables.o note.o usage.o Yin.o lodepng.o
 cpp_obj = essentia_wrapper.o
 cpp_options = -std=c++11
 essentia_libs = libessentia.a -lfftw3 -lfftw3f
-libs = liblfds711.a -lportaudio -lsamplerate -lwebsockets -lrt -lm -lasound -ljack -pthread -lsndfile liblo.so.7.3.0
-static_libs = liblfds711.a libportaudio.a libsamplerate.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread -lsndfile liblo.so.7.3.0
+libs = liblfds720.a -lportaudio -lsamplerate -lwebsockets -lrt -lm -lasound -ljack -pthread -lsndfile
+static_libs = liblfds720.a libportaudio.a libsamplerate.a libwebsockets.a -lz -lrt -lm -lasound -ljack -pthread -lsndfile
 soundpipe_libs = libsoundpipe.a
 ssl_libs = -lssl -lcrypto
+osc_libs = liblo.so.7.3.0
 win_ssl_libs = -lssl -lcrypto -lws2_32 -lgdi32
-win_static_libs = liblfds711.a libwebsockets_static.a libportaudio.a -lm -lz -lws2_32
-win_cross_libs = cross/liblfds711.a cross/libwebsockets_static.a cross/libportaudio.a cross/libzlib_internal.a cross/liblo.a cross/libsamplerate.a cross/libsndfile.a -lm -ldsound -lwinmm -lws2_32 -lstdc++ -lole32 -liphlpapi
+win_static_libs = liblfds720.a libwebsockets_static.a libportaudio.a -lm -lz -lws2_32
+win_cross_libs = cross/liblfds720.a cross/libwebsockets_static.a cross/libportaudio.a cross/libzlib_internal.a cross/liblo.a cross/libsamplerate.a cross/libsndfile.a -lm -ldsound -lwinmm -lws2_32 -lstdc++ -lole32 -liphlpapi
 compat_options = -U__STRICT_ANSI__
 output = fas
-standard_options = -std=c11 -pedantic -D_POSIX_SOURCE
+standard_options = -std=c11 -pedantic -D_POSIX_SOURCE -DALSA_RT
 win_static_options = -static -static-libgcc
 adv_optimization_options = -DFIXED_WAVETABLE
 debug_options = -g -DDEBUG
-include_path = -I lo -I inc -I inc/portaudio
+include_path = -I lo -I inc -I inc/portaudio -I inc/soundpipe
 win_cross_include_path = -I lo -I inc -I inc/portaudio -I inc/soundpipe -I cross
 release_options = -O2
 
@@ -47,11 +48,20 @@ profile:
 release:
 	$(compiler) $(source) $(include_path) ${release_options} ${standard_options} $(libs) -o $(output)
 
+release-osc:
+	$(compiler) $(source) $(include_path) ${release_options} ${standard_options} -DWITH_OSC $(libs) $(osc_lib) -o $(output)
+
 release-static:
 	$(compiler) $(source) $(include_path) ${release_options} ${standard_options} $(static_libs) -o $(output)
 
 release-static-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
+
+release-static-netjack-o:
+	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} -std=c11 -pedantic -D_POSIX_SOURCE $(static_libs) -o $(output)
+
+release-static-osc-o:
+	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} -DWITH_OSC $(static_libs) $(osc_libs) -o $(output)
 
 release-static-sp-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) ${soundpipe_libs} -DWITH_SOUNDPIPE -o $(output)

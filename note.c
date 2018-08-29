@@ -6,8 +6,10 @@
 
 // fill the notes buffer for each output channels
 // data argument is the raw RGBA values received with the channels count indicated as the first entry
-void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsigned int max_density, unsigned int channels, unsigned int data_frame_size, struct note *note_buffer, unsigned int h, struct oscillator **o, size_t data_length, void *prev_data, void *data) {
-    struct oscillator *oscs = *o;
+void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsigned int max_density, 
+                    unsigned int channels, unsigned int data_frame_size, struct note *note_buffer,
+                    unsigned int h, /*struct oscillator **o, */size_t data_length, void *prev_data, void *data) {
+    //struct oscillator *oscs = *o;
 
     double pvl = 0, pvr = 0, pl, pr, pb, pa, l, r;
     unsigned int i, j, frame_data_index = 8;
@@ -18,7 +20,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
 
     unsigned int note_i = 0;
 
-    unsigned int monophonic[1];
+    static unsigned int monophonic[1];
 
     memcpy(&monophonic, &((char *) data)[4], sizeof(monophonic));
 
@@ -172,6 +174,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
                 // for subtractive synthesis
                 _note->cutoff = fabs(blue);
                 _note->res = alpha_frac_part;
+#ifndef POLYBLEP
                 _note->waveform = ((unsigned int)alpha_int_part) % 2;
 
                 if ((((unsigned int)alpha_int_part + 1) % 3) == 0) {
@@ -180,6 +183,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
                 } else {
                     _note->exp = 0;
                 }
+#endif
             }
 
             index += 1;

@@ -17,7 +17,8 @@ Table of Contents
       * [Sampler](#sampler)
       * [Subtractive synthesis](#subtractive-synthesis)
       * [PM synthesis](#pm-synthesis)
-      * [Wavetable synthesis](#wavetable-synthesis)
+      * [Wavetable synthesis (WIP)](#wavetable-synthesis)
+      * [Physical modelling](#physical-modelling)
       * [Samples map](#samples-map)
       * [Performances](#performances)
          * [Raspberry PI](#raspberry-pi)
@@ -128,11 +129,13 @@ Granular synthesis with grain start index of 0 and min/max duration of 1/1 can b
 
 Subtractive synthesis start from harmonically rich waveforms which are then filtered.
 
-The default implementation is fast and use PolyBLED anti-aliased waveforms, an alternative, much slower which use additive synthesis is also available by commenting `POLYBLEP` in `constants.h`.
+The default implementation is fast and use PolyBLEP anti-aliased waveforms, an alternative, much slower which use additive synthesis is also available by commenting `POLYBLEP` in `constants.h`.
 
 There is only one high quality low-pass filter (Moog type) implemented.
 
 There is three type of band-limited waveforms : sawtooth, square, triangle
+
+There is also a noise waveform with PolyBLEP.
 
 This type of synthesis may improve gradually with more waveforms and more filters.
 
@@ -153,7 +156,7 @@ This type of synthesis may improve gradually with more waveforms and more filter
 
 Phase modulation (PM) is a mean to generate sounds by modulating the phase of an oscillator (carrier) from another oscillator (modulator), it is very similar to frequency modulation (FM).
 
-PM synthesis in Fragment use a simple algorithm with one carrier and one modulator, the modulator amplitude and frequency can be set with B or A channel.
+PM synthesis in Fragment use a simple algorithm with one carrier and one modulator (with feedback level), the modulator amplitude and frequency can be set with B or A channel.
 
 PM synthesis is one of the fastest method to generate sounds with Fragment and is able to do re-synthesis.
 
@@ -163,18 +166,20 @@ PM synthesis is one of the fastest method to generate sounds with Fragment and i
 | ---------: | :------------------------------------- |
 |          R | Amplitude value of the LEFT channel    |
 |          G | Amplitude value of the RIGHT channel   |
-|          B | Fractionnal part : Modulator amplitude |
+|          B | Fractionnal part : Modulator amplitude, Integer part : Modulator feedback level [0,1024) |
 |          A | Modulator frequency                    |
 
 **Note** : Monophonic mode PM synthesis is not implemented.
 
-### Wavetable synthesis
+### Wavetable synthesis (WIP)
 
 Wavetable synthesis is a sound synthesis technique that employs arbitrary periodic waveforms in the production of musical tones or notes.
 
 Wavetable synthesis use single cycle waveforms / samples loaded from the `waves` folder.
 
 The wavetable can be switched with the alpha channel (integral part), a linear interpolation will happen between current & next wavetable upon switch.
+
+The wavetable cycle can be controlled through the integral part of the blue channel, which represent the whole samples map.
 
 Wavetable synthesis is fast.
 
@@ -214,18 +219,18 @@ Physical modelling is WIP and may be subject to major changes.
 
 ### Samples map
 
-Each samples loaded from the `grains` or `waves` folder are processed, one of the most important process is the sample pitch mapping, this process try to gather informations or guess the sample pitch to map it correctly onto the user-defined image height when used, in order :
+Each samples loaded from the `grains` or `waves` folder are processed, one of the most important process is the sample pitch mapping, this process try to gather informations or guess the sample pitch to map it correctly onto the user-defined image height, the guessing algorithm is in order :
 
 1. from the filename, the filename should contain a specific pattern which indicate the sample pitch such as `A#4` or a frequency between "#" character such as `flute_#440#.wav`
 2. with Yin pitch detection algorithm, this method can be heavily inaccurate and depend on the sample content
 
 ### Performances
 
-This program is tailored for performances, it is memory intensive (about 1 Gb is needed without samples, about 2 Gb with few samples), most things are pre-allocated with near zero real-time allocations.
+This program is tailored for performances, it is memory intensive (about 512mb is needed without samples, about 1 Gb with few samples), most things are pre-allocated or pre-computed with near zero real-time allocations.
 
 #### Raspberry PI
 
-FAS was executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~700 additive synthesis oscillators can be played simultaneously on the Raspberry Pi with two cores used and minimum Raspbian stuff enabled.
+FAS was executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~500 additive synthesis oscillators can be played simultaneously on the Raspberry Pi with four cores and minimum Raspbian stuff enabled.
 
 #### Distributed/multi-core synthesis
 
@@ -233,9 +238,11 @@ Due to the architecture of FAS, distributed sound synthesis is made possible by 
 
 This is the only way to exploit multiple cores on the same machine.
 
-This need a relay program which will link each instances with the client and distribute each notes to instances based on a distribution algorithm.
+This need a relay program which will link each server instances with the client and distribute each events to instances based on a distribution algorithm.
 
 A directly usable implementation with NodeJS of a distributed synthesis relay can be found [here](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
+
+This feature was successfully used with cheap small boards clusters and [NetJack](https://github.com/jackaudio/jackaudio.github.com/wiki/WalkThrough_User_NetJack2) in a setup with 10 quad-core ARM boards + i7 (48 cores) running, linked to the NetJack driver, it is important that the relay program run on a powerfull board with (most importantly) a good Gigabit Ethernet controller to reduce latency issues.
 
 #### Frames drop
 
@@ -251,17 +258,17 @@ Only one client is supported at the moment (many can connect but it is not teste
 
 The server send the CPU load of the stream at regular interval (adjustable) to the client (double type).
 
-### Offline rendering (planned)
+### Offline rendering (WIP)
 
 FAS support real-time rendering of the pixels data, the pixels data is compressed on-the-fly into a single file, FAS can then do offline processing and be used again to convert the pixels data into an audio .flac file, this  ensure professional quality audio output.
 
 ### Future
 
-The ongoing development is to improve synthesis methods and implement new type of synthesis like spectral with the help of the essentia framework (a C essentia wrapper is available) or Soundpipe library.
+The ongoing development is to improve synthesis algorithms and implement new type of synthesis like spectral with the help of the essentia framework (a C essentia wrapper is available).
 
 ### OSC
 
-FAS support OSC output of pixels data on the channel "/fragment" with data type "idff" and data (in order) "osc index", "osc frequency", "osc amplitude L value", "osc amplitude R value"
+FAS support OSC output of pixels data if the flag "WITH_OSC" is defined at compile time, OSC data is sent on the channel "/fragment" with data type "idff" and data (in order) "osc index", "osc frequency", "osc amplitude L value", "osc amplitude R value"
 
 With OSC you can basically do whatever you want with the pixels data, feeding SuperCollider synths for example, sending the data as an OSC bundle is WIP.
 
@@ -278,8 +285,6 @@ Additive synthesis is wavetable-based.
 Real-time resampling is done with a simple linear method, granular synthesis can also be resampled by using cubic interpolation method (uncomment the line in `constants.h`) which is slower than linear.
 
 All synthesis algorithms (minus filters and [PolyBLEP](http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/)) are customs.
-
-[Soundpipe library](https://github.com/PaulBatchelor/Soundpipe) modules are optionally used (Note : WIP), this provide some high quality and battle tested algorithms and fx
 
 This program is tested with Valgrind and should be free of memory leaks.
 
@@ -323,14 +328,16 @@ Synth channels settings, packet identifier 3 :
 
 ```c
 struct _synth_chn_settings {
-    unsigned int synthesis_method; // 0 = additive, 1 = spectral, 2 = granular, 3 = FM/PM, 4 = subtractive
+    unsigned int synthesis_method; // 0 = additive, 1 = spectral (WIP), 2 = granular, 3 = FM/PM, 4 = subtractive, 5 = Karplus, 6 = Wavetable
     int env_type; // granular envelope type for this channel (there is 13 types of envelopes)
-    double p1; // granular grain duration (min. bound) or subtractive filter drive
+    // generic parameters (only used by granular synthesis right now)
+    double p1; // granular grain duration (min. bound)
     double p2; // granular grain duration (max. bound)
+    double p3; // granular grain spread
 };
 ```
 
-for every channels.
+*for every channels.*
 
 Server actions, packet identifier 4 :
 
@@ -345,7 +352,7 @@ Requirements :
  * [PortAudio](http://www.portaudio.com/download.html)
  * [liblfds](http://liblfds.org/)
  * [libwebsockets](https://libwebsockets.org/)
- * [liblo](http://liblo.sourceforge.net/)
+ * [liblo](http://liblo.sourceforge.net/) (Optional)
  * libsamplerate
  * [Soundpipe](https://github.com/PaulBatchelor/Soundpipe) (Optional)
 
@@ -353,7 +360,7 @@ The granular synthesis part make use of [libsndfile](https://github.com/erikd/li
 
 Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
 
- * Get latest PortAudio v19 package
+ * Get latest [PortAudio v19 package](http://www.portaudio.com/download.html)
    * sudo apt-get install libasound-dev jackd qjackctl libjack-jackd2-dev
    * uncompress, go into the directory
    * ./configure
@@ -361,13 +368,13 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
    * make
    * sudo make install
    * the static library can now be found at "lib/.libs/libportaudio.a"
- * Get latest liblfds 7.1.1 package
+ * Get latest [liblfds 7.1.1 package](http://liblfds.org/)
    * uncompress, go into the directory "liblfds711"
    * go into the directory "build/gcc_gnumake"
    * make
    * "liblfds711.a" can now be found in the "bin" directory
- * Get latest libwebsockets 2.2.x package from github
-   * sudo apt-get install cmake
+ * Get latest [libwebsockets 2.2.x package](https://libwebsockets.org/) from github
+   * sudo apt-get install cmake zlib1g-dev
    * go into the libwebsockets directory
    * mkdir build
    * cd build
@@ -375,14 +382,18 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
    * make
    * sudo make install
    * "libwebsockets.a" can now be found in the "build/lib" directory
- * Get latest [liblo package](http://liblo.sourceforge.net/)
+ * Get latest [liblo package](http://liblo.sourceforge.net/) (only needed if WITH_OSC is defined / use OSC makefile rule)
    * uncompress, go into the directory "liblo-0.29"
    * ./configure
-   * copy the library found in "src/.libs/liblo.so.7.3.0" to FAS root folder
+   * make
+   * copy all libraries found in "src/.libs/" to FAS root folder
    * sudo make install
 * Get latest [libsamplerate](http://www.mega-nerd.com/SRC/download.html)
+  * you may need to specify the build type on configure (example for NanoPi NEO2 : ./configure --build=arm-linux-gnueabihf)
+  * you may need to install libfftw : `sudo apt-get install libfftw3-dev`
   * uncompress, go into the directory "libsamplerate-0.1.9"
   * ./configure
+  * make
   * copy the library found in "src/.libs/libsamplerate.a" to FAS root folder
 * Get latest [Soundpipe](https://github.com/PaulBatchelor/Soundpipe)
   * make
@@ -429,7 +440,7 @@ For those which are using cmake, a custom cmake toolchain file must be used
 
 `make`
 
-##### With liblo
+##### With liblo (WITH_OSC only)
 
 `cmake -DCMAKE_TOOLCHAIN_FILE=~/toolchain.cmake ../cmake`
 
@@ -453,9 +464,15 @@ Profile (benchmark) : **make profile**
 
 Release : **make release**
 
+Release with OSC : **make release-osc**
+
 Statically linked : **make release-static**
 
+Statically linked, with OSC and advanced optimizations : **make release-static-osc-o**
+
 Statically linked and advanced optimizations : **make release-static-o**
+
+Statically linked, advanced optimizations, netjack without ALSA : **release-static-netjack-o**
 
 Statically linked + Soundpipe and advanced optimizations : **make release-static-sp-o**
 
@@ -501,7 +518,7 @@ Usage: fas [list_of_parameters]
  * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**
  * --iface 127.0.0.1 **the listening address**
- * --device -1 **PortAudio audio device index (informations about audio devices are displayed when the app. start)**
+ * --device -1 **PortAudio audio device index or full name (informations about audio devices are displayed when the app. start)**
  * --output_channels 2 **stereo pair**
  * --alsa_realtime_scheduling 0 **Linux only**
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio will be delayed**

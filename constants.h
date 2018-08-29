@@ -48,6 +48,7 @@
     #define FAS_GRANULAR_MAX_DENSITY 128
     #define FAS_STREAM_LOAD_SEND_DELAY 2
     #define FAS_MAX_DROP 60 // 1 second
+    #define FAS_RENDER_WIDTH 4096
 
     //#define FAS_USE_CUBIC_INTERP
     #define POLYBLEP

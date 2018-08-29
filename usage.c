@@ -18,7 +18,8 @@ void print_usage() {
     printf("  --rx_buffer_size %u\n", FAS_RX_BUFFER_SIZE);
     printf("  --port %u\n", FAS_PORT);
     printf("  --max_drop %u\n", FAS_MAX_DROP);
-    //printf("  --render main.fs\n");
+    printf("  --render my_session\n");
+    printf("  --render_width %u\n", FAS_RENDER_WIDTH);
     //printf("  --render_convert main.fs\n");
     printf("  --iface 127.0.0.1\n");
     printf("  --device -1\n");

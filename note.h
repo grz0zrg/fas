@@ -2,6 +2,7 @@
 #define _FAS_NOTE_H_
 
   #include <math.h>
+  #include "constants.h"
   #include "oscillators.h"
 
     // hold notes data, some are pre-computed for specific type of sound synthesis
@@ -25,8 +26,11 @@
         // subtractive related
         double cutoff;
         double res;
+
+#ifndef POLYBLEP
         unsigned int waveform;
         double exp;
+#endif
 
         // granular related
         unsigned int density;
@@ -43,6 +47,8 @@
         //float *pha;
     };
 
-    extern void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsigned int max_density, unsigned int channels, unsigned int data_frame_size, struct note *note_buffer, unsigned int h, struct oscillator **o, size_t data_length, void *prev_data, void *data);
+    extern void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsigned int max_density,
+                                unsigned int channels, unsigned int data_frame_size, struct note *note_buffer,
+                                unsigned int h/*, struct oscillator **o*/, size_t data_length, void *prev_data, void *data);
 
 #endif

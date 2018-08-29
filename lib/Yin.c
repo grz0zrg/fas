@@ -1,6 +1,6 @@
 #include <stdint.h> /* For standard interger types (int16_t) */
 #include <stdlib.h> /* For call to malloc */
-#include "inc/Yin.h"
+#include "Yin.h"
 
 /* ------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------- PRIVATE FUNCTIONS

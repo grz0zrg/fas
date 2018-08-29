@@ -3,7 +3,7 @@
 
   #include <math.h>
   #include "inc/samplerate.h"
-  #include "inc/Yin.h"
+  #include "lib/Yin.h"
 
     struct sample {
         float *data; // unused after load

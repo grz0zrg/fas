@@ -35,27 +35,28 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
 
         osc->freq = frequency;
 
-        // == substrative specials
-        partials = fmin((max_frequency - frequency) / frequency, 128) + 1;
-
-        osc->max_harmonics = partials;
-        // ==
-
 #ifdef FIXED_WAVETABLE
         osc->phase_index = malloc(sizeof(uint16_t) * frame_data_count);
-        osc->harmo_phase_step = malloc(sizeof(uint16_t) * (partials + 1));
-        osc->harmo_phase_index = malloc(sizeof(uint16_t *) * frame_data_count);
-
         osc->phase_index2 = malloc(sizeof(uint16_t) * frame_data_count);
 #else
         osc->phase_index = malloc(sizeof(unsigned int) * frame_data_count);
-        osc->harmo_phase_step = malloc(sizeof(unsigned int) * (partials + 1));
-        osc->harmo_phase_index = malloc(sizeof(unsigned int *) * frame_data_count);
-
         osc->phase_index2 = malloc(sizeof(unsigned int) * frame_data_count);
 #endif
 
         osc->fphase = malloc(sizeof(double) * frame_data_count);
+
+        // subtractive with additive synthesis
+#ifndef POLYBLEP
+        partials = fmin((max_frequency - frequency) / frequency, 128) + 1;
+        osc->max_harmonics = partials;
+
+    #ifdef FIXED_WAVETABLE
+        osc->harmo_phase_step = malloc(sizeof(uint16_t) * (partials + 1));
+        osc->harmo_phase_index = malloc(sizeof(uint16_t *) * frame_data_count);
+    #else
+        osc->harmo_phase_step = malloc(sizeof(unsigned int) * (partials + 1));
+        osc->harmo_phase_index = malloc(sizeof(unsigned int *) * frame_data_count);
+    #endif
 
         osc->harmonics = malloc(sizeof(float) * ((partials + 1) * 2));
 
@@ -70,11 +71,13 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
                 tri_sign = -tri_sign;
             }
         }
+#endif
+        // ==
+
         osc->fp1 = malloc(sizeof(double *) * frame_data_count);
         osc->fp2 = malloc(sizeof(double *) * frame_data_count);
         osc->fp3 = malloc(sizeof(double *) * frame_data_count);
         osc->fp4 = malloc(sizeof(double *) * frame_data_count);
-        // ==
 
         osc->triggered = 0;
 
@@ -95,22 +98,24 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
 
             osc->fphase[i] = 0;
 
-            // == substrative specials
-#ifdef FIXED_WAVETABLE
+            // subtractive with additive synthesis
+#ifndef POLYBLEP
+    #ifdef FIXED_WAVETABLE
             osc->harmo_phase_index[i] = malloc(sizeof(uint16_t) * (partials + 1));
-#else
+    #else
             osc->harmo_phase_index[i] = malloc(sizeof(unsigned int) * (partials + 1));
-#endif
+    #endif
 
             for (k = 0; k <= partials; k += 1) {
                 osc->harmo_phase_index[i][k] = rand() / (double)RAND_MAX * wavetable_size;
             }
+#endif
+            // ==
 
             osc->fp1[i] = calloc(6, sizeof(double));
             osc->fp2[i] = calloc(6, sizeof(double));
             osc->fp3[i] = calloc(6, sizeof(double));
             osc->fp4[i] = calloc(6, sizeof(double));
-            // ==
         }
 
         osc->phase_step = phase_step;
@@ -176,20 +181,27 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
         free(oscs[y].noise_index);
         free(oscs[y].pvalue);
         free(oscs[y].buffer);
-        free(oscs[y].harmo_phase_step);
 
         free(oscs[y].phase_index2);
+
+#ifndef POLYBLEP
+        free(oscs[y].harmo_phase_step);
         free(oscs[y].harmonics);
+#endif
 
         for (i = 0; i < frame_data_count; i += 1) {
+#ifndef POLYBLEP
             free(oscs[y].harmo_phase_index[i]);
+#endif
             free(oscs[y].fp1[i]);
             free(oscs[y].fp2[i]);
             free(oscs[y].fp3[i]);
             free(oscs[y].fp4[i]);
         }
 
+#ifndef POLYBLEP
         free(oscs[y].harmo_phase_index);
+#endif
 
         free(oscs[y].fp1);
         free(oscs[y].fp2);

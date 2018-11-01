@@ -2074,10 +2074,10 @@ int main(int argc, char **argv)
         malloc(sizeof(struct lfds720_queue_bss_element) * fas_commands_queue_size);
 #else
     struct lfds720_ringbuffer_n_element *re =
-        aligned_alloc(fas_frames_queue_size + 1, sizeof(struct lfds720_ringbuffer_n_element) * (fas_frames_queue_size + 1));
+        aligned_alloc(LFDS720_PAL_ATOMIC_ISOLATION_LENGTH_IN_BYTES, sizeof(struct lfds720_ringbuffer_n_element) * (fas_frames_queue_size + 1));
 
     struct lfds720_queue_bss_element *synth_commands_queue_element =
-        aligned_alloc(fas_commands_queue_size, sizeof(struct lfds720_queue_bss_element) * fas_commands_queue_size);
+        aligned_alloc(LFDS720_PAL_ATOMIC_ISOLATION_LENGTH_IN_BYTES, sizeof(struct lfds720_queue_bss_element) * fas_commands_queue_size);
 #endif
 
     if (re == NULL) {

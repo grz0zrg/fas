@@ -27,8 +27,6 @@
     #include "lo/lo.h"
     #include "lib/lodepng.h"
     #include "essentia_wrapper.h"
-    #include "lib/cmp/cmp.h"
-    #include "lib/cmp/cmp_mem_access.h"
 
     CEssentia cessentia;
 
@@ -156,7 +154,7 @@
     struct _synth_fx **synth_fx = NULL; 
 
     int clients = 0;
-    
+
     int keep_running = 1;
 
 

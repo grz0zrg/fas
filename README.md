@@ -525,6 +525,10 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
   * make
   * "libsoundpipe.a" can now be found in the Soundpipe directory
 
+Copy include files of portaudio / soundpipe / libwebsocket into "inc" directory.
+
+FAS now use liblfds720 which is not yet released thus you may have to use a wrapper to liblfds711 which can be found [here](https://github.com/grz0zrg/fas/issues/4#issuecomment-457007224)
+
 Copy the \*.a into "fas" root directory then compile by using one of the rule below (recommended rule for Linux and similar is `release-static-o` **without** Soundpipe and `release-static-sp-o` **with** Soundpipe).
 
 Recommended launch parameters with HiFiBerry DAC+ :

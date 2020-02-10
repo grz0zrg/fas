@@ -9,6 +9,7 @@
     #include <strings.h>
     #include <stdatomic.h>
     #include <time.h>
+    #include <stdbool.h>
 
     #if defined(_WIN32) || defined(_WIN64)
         #include <conio.h>
@@ -24,15 +25,22 @@
     #include "libwebsockets.h"
     #include "inc/liblfds720.h"
     #include "lo/lo.h"
-    #include "essentia_wrapper.h"
     #include "lib/lodepng.h"
+    #include "essentia_wrapper.h"
+    #include "lib/cmp/cmp.h"
+    #include "lib/cmp/cmp_mem_access.h"
+
+    CEssentia cessentia;
 
     #ifdef WITH_SOUNDPIPE
       #include "soundpipe.h"
+
+      sp_data *sp = NULL;
     #endif
 
     // fas
     #include "tools.h"
+    #include "effects.h"
     #include "types.h"
     #include "grains.h"
     #include "oscillators.h"
@@ -52,6 +60,9 @@
 
     char* fas_default_waves_path = "./waves/";
     char* fas_install_default_waves_path = "/usr/local/share/fragment/waves/";
+
+    char *fas_default_impulses_path = "./impulses/";
+    char *fas_install_default_impulses_path = "/usr/local/share/fragment/impulses/";
 
     // program settings with associated default value
     unsigned int fas_sample_rate = FAS_SAMPLE_RATE;
@@ -92,6 +103,7 @@
     char *fas_render_convert = NULL;
     char *fas_grains_path = NULL;
     char *fas_waves_path = NULL;
+    char *fas_impulses_path = NULL;
 
     unsigned int fas_drop_counter = 0;
 
@@ -135,8 +147,16 @@
     unsigned int waves_count = 0;
     unsigned int waves_count_m1 = 0;
 
+    struct sample *impulses = NULL;
+    unsigned int impulses_count = 0;
+    unsigned int impulses_count_m1 = 0;
+
     float **grain_envelope;
 
+    struct _synth_fx **synth_fx = NULL; 
+
+    int clients = 0;
+    
     int keep_running = 1;
 
 

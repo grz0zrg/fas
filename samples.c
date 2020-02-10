@@ -125,7 +125,16 @@ char *create_filepath(char *directory, char *filename) {
     return filepath;
 }
 
-unsigned int load_samples(struct sample **s, char *directory, unsigned int samplerate, int converter_type, int smooth_end) {
+unsigned int load_samples(
+#ifdef WITH_SOUNDPIPE
+        sp_data *sp,
+#endif
+        struct sample **s, 
+        char *directory, 
+        unsigned int samplerate, 
+        int converter_type, 
+        int pitch_detection, 
+        int smooth_end) {
     int f = 0;
 
     unsigned int samples_count = 0;
@@ -347,6 +356,15 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
 
             free(smp->data);
 
+#ifdef WITH_SOUNDPIPE
+            // embed sample infos into sp_ftbl
+            sp_ftbl_bind(sp, &smp->ftbl, smp->data_l, sfinfo.frames);
+#endif
+
+            if (pitch_detection == 0) {
+                goto close;
+            }
+
             // make room to copy filename
             char *filename = calloc(filename_length + 1, sizeof(char));
 
@@ -461,16 +479,20 @@ unsigned int load_samples(struct sample **s, char *directory, unsigned int sampl
 
                 if (smp->pitch < 8) {
                     smp->pitch = 440. * 4.;
-                    printf("Sample %i '%s' loaded, fundamental pitch was not detected, 440hz as default.\n", samples_count, file.name);
+                    printf("Fundamental pitch was not detected, 440hz as default.\n");
                 } else {
-                    printf("Sample %i '%s' loaded, fundamental pitch is %fhz with %i%% uncertainty\n", samples_count, file.name, smp->pitch / 4, (int)(100 * uncertainty));
+                    printf("Fundamental pitch is %fhz with %i%% uncertainty\n", smp->pitch / 4, (int)(100 * uncertainty));
                 }
 
                 free(yin_samples);
                 free(st_samples);
             } else {
-                printf("Sample %i '%s' loaded, pitch %fhz was detected.\n", samples_count, file.name, smp->pitch);
+                printf("Pitch %fhz was detected.\n", smp->pitch);
             }
+
+        close:
+
+            printf("Sample %i '%s' loaded.\n", samples_count, file.name);
 
             sf_close(audio_file);
         }
@@ -501,9 +523,14 @@ void free_samples(struct sample **s, unsigned int samples_count) {
     struct sample *samples = *s;
 
     for (i = 0; i < samples_count; i++) {
-      struct sample *smp = &samples[i];
-      free(smp->data_l);
-      free(smp->data_r);
+        struct sample *smp = &samples[i];
+
+#ifdef WITH_SOUNDPIPE
+        sp_ftbl_destroy(&smp->ftbl);
+#endif
+
+        free(smp->data_l);
+        free(smp->data_r);
     }
     free(samples);
 }

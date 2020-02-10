@@ -14,21 +14,43 @@
         double gain_lr;
     };
 
+    // fx settings
+    struct _synth_fx_settings {
+        int fx_id;
+
+        int ip0;
+        int ip1;
+        int ip2;
+        int ip3;
+
+        double fp0;
+        double fp1;
+        double fp2;
+        double fp3;
+        double fp4;
+        double fp5;
+    };
+
+    // channel settings
     struct _synth_chn_settings {
         unsigned int synthesis_method;
-        int env_type;
+        int p0;
         double p1;
         double p2;
         double p3;
+
+        // channel fx
+        struct _synth_fx_settings fx[FAS_MAX_FX_SLOTS];
     };
 
+    // synth. data
     struct _synth {
         struct _synth_settings *settings;
         struct _synth_gain *gain;
         struct oscillator *oscillators;
         struct grain *grains;
         struct _synth_chn_settings *chn_settings;
-
+        
         int note;
         int chn;
 
@@ -47,7 +69,9 @@
         size_t packet_len;
         int packet_skip;
 
-        // contain the current and previously processed audio-frame data
+        int connected;
+
+        // current / previous audio-frame data
         char *frame_data;
         char *prev_frame_data;
         size_t expected_frame_length;
@@ -55,7 +79,7 @@
 
         unsigned int frame_data_size;
 
-        // contain user session related synth. data
+        // user session related synth. data
         struct _synth *synth;
 
         struct oscillator *oscillators;

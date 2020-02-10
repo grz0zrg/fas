@@ -4,6 +4,10 @@
     #include <stdint.h>
     #include <math.h>
 
+#ifdef WITH_SOUNDPIPE
+    #include "soundpipe.h"
+#endif
+
     #include "constants.h"
     #include "tools.h"
 
@@ -52,10 +56,17 @@
 
         uint16_t *noise_index;
 
-
+#ifdef WITH_SOUNDPIPE
+        void ***sp_filters;
+        void ***sp_gens;
+#endif
     };
 
+#ifdef WITH_SOUNDPIPE
+    extern struct oscillator *createOscillators(sp_data *spd, unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int wavetable_size, unsigned int frame_data_count);
+#else
     extern struct oscillator *createOscillators(unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int wavetable_size, unsigned int frame_data_count);
+#endif
     extern struct oscillator *freeOscillators(struct oscillator **oscs, unsigned int n, unsigned int frame_data_count);
 
     extern struct oscillator *copyOscillators(struct oscillator **oscs, unsigned int n, unsigned int frame_data_count);

@@ -4,7 +4,16 @@
 
 #include "oscillators.h"
 
-struct oscillator *createOscillators(unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int wavetable_size, unsigned int frame_data_count) {
+struct oscillator *createOscillators(
+#ifdef WITH_SOUNDPIPE
+    sp_data *spd,
+#endif
+    unsigned int n,
+    double base_frequency,
+    unsigned int octaves,
+    unsigned int sample_rate,
+    unsigned int wavetable_size,
+    unsigned int frame_data_count) {
     struct oscillator *oscillators = (struct oscillator*)malloc(n * sizeof(struct oscillator));
 
     if (oscillators == NULL) {
@@ -73,7 +82,6 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
         }
 #endif
         // ==
-
         osc->fp1 = malloc(sizeof(double *) * frame_data_count);
         osc->fp2 = malloc(sizeof(double *) * frame_data_count);
         osc->fp3 = malloc(sizeof(double *) * frame_data_count);
@@ -88,10 +96,69 @@ struct oscillator *createOscillators(unsigned int n, double base_frequency, unsi
 
         osc->pvalue = malloc(sizeof(float) * frame_data_count);
 
+#ifdef WITH_SOUNDPIPE
+        osc->sp_filters = malloc(sizeof(void **) * frame_data_count);
+        osc->sp_gens = malloc(sizeof(void **) * frame_data_count);
+#endif
+
         for (i = 0; i < frame_data_count; i += 1) {
             osc->phase_index[i] = rand() / (double)RAND_MAX * wavetable_size;
             osc->noise_index[i] = rand() / (double)RAND_MAX * wavetable_size;
             osc->pvalue[i] = 0;
+
+#ifdef WITH_SOUNDPIPE
+            // Soundpipe filters
+            osc->sp_filters[i] = malloc(sizeof(void *) * SP_OSC_FILTERS);
+
+            sp_moogladder_create((sp_moogladder **)&osc->sp_filters[i][SP_MOOG_FILTER]);
+            sp_moogladder_init(spd, osc->sp_filters[i][SP_MOOG_FILTER]);
+
+            sp_diode_create((sp_diode **)&osc->sp_filters[i][SP_DIODE_FILTER]);
+            sp_diode_init(spd, osc->sp_filters[i][SP_DIODE_FILTER]);
+
+            sp_wpkorg35_create((sp_wpkorg35 **)&osc->sp_filters[i][SP_KORG35_FILTER]);
+            sp_wpkorg35_init(spd, osc->sp_filters[i][SP_KORG35_FILTER]);
+
+            sp_streson_create((sp_streson **)&osc->sp_filters[i][SP_STRES_FILTER]);
+            sp_streson_init(spd, osc->sp_filters[i][SP_STRES_FILTER]);
+
+            sp_lpf18_create((sp_lpf18 **)&osc->sp_filters[i][SP_LPF18_FILTER]);
+            sp_lpf18_init(spd, osc->sp_filters[i][SP_LPF18_FILTER]);
+
+            sp_fofilt_create((sp_fofilt **)&osc->sp_filters[i][SP_FORMANT_FILTER]);
+            sp_fofilt_init(spd, osc->sp_filters[i][SP_FORMANT_FILTER]);
+
+            sp_fofilt *fofilt = (sp_fofilt *)osc->sp_filters[i][SP_FORMANT_FILTER];
+            fofilt->freq = frequency;
+
+            sp_mode_create((sp_mode **)&osc->sp_filters[i][SP_MODE_FILTER]);
+            sp_mode_init(spd, osc->sp_filters[i][SP_MODE_FILTER]);
+
+            sp_mode *mode = (sp_mode *)osc->sp_filters[i][SP_MODE_FILTER];
+            mode->freq = frequency;
+
+            // Soundpipe generator
+            osc->sp_gens[i] = malloc(sizeof(void *) * SP_OSC_GENS);
+
+            sp_noise_create((sp_noise **)&osc->sp_gens[i][SP_WHITE_NOISE_GENERATOR]);
+            sp_noise_init(spd, osc->sp_gens[i][SP_WHITE_NOISE_GENERATOR]);
+
+            sp_pinknoise_create((sp_pinknoise **)&osc->sp_gens[i][SP_PINK_NOISE_GENERATOR]);
+            sp_pinknoise_init(spd, osc->sp_gens[i][SP_PINK_NOISE_GENERATOR]);
+
+            sp_brown_create((sp_brown **)&osc->sp_gens[i][SP_BROWN_NOISE_GENERATOR]);
+            sp_brown_init(spd, osc->sp_gens[i][SP_BROWN_NOISE_GENERATOR]);
+
+            sp_drip_create((sp_drip **)&osc->sp_gens[i][SP_DRIP_GENERATOR]);
+            sp_drip_init(spd, osc->sp_gens[i][SP_DRIP_GENERATOR], 0.09f);
+
+            sp_drip *drip = (sp_drip *)osc->sp_gens[i][SP_DRIP_GENERATOR];
+            drip->amp = 1.f;
+            drip->freq = frequency;
+
+            sp_pdhalf_create((sp_pdhalf **)&osc->sp_gens[i][SP_PD_GENERATOR]);
+            sp_pdhalf_init(spd, osc->sp_gens[i][SP_PD_GENERATOR]);
+#endif
 
             // == PM
             osc->phase_index2[i] = rand() / (double)RAND_MAX * wavetable_size;
@@ -174,7 +241,7 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
         return NULL;
     }
 
-    int y = 0, i = 0;
+    int y = 0, i = 0, k = 0;
     for (y = 0; y < n; y += 1) {
         free(oscs[y].phase_index);
         free(oscs[y].fphase);
@@ -197,6 +264,25 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
             free(oscs[y].fp2[i]);
             free(oscs[y].fp3[i]);
             free(oscs[y].fp4[i]);
+#ifdef WITH_SOUNDPIPE
+            sp_moogladder_destroy((sp_moogladder **)&oscs[y].sp_filters[i][SP_MOOG_FILTER]);
+            sp_diode_destroy((sp_diode **)&oscs[y].sp_filters[i][SP_DIODE_FILTER]);
+            sp_wpkorg35_destroy((sp_wpkorg35 **)&oscs[y].sp_filters[i][SP_KORG35_FILTER]);
+            sp_streson_destroy((sp_streson **)&oscs[y].sp_filters[i][SP_STRES_FILTER]);
+            sp_lpf18_destroy((sp_lpf18 **)&oscs[y].sp_filters[i][SP_LPF18_FILTER]);
+            sp_fofilt_destroy((sp_fofilt **)&oscs[y].sp_filters[i][SP_FORMANT_FILTER]);
+            sp_mode_destroy((sp_mode **)&oscs[y].sp_filters[i][SP_MODE_FILTER]);
+
+            free(oscs[y].sp_filters[i]);
+
+            sp_noise_destroy((sp_noise **)&oscs[y].sp_gens[i][SP_WHITE_NOISE_GENERATOR]);
+            sp_pinknoise_destroy((sp_pinknoise **)&oscs[y].sp_gens[i][SP_PINK_NOISE_GENERATOR]);
+            sp_brown_destroy((sp_brown **)&oscs[y].sp_gens[i][SP_BROWN_NOISE_GENERATOR]);
+            sp_drip_destroy((sp_drip **)&oscs[y].sp_gens[i][SP_DRIP_GENERATOR]);
+            sp_pdhalf_destroy((sp_pdhalf **)&oscs[y].sp_gens[i][SP_PD_GENERATOR]);
+            
+            free(oscs[y].sp_gens[i]);
+#endif
         }
 
 #ifndef POLYBLEP
@@ -207,6 +293,11 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
         free(oscs[y].fp2);
         free(oscs[y].fp3);
         free(oscs[y].fp4);
+
+#ifdef WITH_SOUNDPIPE
+        free(oscs[y].sp_filters);
+        free(oscs[y].sp_gens);
+#endif
     }
 
     free(oscs);

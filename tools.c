@@ -217,3 +217,7 @@ void freeEnvelopes(float **envs) {
         free(envs);
     }
 }
+
+int isPowerOfTwo(unsigned int x) {
+    return (x != 0) && ((x & (x - 1)) == 0);
+}

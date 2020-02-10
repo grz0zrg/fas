@@ -1,7 +1,7 @@
-Fragment : Additive/Spectral/Granular/Subtractive/PM/Wavetable/Physical modelling synthesizer
+Fragment : Additive/Spectral/Granular/Subtractive/PM/PD/Wavetable/Physical modelling synthesizer
 =====
 
-Raw additive/subtractive/spectral/granular/PM/Wavetable/Physical modelling synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
+Raw synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
 
 This program should compile on most platforms!
 
@@ -19,7 +19,11 @@ Table of Contents
       * [PM synthesis](#pm-synthesis)
       * [Wavetable synthesis (WIP)](#wavetable-synthesis)
       * [Physical modelling](#physical-modelling)
+      * [Formant synthesis](#formant-synthesis)
+      * [Phase Distorsion synthesis](#phase-distorsion-synthesis)
+      * [Modal synthesis](#modal-synthesis)
       * [Samples map](#samples-map)
+      * [Effects](#effects)
       * [Performances](#performances)
          * [Raspberry PI](#raspberry-pi)
          * [Distributed/multi-core synthesis](#distributed/multi-core-synthesis)
@@ -37,9 +41,24 @@ Table of Contents
 
 ## About
 
-Fragment Audio Server (FAS) is a pixels-based additive, spectral, granular, subtractive, wavetable and phase modulated (PM) audio synthesizer implemented as a WebSocket server with the C language.
+Fragment Audio Server (FAS) is a pixels-based graphical audio synthesizer implemented as a WebSocket server with the C language.
 
-All the synthesis methods can be used at the same time by using different output channels.
+The versatility of its sound engine allow a wide variety of synthesis methods to produce sounds:
+
+* additive / spectral synthesis
+* phase modulation (PM/FM)
+* granular
+* subtractive synthesis
+* physical modelling (Karplus-strong, droplet)
+* wavetable
+
+There is a second type of synthesis methods which use any synthesis methods from above as input:
+
+* formant synthesis (formant filter bank)
+* modal synthesis (resonant filter bank)
+* phase distorsion
+
+All the synthesis methods can be used at the same time by using different output channels, there is no limit on the number of output channels.
 
 FAS is focused on **real-time performances**, being **cross-platform** and **pixels-based**.
 
@@ -56,9 +75,32 @@ Unlike other synthesizers, the notes data format understood by FAS is entirely p
 
 The RGBA data collected is 1px wide with an user-defined height, the height is mapped to frequencies with an user-defined logarithmic frequency map.
 
+The height can be seen as an oscillator bank which can use any type of synthesis methods listed above.
+
 FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, wavetable synthesis, by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM) or physical modelling.
 
-It can be said that FAS/Fragment is a generic image-synth : any RGBA images can be used to produce an infinite variety of sounds by streaming vertical slices of the image to FAS.
+It can be said that FAS/Fragment is a generic image-synth (also called graphical audio synthesizer): any RGBA images can be used to produce an infinite variety of sounds by streaming bitmap data to FAS.
+
+### Specifications
+
+Here is some architectural specifications as if it were made by a synth. manufacturer :
+
+* polyphonic; unlimited number of voices (depend on input data height parameter)
+* multitimbral; unlimited number of timbres / parts with **dedicated stereo output**
+* distributed architecture; more than one instance can run on same machine / a network with independent processing of voice / part, example : [FAS relay](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
+* driven by pixels data over the wire; this synth has about no limitations and is typically used with a client that implement higher order features like MIDI / OSC such as [Fragment client](https://github.com/grz0zrg/fsynth)
+* multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation and allow custom sound engine (WIP: through [Faust](https://faust.grame.fr/))
+* high quality stereophonic audio with low latency
+* fully microtonal / spectral
+* unlimited effects slot per part (48 by default but adaptable); reverb, convolution, comb, delay, chorus, flanger... you can also choose to add your own effects chain since every part have dedicated stereo output
+* per voice filtering for subtractive / wavetable synthesis with one multi mode filter
+ * per voice effects is limited by RGBA note data (so it is quite low actually with only one multi mode filter per voice), this is one serious limitation but there is no reason this limitation can't go over with slight adjustements (dropping bitmap data / allowing layers), allowing more layers would provide unlimited effects slot per voice / unlimited modulation options but would stress data rate limit and thus increase demands on network speed / processing... maybe in the future!
+* envelopes ? has it all due to stream based architecture, you can build any types (ADSR etc.) with any interpolation scheme (linear / exp etc.)
+* highly optimized real-time architecture; run on low-power embedded hardware such as Raspberry
+* events resolution can be defined as you wish (60 Hz but you can go above that through a parameter)
+* cross-platform; run this about anywhere !
+
+Note : "Unlimited" is actually an architectural term, in real conditions it is limited by the available processing power, frequency resolution is also limited by slice height so it may be out of tune with low resolution! (just like analog but still more precise!)
 
 ### Additive synthesis
 
@@ -131,11 +173,15 @@ Subtractive synthesis start from harmonically rich waveforms which are then filt
 
 The default implementation is fast and use PolyBLEP anti-aliased waveforms, an alternative, much slower which use additive synthesis is also available by commenting `POLYBLEP` in `constants.h`.
 
-There is only one high quality low-pass filter (Moog type) implemented.
+Without Soundpipe there is one high quality low-pass filter (Moog type) implemented.
+
+With Soundpipe there is many filters type to chose from (see channel settings): moog, diode, korg 35, lpf18...
+
+Be careful as some filters may have unstability issues with some parameters!
 
 There is three type of band-limited waveforms : sawtooth, square, triangle
 
-There is also a noise waveform with PolyBLEP.
+There is also a noise waveform with PolyBLEP and additional brownian / pink noise with Soundpipe.
 
 This type of synthesis may improve gradually with more waveforms and more filters.
 
@@ -147,8 +193,8 @@ This type of synthesis may improve gradually with more waveforms and more filter
 | ---------: | :--------------------------------------- |
 |          R | Amplitude value of the LEFT channel      |
 |          G | Amplitude value of the RIGHT channel     |
-|          B | Moog filter cutoff multiplier; the cutoff is set to the fundamental frequency, 1.0 = cutoff at fundamental frequency |
-|          A | Moog filter resonance [0, 1] & waveform selection on integral part (0.x, 1.x, 2.x etc) |
+|          B | filter cutoff multiplier; the cutoff is set to the fundamental frequency, 1.0 = cutoff at fundamental frequency |
+|          A | filter resonance [0, 1] & waveform selection on integral part (0.x, 1.x, 2.x etc) |
 
 **Note** : Monophonic mode subtractive synthesis is not implemented.
 
@@ -158,7 +204,7 @@ Phase modulation (PM) is a mean to generate sounds by modulating the phase of an
 
 PM synthesis in Fragment use a simple algorithm with one carrier and one modulator (with feedback level), the modulator amplitude and frequency can be set with B or A channel.
 
-PM synthesis is one of the fastest method to generate sounds with Fragment and is able to do re-synthesis.
+PM synthesis is one of the fastest method to generate sounds and is able to do re-synthesis.
 
 #### RGBA interpretation
 
@@ -200,11 +246,19 @@ There is only one high quality low-pass filter (Moog type) implemented.
 
 Physical modelling synthesis refers to sound synthesis methods in which the waveform of the sound to be generated is computed using a mathematical model, a set of equations and algorithms to simulate a physical source of sound, usually a musical instrument.
 
-Physical modelling in Fragment use Karplus-Strong string synthesis (for now).
+Physical modelling in Fragment use Karplus-Strong string synthesis.
+
+Water droplet model is also available if compiled with Soundpipe.
+
+#### Karplus-Strong
+
+The initial noise source is filtered by a low-pass moog filter type or a string resonator (when compiled with Soundpipe; this provide higher quality output)
 
 This is a fast method which generate pleasant string-like sounds.
 
-Physical modelling is WIP and may be subject to major changes.
+#### Droplet
+
+Integral part of blue / alpha component correspond to the first / second resonant frequency (main resonant frequency is tuned to current vertical pixel position), fractional part of blue component correspond to damping factor and amount of energy to add back for the alpha component.
 
 #### RGBA interpretation
 
@@ -213,9 +267,60 @@ Physical modelling is WIP and may be subject to major changes.
 |          R | Amplitude value of the LEFT channel    |
 |          G | Amplitude value of the RIGHT channel   |
 |          B | Noise wavetable cutoff lp filter / fractional part : stretching factor       |
-|          A | Noise wavetable res. lp filter         |
+|          A | Noise wavetable res. lp filter / feedback amount with Soundpipe        |
 
 **Note** : Monophonic mode Physical modelling synthesis is not implemented.
+
+### Formant synthesis
+
+Only available with Soundpipe.
+
+Specific type of synthesis which use a canvas-mapped bank of formant filters, each activated formant filters use an user-defined channel as source. It can be used to mimic speech.
+
+#### RGBA interpretation
+
+| Components | Interpretations                        |
+| ---------: | :------------------------------------- |
+|          R | Amplitude value of the LEFT channel    |
+|          G | Amplitude value of the RIGHT channel   |
+|          B | integral part : source channel index / fractional part : Impulse response attack time (in seconds)       |
+|          A | Impulse reponse decay time (in seconds)        |
+
+**Note** : Monophonic mode is not implemented.
+
+### Phase Distorsion synthesis
+
+Only available with Soundpipe.
+
+Specific type of synthesis which use an user-defined source channel as input and produce waveform distorsion as output.
+
+#### RGBA interpretation
+
+| Components | Interpretations                        |
+| ---------: | :------------------------------------- |
+|          R | Amplitude value of the LEFT channel    |
+|          G | Amplitude value of the RIGHT channel   |
+|          B | Unused       |
+|          A | Amount of distorsion [-1, 1]        |
+
+**Note** : Monophonic mode is not implemented.
+
+### Modal synthesis
+
+Only available with Soundpipe.
+
+Specific type of synthesis which use a canvas-mapped bank of resonant filters, each activated resonant filters use an user-defined channel as source. It produce sounds similar to physical modelling.
+
+#### RGBA interpretation
+
+| Components | Interpretations                        |
+| ---------: | :------------------------------------- |
+|          R | Amplitude value of the LEFT channel    |
+|          G | Amplitude value of the RIGHT channel   |
+|          B | Unused       |
+|          A | Q factor of the resonant filter (a Q factor around the frequency produce ok results)        |
+
+**Note** : Monophonic mode is not implemented.
 
 ### Samples map
 
@@ -224,9 +329,21 @@ Each samples loaded from the `grains` or `waves` folder are processed, one of th
 1. from the filename, the filename should contain a specific pattern which indicate the sample pitch such as `A#4` or a frequency between "#" character such as `flute_#440#.wav`
 2. with Yin pitch detection algorithm, this method can be heavily inaccurate and depend on the sample content
 
+### Effects
+
+This synthesizer support unlimited (user-defined maximum at compile time) number of effects chain per channels, all effects (phaser, comb, reverb, delay...) come from the Soundpipe library which is thus required for effects usage.
+
+Convolution effect use impulses response which are audio files loaded from the `impulses` folder.
+
 ### Performances
 
 This program is tailored for performances, it is memory intensive (about 512mb is needed without samples, about 1 Gb with few samples), most things are pre-allocated or pre-computed with near zero real-time allocations.
+
+FAS should be compiled with Soundpipe for best performance / more high quality algorithms; for example subtractive moog filter see 3x speed improvement compared to the standalone algorithm.
+
+A fast and reliable Gigabit connection is recommended in order to process frames data from the network correctly.
+
+Poor network transfer rate limit the number of channels / the frequency resolution (frame height) / number of events to process per seconds, a Gigabit connection is good enough for most usage, for example with a theorical data rate limit of 125MB/s it would allow a configuration of 8 stereo channels with 1000px height slices float data at 60 fps without issues and beyond that (2000px / 240fps or 16 stereo channels / 1000 / 240fps), 8-bit data could also be used to go beyond that limit through Gigabit.
 
 #### Raspberry PI
 
@@ -252,7 +369,7 @@ When a frame is dropped, FAS hold the audio till a frame is received or the `max
 
 ### Limitations
 
-Only one client is supported at the moment (many can connect but it is not tested and may result in a big audio mess and likely a crash!), you can launch multiple servers instance on different port and feed it different data if you need a multi-client audio server
+Only one client is supported at the moment, the server will refuse any more connection if one client is connected, you can launch multiple servers instance on different port and feed it different data if you need a multi-client audio server
 
 ### What is sent
 
@@ -264,7 +381,9 @@ FAS support real-time rendering of the pixels data, the pixels data is compresse
 
 ### Future
 
-The ongoing development is to improve synthesis algorithms and implement new type of synthesis like spectral with the help of the essentia framework (a C essentia wrapper is available).
+The ongoing development is to improve analysis / synthesis algorithms with Soundpipe library and implement new type of synthesis like spectral (through fft, not additive) with the help of the essentia framework (a C essentia wrapper is available).
+
+There is also minor architectural work to do, especially better handling of effects settings.
 
 ### OSC
 
@@ -274,17 +393,17 @@ With OSC you can basically do whatever you want with the pixels data, feeding Su
 
 ## Technical implementation
 
-The audio callback contain its own synth. data structure, the data structure is filled from data coming from a lock-free ring buffer to ensure thread safety for the incoming notes data.
-
-There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, oscillators etc.).
+The audio callback contain its own synth. data structure, the data structure is filled from data coming from a lock-free ring buffer to ensure thread safety for the incoming notes data, there is no allocation done in the audio callback.
 
 A free list data structure is used to handle data reuse, the program pre-allocate a pool of notes buffer that is reused.
+
+There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, oscillators etc.), unlike main notes data this currently allocate data on the fly in the network thread, this has room for improvements.
 
 Additive synthesis is wavetable-based.
 
 Real-time resampling is done with a simple linear method, granular synthesis can also be resampled by using cubic interpolation method (uncomment the line in `constants.h`) which is slower than linear.
 
-All synthesis algorithms (minus filters and [PolyBLEP](http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/)) are customs.
+All synthesis algorithms (minus [PolyBLEP](http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/) and Soundpipe provided) are customs.
 
 This program is tested with Valgrind and should be free of memory leaks.
 
@@ -328,12 +447,19 @@ Synth channels settings, packet identifier 3 :
 
 ```c
 struct _synth_chn_settings {
-    unsigned int synthesis_method; // 0 = additive, 1 = spectral (WIP), 2 = granular, 3 = FM/PM, 4 = subtractive, 5 = Karplus, 6 = Wavetable
-    int env_type; // granular envelope type for this channel (there is 13 types of envelopes)
-    // generic parameters (only used by granular synthesis right now)
+    unsigned int synthesis_method; // mapping can be found in constants.h
+    // generic integer parameter
+    // Granular : granular envelope type for this channel (there is 13 types of envelopes)
+    // Subtractive : filter type  (require Soundpipe)
+    // Physical modeling : Physical model type (require Soundpipe)
+    int p0; 
+    // generic floating-point parameters (only used by granular synthesis right now)
     double p1; // granular grain duration (min. bound)
     double p2; // granular grain duration (max. bound)
     double p3; // granular grain spread
+
+    // contain effects settings
+    struct _synth_fx_settings fx[FAS_MAX_FX_SLOTS];
 };
 ```
 
@@ -515,6 +641,7 @@ Usage: fas [list_of_parameters]
  * --grains_folder ./grains/
  * --granular_max_density 128 **this control how dense grains can be**
  * --waves_folder ./waves/
+ * --impulses_folder ./impulses/
  * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**
  * --iface 127.0.0.1 **the listening address**

@@ -16,4 +16,6 @@
     extern float **createEnvelopes(unsigned int n);
     extern void freeEnvelopes(float **envs);
 
+    int isPowerOfTwo(unsigned int x);
+
 #endif

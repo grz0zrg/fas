@@ -28,6 +28,7 @@ void print_usage() {
     printf("  --osc_port 57120\n");
     printf("  --grains_folder ./grains/\n");
     printf("  --waves_folder ./waves/\n");
+    printf("  --impulses_folder ./impulses/\n");
     printf("  --granular_max_density %u\n", FAS_GRANULAR_MAX_DENSITY);
     printf("  --stream_load_send_delay %u\n", FAS_STREAM_LOAD_SEND_DELAY);
     printf("  --output_channels %u\n", FAS_OUTPUT_CHANNELS);

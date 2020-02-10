@@ -1,9 +1,10 @@
 compiler = gcc
 cppcompiler = g++
+emcompiler = emcc -s WASM=1 -Oz -s ERROR_ON_UNDEFINED_SYMBOLS=0
 x86-64-cross-compiler = /usr/bin/x86_64-w64-mingw32-gcc
-source = main.c tools.c samples.c grains.c oscillators.c wavetables.c note.c usage.c lib/lodepng.c lib/Yin.c filters.c
+source = main.c tools.c samples.c simplex.c grains.c effects.c oscillators.c wavetables.c note.c usage.c lib/lodepng.c lib/Yin.c filters.c
 cpp_source = essentia_wrapper.cpp
-obj = main.o tools.o samples.o grains.o oscillators.o wavetables.o note.o usage.o Yin.o lodepng.o
+obj = main.o tools.o samples.o simplex.o grains.o effects.o oscillators.o wavetables.o filters.o note.o usage.o Yin.o lodepng.o
 cpp_obj = essentia_wrapper.o
 cpp_options = -std=c++11
 essentia_libs = libessentia.a -lfftw3 -lfftw3f
@@ -21,18 +22,24 @@ standard_options = -std=c11 -pedantic -D_POSIX_SOURCE -DALSA_RT
 win_static_options = -static -static-libgcc
 adv_optimization_options = -DFIXED_WAVETABLE
 debug_options = -g -DDEBUG
-include_path = -I lo -I inc -I inc/portaudio -I inc/soundpipe
+include_path = -I lo -I inc -I inc/portaudio -I inc/soundpipe -I lib
 win_cross_include_path = -I lo -I inc -I inc/portaudio -I inc/soundpipe -I cross
 release_options = -O2
 
 all:
 	$(compiler) $(source) $(include_path) ${debug_options} ${standard_options} $(libs) -o $(output)
 
+web:
+	$(emcompiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} -DBANDLIMITED_NOISE ${standard_options} $(static_libs) -o $(output)
+
 debug-o:
 	$(compiler) $(source) $(include_path) ${debug_options} ${adv_optimization_options} ${standard_options} $(libs) -o $(output)
 
 debug-o-static:
 	$(compiler) $(source) $(include_path) ${debug_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
+
+debug-bln-static-sp-o:
+	$(compiler) $(source) $(include_path) ${debug_options} ${adv_optimization_options} -DBANDLIMITED_NOISE -DWITH_SOUNDPIPE ${standard_options} $(static_libs) ${soundpipe_libs} -o $(output)
 
 debug-esentia:
 	$(compiler) $(source) $(include_path) ${debug_options} ${standard_options} -c
@@ -56,6 +63,9 @@ release-static:
 
 release-static-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
+
+release-static-o-sse:
+	$(compiler) -ftree-vectorize -msse2 -fopt-info-vec-optimized $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
 
 release-static-netjack-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} -std=c11 -pedantic -D_POSIX_SOURCE $(static_libs) -o $(output)

@@ -49,8 +49,9 @@
     #define FAS_STREAM_LOAD_SEND_DELAY 2
     #define FAS_MAX_DROP 60 // 1 second
     #define FAS_RENDER_WIDTH 4096
+    #define FAS_MAX_FX_SLOTS 48
 
-    //#define FAS_USE_CUBIC_INTERP
+    #define FAS_USE_CUBIC_INTERP
     #define POLYBLEP
 
     // audio thread state&commands
@@ -70,9 +71,63 @@
     #define FAS_SUBTRACTIVE 4
     #define FAS_PHYSICAL_MODELLING 5
     #define FAS_WAVETABLE_SYNTH 6
-    #define FAS_VOID 7
+    #define FAS_FORMANT_SYNTH 7
+    #define FAS_PHASE_DISTORSION 8
+    #define FAS_MODAL_SYNTH 9
+    #define FAS_VOID 10
 
     // granular constants
     #define GRAIN_MIN_DURATION 0.0001
+
+    // Soundpipe
+    #define SP_OSC_FILTERS 7
+    #define SP_OSC_GENS 6
+
+    // sp filters id
+    #define SP_MOOG_FILTER 0
+    #define SP_DIODE_FILTER 1
+    #define SP_KORG35_FILTER 2
+    #define SP_LPF18_FILTER 3
+    #define SP_FORMANT_FILTER 4
+    #define SP_MODE_FILTER 5
+    #define SP_STRES_FILTER 6
+
+    // sp generators id
+    #define SP_WHITE_NOISE_GENERATOR 0
+    #define SP_PINK_NOISE_GENERATOR 1
+    #define SP_BROWN_NOISE_GENERATOR 2
+    #define SP_SQUARE_GENERATOR 3
+    #define SP_DRIP_GENERATOR 4
+    #define SP_PD_GENERATOR 5
+
+    // chn params type
+    #define CHN_PARAM_SYNTH 0
+    #define CHN_PARAM_P0 1
+    #define CHN_PARAM_P1 2
+    #define CHN_PARAM_P2 3
+    #define CHN_PARAM_P3 4
+
+    // sp effects id
+    #define FX_CONV 0
+    #define FX_ZITAREV 1
+    #define FX_JCREV 2
+    #define FX_SCREV 3
+    #define FX_AUTOWAH 4
+    #define FX_PHASER 5
+    #define FX_COMB 6
+    #define FX_VDELAY 7
+    #define FX_SMOOTH_DELAY 8
+    #define FX_BITCRUSH 9
+    #define FX_DISTORSION 10
+    #define FX_SATURATOR 11
+    #define FX_COMPRESSOR 12
+    #define FX_PEAK_LIMITER 13
+    #define FX_CLIP 14
+    #define FX_ALLPASS 15
+    #define FX_B_LOWPASS 16
+    #define FX_B_HIGHPASS 17
+    #define FX_B_BANDPASS 18
+    #define FX_B_BANDREJECT 19
+    #define FX_PAREQ 20
 
 #endif

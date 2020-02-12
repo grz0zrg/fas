@@ -94,10 +94,12 @@
     double fas_smooth_factor = FAS_SMOOTH_FACTOR;
     float fas_noise_amount = FAS_NOISE_AMOUNT;
     int fas_audio_device = -1;
+    int fas_input_audio_device = -1;
     char *fas_iface = NULL;
     char *fas_osc_addr = "127.0.0.1";
     char *fas_osc_port = "57120";
     char *fas_audio_device_name = NULL;
+    char *fas_input_audio_device_name = NULL;
     char *fas_render_target = NULL;
     char *fas_render_convert = NULL;
     char *fas_grains_path = NULL;

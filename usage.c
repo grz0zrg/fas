@@ -22,6 +22,7 @@ void print_usage() {
     printf("  --render_width %u\n", FAS_RENDER_WIDTH);
     //printf("  --render_convert main.fs\n");
     printf("  --iface 127.0.0.1\n");
+    printf("  --input_device -1\n");
     printf("  --device -1\n");
     printf("  --osc_out 0\n");
     printf("  --osc_addr 127.0.0.1\n");
@@ -31,6 +32,7 @@ void print_usage() {
     printf("  --impulses_folder ./impulses/\n");
     printf("  --granular_max_density %u\n", FAS_GRANULAR_MAX_DENSITY);
     printf("  --stream_load_send_delay %u\n", FAS_STREAM_LOAD_SEND_DELAY);
+    printf("  --input_channels %u\n", FAS_INPUT_CHANNELS);
     printf("  --output_channels %u\n", FAS_OUTPUT_CHANNELS);
 #ifdef __unix__
     printf("  --alsa_realtime_scheduling %u\n", FAS_REALTIME);

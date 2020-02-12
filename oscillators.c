@@ -108,7 +108,7 @@ struct oscillator *createOscillators(
 
 #ifdef WITH_SOUNDPIPE
             // Soundpipe filters
-            osc->sp_filters[i] = malloc(sizeof(void *) * SP_OSC_FILTERS);
+            osc->sp_filters[i] = malloc(sizeof(void *) * (SP_OSC_FILTERS + 2)); // + 2 : adjust for stereo filters / gens (formant / modal)
 
             sp_moogladder_create((sp_moogladder **)&osc->sp_filters[i][SP_MOOG_FILTER]);
             sp_moogladder_init(spd, osc->sp_filters[i][SP_MOOG_FILTER]);
@@ -125,20 +125,29 @@ struct oscillator *createOscillators(
             sp_lpf18_create((sp_lpf18 **)&osc->sp_filters[i][SP_LPF18_FILTER]);
             sp_lpf18_init(spd, osc->sp_filters[i][SP_LPF18_FILTER]);
 
-            sp_fofilt_create((sp_fofilt **)&osc->sp_filters[i][SP_FORMANT_FILTER]);
-            sp_fofilt_init(spd, osc->sp_filters[i][SP_FORMANT_FILTER]);
+            sp_fofilt_create((sp_fofilt **)&osc->sp_filters[i][SP_FORMANT_FILTER_L]);
+            sp_fofilt_init(spd, osc->sp_filters[i][SP_FORMANT_FILTER_L]);
 
-            sp_fofilt *fofilt = (sp_fofilt *)osc->sp_filters[i][SP_FORMANT_FILTER];
-            fofilt->freq = frequency;
+            sp_fofilt_create((sp_fofilt **)&osc->sp_filters[i][SP_FORMANT_FILTER_R]);
+            sp_fofilt_init(spd, osc->sp_filters[i][SP_FORMANT_FILTER_R]);
 
-            sp_mode_create((sp_mode **)&osc->sp_filters[i][SP_MODE_FILTER]);
-            sp_mode_init(spd, osc->sp_filters[i][SP_MODE_FILTER]);
+            sp_fofilt *fofilt_l = (sp_fofilt *)osc->sp_filters[i][SP_FORMANT_FILTER_L];
+            fofilt_l->freq = frequency;
 
-            sp_mode *mode = (sp_mode *)osc->sp_filters[i][SP_MODE_FILTER];
-            mode->freq = frequency;
+            sp_fofilt *fofilt_r = (sp_fofilt *)osc->sp_filters[i][SP_FORMANT_FILTER_R];
+            fofilt_r->freq = frequency;
 
-            sp_vocoder_create((sp_vocoder **)&osc->sp_filters[i][SP_VOCODER_FILTER]);
-            sp_vocoder_init(spd, osc->sp_filters[i][SP_VOCODER_FILTER]);
+            sp_mode_create((sp_mode **)&osc->sp_filters[i][SP_MODE_FILTER_L]);
+            sp_mode_init(spd, osc->sp_filters[i][SP_MODE_FILTER_L]);
+
+            sp_mode_create((sp_mode **)&osc->sp_filters[i][SP_MODE_FILTER_R]);
+            sp_mode_init(spd, osc->sp_filters[i][SP_MODE_FILTER_R]);
+
+            sp_mode *mode_l = (sp_mode *)osc->sp_filters[i][SP_MODE_FILTER_L];
+            mode_l->freq = frequency;
+
+            sp_mode *mode_r = (sp_mode *)osc->sp_filters[i][SP_MODE_FILTER_R];
+            mode_r->freq = frequency;
 
             // Soundpipe generator
             osc->sp_gens[i] = malloc(sizeof(void *) * SP_OSC_GENS);
@@ -274,9 +283,10 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
             sp_wpkorg35_destroy((sp_wpkorg35 **)&oscs[y].sp_filters[i][SP_KORG35_FILTER]);
             sp_streson_destroy((sp_streson **)&oscs[y].sp_filters[i][SP_STRES_FILTER]);
             sp_lpf18_destroy((sp_lpf18 **)&oscs[y].sp_filters[i][SP_LPF18_FILTER]);
-            sp_fofilt_destroy((sp_fofilt **)&oscs[y].sp_filters[i][SP_FORMANT_FILTER]);
-            sp_mode_destroy((sp_mode **)&oscs[y].sp_filters[i][SP_MODE_FILTER]);
-            sp_vocoder_destroy((sp_vocoder **)&oscs[y].sp_filters[i][SP_VOCODER_FILTER]);
+            sp_fofilt_destroy((sp_fofilt **)&oscs[y].sp_filters[i][SP_FORMANT_FILTER_L]);
+            sp_fofilt_destroy((sp_fofilt **)&oscs[y].sp_filters[i][SP_FORMANT_FILTER_R]);
+            sp_mode_destroy((sp_mode **)&oscs[y].sp_filters[i][SP_MODE_FILTER_L]);
+            sp_mode_destroy((sp_mode **)&oscs[y].sp_filters[i][SP_MODE_FILTER_R]);
 
             free(oscs[y].sp_filters[i]);
 

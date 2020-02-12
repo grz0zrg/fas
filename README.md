@@ -22,6 +22,7 @@ Table of Contents
       * [Formant synthesis](#formant-synthesis)
       * [Phase Distorsion synthesis](#phase-distorsion-synthesis)
       * [Modal synthesis](#modal-synthesis)
+      * [Input](#input)
       * [Samples map](#samples-map)
       * [Effects](#effects)
       * [Performances](#performances)
@@ -58,15 +59,15 @@ There is a second type of synthesis methods which use any synthesis methods from
 * modal synthesis (resonant filter bank)
 * phase distorsion
 
-There is also input channels (currently limited to one stereo input) which just play input audio on a specified output so effects or second synthesis type can be applied.
+There is also input channels which just play input audio so effects or second synthesis type can be applied.
 
 All the synthesis methods can be used at the same time by using different output channels, there is no limit on the number of output channels.
 
 FAS is focused on **real-time performances**, being **cross-platform** and **pixels-based**.
 
-This project was built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
+This project was built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth) client, a [web-based graphical audio / spectral collaborative synthesizer](https://www.fsynth.com)
 
-The most pixels-adapted synthesis methods are (in order) additive/spectral, wavetable, granular/PM/Physical modelling; re-synthesis is possible with them.
+The most pixels-adapted synthesis methods are (in order) additive/spectral, wavetable, granular/PM/Physical modelling; re-synthesis is possible with all of them.
 
 ### Pixels-based
 
@@ -96,7 +97,7 @@ Here is some architectural specifications as if it were made by a synth. manufac
 * multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation and allow custom sound engine (WIP: through [Faust](https://faust.grame.fr/))
 * high quality stereophonic audio with low latency
 * fully microtonal / spectral
-* unlimited effects slot per part (48 by default but adaptable); reverb, convolution, comb, delay, chorus, flanger... you can also choose to add your own effects chain since every part have dedicated stereo output
+* unlimited effects slot per part (24 by default but adaptable); reverb, convolution, comb, delay, chorus, flanger... you can also choose to add your own effects chain since every part have dedicated stereo output
 * per voice filtering for subtractive / wavetable synthesis with one multi mode filter
  * per voice effects is limited by RGBA note data (so it is quite low actually with only one multi mode filter per voice), this is one serious limitation but there is no reason this limitation can't go over with slight adjustements (dropping bitmap data / allowing layers), allowing more layers would provide unlimited effects slot per voice / unlimited modulation options but would stress data rate limit and thus increase demands on network speed / processing... maybe in the future!
 * envelopes ? has it all due to stream based architecture, you can build any types (ADSR etc.) with any interpolation scheme (linear / exp etc.)
@@ -326,6 +327,21 @@ Specific type of synthesis which use a canvas-mapped bank of resonant filters, e
 
 **Note** : Monophonic mode is not implemented.
 
+### Input
+
+This just play an input channel. Typically used in conjunction with formant / modal / pd synthesis and effects.
+
+#### RGBA interpretation
+
+| Components | Interpretations                        |
+| ---------: | :------------------------------------- |
+|          R | Amplitude value of the LEFT channel    |
+|          G | Amplitude value of the RIGHT channel   |
+|          B | integral part : source channel index       |
+|          A | Unused        |
+
+**Note** : Monophonic mode is not implemented.
+
 ### Samples map
 
 Each samples loaded from the `grains` or `waves` folder are processed, one of the most important process is the sample pitch mapping, this process try to gather informations or guess the sample pitch to map it correctly onto the user-defined image height, the guessing algorithm is in order :
@@ -347,7 +363,7 @@ FAS should be compiled with Soundpipe for best performance / more high quality a
 
 A fast and reliable Gigabit connection is recommended in order to process frames data from the network correctly.
 
-Poor network transfer rate limit the number of channels / the frequency resolution (frame height) / number of events to process per seconds, a Gigabit connection is good enough for most usage, for example with a theorical data rate limit of 125MB/s it would allow a configuration of 8 stereo channels with 1000px height slices float data at 60 fps without issues and beyond that (2000px / 240fps or 16 stereo channels / 1000 / 240fps), 8-bit data could also be used to go beyond that limit through Gigabit.
+Poor network transfer rate limit the number of channels / the frequency resolution (frame height) / number of events to process per seconds, a Gigabit connection is good enough for most usage, for example with a theorical data rate limit of 125MB/s and without packets compression (`deflate` argument) it would allow a configuration of 8 stereo channels with 1000px height slices float data at 60 fps without issues and beyond that (2000px / 240fps or 16 stereo channels / 1000 / 240fps), 8-bit data could also be used to go beyond that limit through Gigabit. This can go further with packets compression at the price of processing time.
 
 #### Raspberry PI
 
@@ -637,13 +653,13 @@ A wxWidget user-friendly launcher is also available [here](https://github.com/gr
 Usage: fas [list_of_parameters]
  * --i **print audio device infos**
  * --sample_rate 44100
- * --noise_amount 0.1 **the amount of band-limited noise**
- * --frames 512 **audio buffer**
+ * --noise_amount 0.1 **the maximum amount of band-limited noise**
+ * --frames 512 **audio buffer size**
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
- * --fps 60 **you can experiment with this but this may have strange effects**
+ * --fps 60 **data stream rate, client monitor Hz usually, you can experiment with this but this may have strange effects**
  * --smooth_factor 8.0 **this is the samples interpolation factor between frames**
  * --ssl 0
- * --deflate 0
+ * --deflate 0 **data compression (add additional processing)**
  * --max_drop 60 **this allow smooth audio in the case of frames drop, allow 60 frames drop by default which equal to approximately 1 sec.**
  * --render target.fs **real-time pixels-data offline rendering, this will save pixels data to "target.fs" file**
  * --render_convert target.fs **this will convert the pixels data contained by the .fs file to a .flac file of the same name**
@@ -651,16 +667,18 @@ Usage: fas [list_of_parameters]
  * --osc_addr 127.0.0.1 **the OSC server address**
  * --osc_port 57120 **the OSC server port**
  * --grains_folder ./grains/
- * --granular_max_density 128 **this control how dense grains can be**
+ * --granular_max_density 128 **this control how dense grains can be (maximum)**
  * --waves_folder ./waves/
  * --impulses_folder ./impulses/
  * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**
  * --iface 127.0.0.1 **the listening address**
- * --device -1 **PortAudio audio device index or full name (informations about audio devices are displayed when the app. start)**
+ * --device -1 **PortAudio audio output device index or full name (informations about audio devices are displayed when the app. start)**
+ * --input_device -1 **PortAudio audio input device index or full name (informations about audio devices are displayed when the app. start)**
  * --output_channels 2 **stereo pair**
+ * --input_channels 2 **stereo pair**
  * --alsa_realtime_scheduling 0 **Linux only**
- * --frames_queue_size 7 **important parameter, if you increase this too much the audio will be delayed**
+ * --frames_queue_size 7 **important parameter, if you increase this too much the audio might be delayed**
  * --commands_queue_size 16 **should be a positive integer power of 2**
  * --stream_load_send_delay 2 **FAS will send the stream CPU load every two seconds**
  * --samplerate_conv_type -1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time, this settings can be ignored most of the time since FAS do real-time resampling, -1 skip the resampling step**

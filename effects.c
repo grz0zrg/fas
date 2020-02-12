@@ -110,13 +110,13 @@ void updateEffects(
     #ifdef WITH_SOUNDPIPE
         if (fx->fx_id == FX_CONV) {
             sp_ftbl *imp_ftbl = fxs->ft_void;
-            if (fx->ip0 < impulses_count) {
-                struct sample *smp = &impulses[fx->ip0];
+            if (fx->fp[0] < impulses_count) {
+                struct sample *smp = &impulses[(unsigned int)fx->fp[0]];
                 imp_ftbl = smp->ftbl;
             }
 
-            if (isPowerOfTwo(fx->ip1) == 0) {
-                fx->ip1 = 1024;
+            if (isPowerOfTwo(fx->fp[1]) == 0) {
+                fx->fp[1] = 1024;
             }
 
             sp_conv_destroy((sp_conv **)&fxs->conv[j]);
@@ -124,63 +124,65 @@ void updateEffects(
             sp_conv_create((sp_conv **)&fxs->conv[j]);
             sp_conv_create((sp_conv **)&fxs->conv[j + 1]);
 
-            sp_conv_init(sp, (sp_conv *)fxs->conv[j], imp_ftbl, fx->ip1);
-            sp_conv_init(sp, (sp_conv *)fxs->conv[j + 1], imp_ftbl, fx->ip1);
+            sp_conv_init(sp, (sp_conv *)fxs->conv[j], imp_ftbl, fx->fp[1]);
+            sp_conv_init(sp, (sp_conv *)fxs->conv[j + 1], imp_ftbl, fx->fp[1]);
         } else if (fx->fx_id == FX_VDELAY) {
-            // TODO: use params
             sp_vdelay_destroy((sp_vdelay **)&fxs->vdelay[j]);
             sp_vdelay_destroy((sp_vdelay **)&fxs->vdelay[j + 1]);
             sp_vdelay_create((sp_vdelay **)&fxs->vdelay[j]);
             sp_vdelay_create((sp_vdelay **)&fxs->vdelay[j + 1]);
 
-            sp_vdelay_init(sp, (sp_vdelay *)fxs->vdelay[j], fx->fp0);
-            sp_vdelay_init(sp, (sp_vdelay *)fxs->vdelay[j + 1], fx->fp0);
+            sp_vdelay_init(sp, (sp_vdelay *)fxs->vdelay[j], fx->fp[0]);
+            sp_vdelay_init(sp, (sp_vdelay *)fxs->vdelay[j + 1], fx->fp[0]);
 
             sp_vdelay *vdelay = (sp_vdelay *)fxs->vdelay[j];
-            vdelay->del = fx->fp1;
+            vdelay->del = fx->fp[1];
             vdelay = (sp_vdelay *)fxs->vdelay[j + 1];
-            vdelay->del = fx->fp1;
+            vdelay->del = fx->fp[1];
         } else if (fx->fx_id == FX_SMOOTH_DELAY) {
-            // TODO: use params
             sp_smoothdelay_destroy((sp_smoothdelay **)&fxs->sdelay[j]);
             sp_smoothdelay_destroy((sp_smoothdelay **)&fxs->sdelay[j + 1]);
             sp_smoothdelay_create((sp_smoothdelay **)&fxs->sdelay[j]);
             sp_smoothdelay_create((sp_smoothdelay **)&fxs->sdelay[j + 1]);
 
-            sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[j], fx->fp0, fx->ip0);
-            sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[j + 1], fx->fp0, fx->ip0);
+            sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[j], fx->fp[0], fx->fp[1]);
+            sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[j + 1], fx->fp[0], fx->fp[1]);
 
             sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[j];
-            sdelay->del = fx->fp1;
+            sdelay->del = fx->fp[2];
             sdelay = (sp_smoothdelay *)fxs->sdelay[j + 1];
-            sdelay->del = fx->fp1;
+            sdelay->del = fx->fp[3];
         } else if (fx->fx_id == FX_COMB) {
-            // TODO: use params
             sp_comb_destroy((sp_comb **)&fxs->comb[j]);
             sp_comb_destroy((sp_comb **)&fxs->comb[j + 1]);
             sp_comb_create((sp_comb **)&fxs->comb[j]);
             sp_comb_create((sp_comb **)&fxs->comb[j + 1]);
 
-            sp_comb_init(sp, (sp_comb *)fxs->comb[j], fx->fp0);
-            sp_comb_init(sp, (sp_comb *)fxs->comb[j + 1], fx->fp0);
+            sp_comb_init(sp, (sp_comb *)fxs->comb[j], fx->fp[0]);
+            sp_comb_init(sp, (sp_comb *)fxs->comb[j + 1], fx->fp[0]);
 
             sp_comb *comb = (sp_comb *)fxs->comb[j];
-            comb->revtime = fx->fp1;
+            comb->revtime = fx->fp[1];
             comb = (sp_comb *)fxs->comb[j + 1];
-            comb->revtime = fx->fp1;
+            comb->revtime = fx->fp[1];
         } else if (fx->fx_id == FX_ALLPASS) {
             sp_allpass_destroy((sp_allpass **)&fxs->allpass[j]);
             sp_allpass_destroy((sp_allpass **)&fxs->allpass[j + 1]);
             sp_allpass_create((sp_allpass **)&fxs->allpass[j]);
             sp_allpass_create((sp_allpass **)&fxs->allpass[j + 1]);
 
-            sp_allpass_init(sp, (sp_allpass *)fxs->allpass[j], fx->fp0);
-            sp_allpass_init(sp, (sp_allpass *)fxs->allpass[j + 1], fx->fp0);
+            sp_allpass_init(sp, (sp_allpass *)fxs->allpass[j], fx->fp[0]);
+            sp_allpass_init(sp, (sp_allpass *)fxs->allpass[j + 1], fx->fp[0]);
 
             sp_allpass *allpass = (sp_allpass *)fxs->allpass[j];
-            allpass->revtime = fx->fp1;
+            allpass->revtime = fx->fp[1];
             allpass = (sp_allpass *)fxs->allpass[j + 1];
-            allpass->revtime = fx->fp1;
+            allpass->revtime = fx->fp[1];
+        } else if (fx->fx_id == FX_AUTOWAH) {
+            sp_autowah *autowah = (sp_autowah *)fxs->autowah[j];
+            *autowah->level = fx->fp[0];
+            *autowah->wah = fx->fp[1];
+            *autowah->mix = fx->fp[2];
         }
     #endif
     }

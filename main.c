@@ -505,13 +505,16 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
 #ifdef WITH_SOUNDPIPE
                         if (model_type == 1) {
-                            float trigger = ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || osc->triggered) ? 1.f : 0.f;
-                            float drip_out = 0.;
+                            float trigger_l = ((n->previous_volume_l <= 0) || osc->triggered) ? 1.f : 0.f;
+                            float trigger_r = ((n->previous_volume_r <= 0) || osc->triggered) ? 1.f : 0.f;
+                            float drip_out_l = 0.;
+                            float drip_out_r = 0.;
 
-                            sp_drip_compute(sp, (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR], &trigger, &drip_out);
+                            sp_drip_compute(sp, (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR], &trigger_l, &drip_out_l);
+                            sp_drip_compute(sp, (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR], &trigger_r, &drip_out_r);
   
-                            output_l += vl * drip_out;
-                            output_r += vr * drip_out;
+                            output_l += vl * drip_out_l;
+                            output_r += vr * drip_out_r;
 
                             if (osc->triggered) {
                                 osc->triggered = 0;
@@ -632,8 +635,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float il = last_sample_l[chn] * vl;
                         float ir = last_sample_r[chn] * vr;
 
-                        sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER], &il, &sl);
-                        sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER], &ir, &sr);
+                        sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L], &il, &sl);
+                        sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R], &ir, &sr);
 
                         output_l += sl * vl;
                         output_r += sr * vr;
@@ -655,8 +658,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float il = last_sample_l[chn] * vl;
                         float ir = last_sample_r[chn] * vr;
 
-                        sp_mode_compute(sp, (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER], &il, &sl);
-                        sp_mode_compute(sp, (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER], &ir, &sr);
+                        sp_mode_compute(sp, (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_L], &il, &sl);
+                        sp_mode_compute(sp, (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_R], &ir, &sr);
 
                         output_l += sl * vl;
                         output_r += sr * vr;
@@ -684,8 +687,9 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_l += sl * vl;
                         output_r += sr * vr;
                     }
-                } else if (chn_settings->synthesis_method == FAS_VOCODER) {
-                    for (j = s; j < e; j += 16) {
+#endif
+                } else if (chn_settings->synthesis_method == FAS_INPUT) {
+                    for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
@@ -693,24 +697,11 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        int chn_src = fmod(fabsf(n->blue), frame_data_count);
-                        int chn_mod = fmod(fabsf(n->alpha), frame_data_count);
+                        int chn_count = fas_input_channels / 2;
+                        int chn = fmod(fabsf(n->blue), chn_count);
 
-                        float sl = 0.0f;
-                        float sr = 0.0f;
-
-                        sp_vocoder_compute(sp, (sp_vocoder *)osc->sp_filters[k][SP_VOCODER_FILTER], &last_sample_l[chn_src], &last_sample_l[chn_mod], &sl);
-                        sp_vocoder_compute(sp, (sp_vocoder *)osc->sp_filters[k][SP_VOCODER_FILTER], &last_sample_r[chn_src], &last_sample_r[chn_mod], &sr);
-
-                        output_l += sl * vl;
-                        output_r += sr * vr;
-                    } 
-#endif
-                } else if (chn_settings->synthesis_method == FAS_INPUT) {
-                    // this channel just output all inputs
-                    for (j = 0; j < fas_input_channels / 2; j += 1) {
-                        output_l += (*audio_in++);
-                        output_r += (*audio_in++);
+                        output_l += audio_in[i * 2 * chn_count + chn * 2] * vl;
+                        output_r += audio_in[i * 2 * chn_count + 1 + chn * 2] * vr;
                     }
                 }
             }
@@ -939,9 +930,10 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
 #ifdef WITH_SOUNDPIPE
-                                sp_fofilt *fofilt = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER];
-                                fofilt->atk = fabs(n->blue_frac_part);
-                                fofilt->dec = fabs(n->res);
+                                sp_fofilt *fofilt_l = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L];
+                                sp_fofilt *fofilt_r = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R];
+                                fofilt_l->atk = fofilt_l->atk = fabs(n->blue_frac_part);
+                                fofilt_r->dec = fofilt_r->dec = fabs(n->res);
 #endif
                             }    
                         } else if (chn_settings->synthesis_method == FAS_MODAL_SYNTH) {
@@ -951,8 +943,10 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
 #ifdef WITH_SOUNDPIPE
-                                sp_mode *mode = (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER];
-                                mode->q = n->alpha;
+                                sp_mode *mode_l = (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_L];
+                                sp_mode *mode_r = (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_R];
+                                mode_l->q = n->alpha;
+                                mode_r->q = n->alpha;
 #endif
                             }  
                         } else if (chn_settings->synthesis_method == FAS_PHASE_DISTORSION) {
@@ -965,26 +959,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 sp_pdhalf *pdhalf = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
                                 pdhalf->ibipolar = 1;
                                 pdhalf->amount = n->alpha;//fminf(fmaxf(n->alpha, -1.f), 1.f);
-#endif
-                            }  
-                        } else if (chn_settings->synthesis_method == FAS_VOCODER) {
-                            for (j = s; j < e; j += 16) {
-                                struct note *n = &curr_notes[j];
-
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-#ifdef WITH_SOUNDPIPE
-                                sp_vocoder *vocoder = (sp_vocoder *)osc->sp_filters[k][SP_VOCODER_FILTER];
-
-                                for (d = 0; d < (e-s); d += 1) {
-                                    struct note *n2 = &curr_notes[j + d];
-
-                                    int band = n2->osc_index;
-
-                                    vocoder->atk[band] = 0.001f + n2->blue_frac_part * 0.499f;
-                                    vocoder->rel[band] = n2->cutoff / 256.f;
-                                    vocoder->bwratio[band] = 0.1 + (n2->res * 1.9f);
-                                }
 #endif
                             }  
                         } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE || chn_settings->synthesis_method == FAS_FM) {
@@ -1807,7 +1781,7 @@ fflush(stdout);
                         for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {
                             struct _synth_fx_settings *fx = &usd->synth->chn_settings[n].fx[j];
 
-                            unsigned int data_index = PACKET_HEADER_LENGTH + 8 + (*channels_count) * (3 * 8 + 2 * 4) + (8 + 8 * 2 + 8 * 6) * j + n * ((8 + 8 * 2 + 8 * 6) * FAS_MAX_FX_SLOTS);
+                            unsigned int data_index = PACKET_HEADER_LENGTH + 8 + (*channels_count) * (3 * 8 + 2 * 4) + (8 + 8 * FAS_MAX_FX_PARAMETERS) * j + n * ((8 + 8 * FAS_MAX_FX_PARAMETERS) * FAS_MAX_FX_SLOTS);
 
                             int *data_efx = (int *)&usd->packet[data_index];
                             fx->fx_id = data_efx[0];
@@ -1816,24 +1790,19 @@ fflush(stdout);
                                 break;
                             }
 
-                            fx->ip0 = data_efx[1];
-                            fx->ip1 = data_efx[2];
-                            fx->ip2 = data_efx[3];
-                            fx->ip3 = data_efx[4];
+                            double *double_data_efx = (double *)&usd->packet[data_index + 8];
 
-                            double *double_data_efx = (double *)&usd->packet[data_index + 16];
+                            fx->fp[0] = double_data_efx[0];
+                            fx->fp[1] = double_data_efx[1];
+                            fx->fp[2] = double_data_efx[2];
+                            fx->fp[3] = double_data_efx[3];
+                            fx->fp[4] = double_data_efx[4];
+                            fx->fp[5] = double_data_efx[5];
+                            fx->fp[6] = double_data_efx[6];
+                            fx->fp[7] = double_data_efx[7];
+                            fx->fp[8] = double_data_efx[8];
+                            fx->fp[9] = double_data_efx[9];
 
-                            fx->fp0 = double_data_efx[0];
-                            fx->fp1 = double_data_efx[1];
-                            fx->fp2 = double_data_efx[2];
-                            fx->fp3 = double_data_efx[3];
-                            fx->fp4 = double_data_efx[4];
-                            fx->fp5 = double_data_efx[5];
-
-#ifdef DEBUG
-    printf("fx %i data :\n", data_efx[0]);
-    fflush(stdout);
-#endif
                         }
 
                         i += 8;
@@ -2082,24 +2051,26 @@ int main(int argc, char **argv)
         { "commands_queue_size",        required_argument, 0, 10 },
         { "ssl",                        required_argument, 0, 11 },
         { "iface",                      required_argument, 0, 12 },
-        { "device",                     required_argument, 0, 13 },
-        { "output_channels",            required_argument, 0, 14 },
-        { "i",                                no_argument, 0, 15 },
-        { "noise_amount",               required_argument, 0, 16 },
-        { "osc_out",                    required_argument, 0, 17 },
-        { "osc_addr",                   required_argument, 0, 18 },
-        { "osc_port",                   required_argument, 0, 19 },
-        { "grains_folder",              required_argument, 0, 20 },
-        { "waves_folder",               required_argument, 0, 21 },
-        { "impulses_folder",            required_argument, 0, 22 },
-        { "smooth_factor",              required_argument, 0, 23 },
-        { "granular_max_density",       required_argument, 0, 24 },
-        { "stream_load_send_delay",     required_argument, 0, 25 },
-        { "max_drop",                   required_argument, 0, 26 },
-        { "samplerate_conv_type",       required_argument, 0, 27 },
-        { "render",                     required_argument, 0, 28 },
-        { "render_width",               required_argument, 0, 29 },
-        { "render_convert",             required_argument, 0, 30 },
+        { "input_device",               required_argument, 0, 13 },
+        { "device",                     required_argument, 0, 14 },
+        { "output_channels",            required_argument, 0, 15 },
+        { "input_channels",             required_argument, 0, 16 },
+        { "i",                                no_argument, 0, 17 },
+        { "noise_amount",               required_argument, 0, 18 },
+        { "osc_out",                    required_argument, 0, 19 },
+        { "osc_addr",                   required_argument, 0, 20 },
+        { "osc_port",                   required_argument, 0, 21 },
+        { "grains_folder",              required_argument, 0, 22 },
+        { "waves_folder",               required_argument, 0, 23 },
+        { "impulses_folder",            required_argument, 0, 24 },
+        { "smooth_factor",              required_argument, 0, 25 },
+        { "granular_max_density",       required_argument, 0, 26 },
+        { "stream_load_send_delay",     required_argument, 0, 27 },
+        { "max_drop",                   required_argument, 0, 28 },
+        { "samplerate_conv_type",       required_argument, 0, 29 },
+        { "render",                     required_argument, 0, 30 },
+        { "render_width",               required_argument, 0, 31 },
+        { "render_convert",             required_argument, 0, 32 },
         { 0, 0, 0, 0 }
     };
 
@@ -2148,60 +2119,69 @@ int main(int argc, char **argv)
                 fas_iface = optarg;
                 break;
             case 13:
+                fas_input_audio_device = strtoul(optarg, NULL, 0);
+                if (fas_input_audio_device == 0) {
+                    fas_input_audio_device_name = optarg;
+                }
+                break;
+            case 14:
                 fas_audio_device = strtoul(optarg, NULL, 0);
                 if (fas_audio_device == 0) {
                     fas_audio_device_name = optarg;
                 }
                 break;
-            case 14:
+            case 15:
                 fas_output_channels = strtoul(optarg, NULL, 0);
                 break;
-            case 15:
-                print_infos = 1;
-                break;
             case 16:
-                fas_noise_amount = strtof(optarg, NULL);
+                fas_input_channels = strtoul(optarg, NULL, 0);
                 break;
             case 17:
-                fas_osc_out = strtoul(optarg, NULL, 0);
+                print_infos = 1;
                 break;
             case 18:
-                fas_osc_addr = optarg;
+                fas_noise_amount = strtof(optarg, NULL);
                 break;
             case 19:
-                fas_osc_port = optarg;
+                fas_osc_out = strtoul(optarg, NULL, 0);
                 break;
             case 20:
-                fas_grains_path = optarg;
+                fas_osc_addr = optarg;
                 break;
             case 21:
+                fas_osc_port = optarg;
+                break;
+            case 22:
+                fas_grains_path = optarg;
+                break;
+            case 23:
                 fas_waves_path = optarg;
               break;
-            case 22:
+            case 24:
                 fas_impulses_path = optarg;
               break;
-            case 23:
+            case 25:
                 fas_smooth_factor = strtod(optarg, NULL);
               break;
-            case 24:
+            case 26:
                 fas_granular_max_density = strtoul(optarg, NULL, 0);
               break;
-            case 25:
+            case 27:
                 fas_stream_load_send_delay = strtoul(optarg, NULL, 0);
               break;
-            case 26:
+            case 28:
               fas_max_drop = strtoul(optarg, NULL, 0);
               break;
-            case 27:
+            case 29:
               fas_samplerate_converter_type = strtol(optarg, NULL, 0);
               break;
-            case 28:
+            case 30:
               fas_render_target = optarg;
               break;
-            case 29:
+            case 31:
               fas_render_width = strtoul(optarg, NULL, 0);
               break;
-            case 30:
+            case 32:
               fas_render_convert = optarg;
               break;
             default: print_usage();
@@ -2338,6 +2318,12 @@ int main(int argc, char **argv)
         printf("Warning: output_channels program option argument is invalid, should be >= 2, the default value (%u) will be used.\n", FAS_OUTPUT_CHANNELS);
 
         fas_output_channels = FAS_OUTPUT_CHANNELS;
+    }
+
+    if (fas_input_channels < 0 || (fas_input_channels % 2) != 0) {
+        printf("Warning: input_channels program option argument is invalid, should be >= 0, the default value (%u) will be used.\n", FAS_INPUT_CHANNELS);
+
+        fas_input_channels = FAS_INPUT_CHANNELS;
     }
 
     if (fas_noise_amount < 0.) {
@@ -2518,6 +2504,12 @@ int main(int argc, char **argv)
                 fas_audio_device = i;
             }
         }
+
+        if (fas_input_audio_device_name) {
+            if (strcmp(fas_input_audio_device_name, device_info->name) == 0) {
+                fas_input_audio_device = i;
+            }
+        }
     }
 
     printf("\n");
@@ -2528,11 +2520,6 @@ int main(int argc, char **argv)
 
     int device_max_output_channels;
     if (fas_audio_device >= num_devices || fas_audio_device < 0) {
-        inputParameters.device = Pa_GetDefaultInputDevice();
-        if (inputParameters.device == paNoDevice) {
-            fprintf(stderr, "Error: No default input device.\n");
-            goto error;
-        }
         outputParameters.device = Pa_GetDefaultOutputDevice();
         if (outputParameters.device == paNoDevice) {
             fprintf(stderr, "Error: No default output device.\n");
@@ -2544,11 +2531,6 @@ int main(int argc, char **argv)
             printf("Warning: Requested output_channels program option is larger than the device output channels, defaulting to %i\n", device_max_output_channels);
             fas_output_channels = device_max_output_channels;
         }
-
-        inputParameters.channelCount = fas_input_channels;
-        inputParameters.sampleFormat = paFloat32;
-        inputParameters.suggestedLatency = Pa_GetDeviceInfo(inputParameters.device)->defaultLowOutputLatency;
-        inputParameters.hostApiSpecificStreamInfo = NULL;
 
         outputParameters.channelCount = fas_output_channels;
         outputParameters.sampleFormat = paFloat32;
@@ -2563,12 +2545,6 @@ int main(int argc, char **argv)
             fas_output_channels = device_max_output_channels;
         }
 
-        inputParameters.device = fas_audio_device;
-        inputParameters.channelCount = fas_input_channels;
-        inputParameters.sampleFormat = paFloat32;
-        inputParameters.suggestedLatency = Pa_GetDeviceInfo(inputParameters.device)->defaultLowOutputLatency;
-        inputParameters.hostApiSpecificStreamInfo = NULL;
-
         outputParameters.device = fas_audio_device;
         outputParameters.channelCount = fas_output_channels;
         outputParameters.sampleFormat = paFloat32;
@@ -2576,16 +2552,51 @@ int main(int argc, char **argv)
         outputParameters.hostApiSpecificStreamInfo = NULL;
     }
 
+    int device_max_input_channels;
+    if (fas_input_audio_device >= num_devices || fas_input_audio_device < 0) {
+        inputParameters.device = Pa_GetDefaultInputDevice();
+        if (inputParameters.device == paNoDevice) {
+            fprintf(stderr, "Error: No default input device.\n");
+            goto error;
+        }
+
+        device_max_input_channels = Pa_GetDeviceInfo(inputParameters.device)->maxInputChannels;
+        if (fas_input_channels > device_max_input_channels) {
+            printf("Warning: Requested input_channels program option is larger than the device input channels, defaulting to %i\n", device_max_input_channels);
+            fas_input_channels = device_max_input_channels;
+        }
+
+        inputParameters.channelCount = fas_input_channels;
+        inputParameters.sampleFormat = paFloat32;
+        inputParameters.suggestedLatency = Pa_GetDeviceInfo(inputParameters.device)->defaultLowInputLatency;
+        inputParameters.hostApiSpecificStreamInfo = NULL;
+    } else {
+        device_info = Pa_GetDeviceInfo(fas_audio_device);
+
+        device_max_input_channels = device_info->maxInputChannels;
+        if (fas_input_channels > device_max_input_channels) {
+            printf("Warning: Requested input_channels program option is larger than the device input channels, defaulting to %i\n", device_max_input_channels);
+            fas_input_channels = device_max_input_channels;
+        }
+
+        inputParameters.device = fas_input_audio_device;
+        inputParameters.channelCount = fas_input_channels;
+        inputParameters.sampleFormat = paFloat32;
+        inputParameters.suggestedLatency = Pa_GetDeviceInfo(inputParameters.device)->defaultLowInputLatency;
+        inputParameters.hostApiSpecificStreamInfo = NULL;
+    }
+
     frame_data_count = fas_output_channels / 2;
 
     last_sample_l = calloc(frame_data_count, sizeof(float));
     last_sample_r = calloc(frame_data_count, sizeof(float));
 
-    printf("\nPortAudio: Using device '%s' with %u output channels / %u input channels\n", Pa_GetDeviceInfo(outputParameters.device)->name, fas_output_channels, fas_input_channels);
+    printf("\nPortAudio: Using device '%s' with %u output channels", Pa_GetDeviceInfo(outputParameters.device)->name, fas_output_channels);
+    printf("\nPortAudio: Using device '%s' with %u input channels\n", Pa_GetDeviceInfo(inputParameters.device)->name, fas_input_channels);
 
-    err = Pa_IsFormatSupported(NULL, &outputParameters, (double)fas_sample_rate);
+    err = Pa_IsFormatSupported(&inputParameters, &outputParameters, (double)fas_sample_rate);
     if (err != paFormatIsSupported) {
-       printf("Pa_IsFormatSupported : Some device output parameters are unsupported!\n");
+       printf("Pa_IsFormatSupported : Some device parameters are unsupported! (check sample rate)\n");
     }
 
 #ifdef __unix__
@@ -2598,7 +2609,7 @@ int main(int argc, char **argv)
 
     err = Pa_OpenStream(
               &stream,
-              &inputParameters,
+              (fas_input_channels <= 0) ? NULL : &inputParameters,
               &outputParameters,
               fas_sample_rate,
               fas_frames_per_buffer,

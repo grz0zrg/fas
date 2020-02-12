@@ -39,7 +39,7 @@
     #define FAS_FRAMES_QUEUE_SIZE 7
     #define FAS_COMMANDS_QUEUE_SIZE 16
     #define FAS_OUTPUT_CHANNELS 2
-    #define FAS_INPUT_CHANNELS 2
+    #define FAS_INPUT_CHANNELS 0
     #define FAS_SSL 0
     #define FAS_NOISE_AMOUNT 0.1
     #define FAS_ENVS_SIZE 65536 // do not change (due to optimizations)
@@ -50,9 +50,11 @@
     #define FAS_STREAM_LOAD_SEND_DELAY 2
     #define FAS_MAX_DROP 60 // 1 second
     #define FAS_RENDER_WIDTH 4096
-    #define FAS_MAX_FX_SLOTS 48
 
-    #define FAS_USE_CUBIC_INTERP
+    #define FAS_MAX_FX_SLOTS 24
+    #define FAS_MAX_FX_PARAMETERS 10
+
+    //#define FAS_USE_CUBIC_INTERP
     #define POLYBLEP
 
     // audio thread state&commands
@@ -75,15 +77,14 @@
     #define FAS_FORMANT_SYNTH 7
     #define FAS_PHASE_DISTORSION 8
     #define FAS_MODAL_SYNTH 9
-    #define FAS_VOCODER 10
-    #define FAS_INPUT 11
-    #define FAS_VOID 12
+    #define FAS_INPUT 10
+    #define FAS_VOID 11
 
     // granular constants
     #define GRAIN_MIN_DURATION 0.0001
 
     // Soundpipe
-    #define SP_OSC_FILTERS 8 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
+    #define SP_OSC_FILTERS 9 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
     #define SP_OSC_GENS 6 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
 
     // sp filters id
@@ -91,10 +92,11 @@
     #define SP_DIODE_FILTER 1
     #define SP_KORG35_FILTER 2
     #define SP_LPF18_FILTER 3
-    #define SP_FORMANT_FILTER 4
-    #define SP_MODE_FILTER 5
-    #define SP_STRES_FILTER 6
-    #define SP_VOCODER_FILTER 7
+    #define SP_FORMANT_FILTER_L 4
+    #define SP_FORMANT_FILTER_R 5
+    #define SP_MODE_FILTER_L 6
+    #define SP_MODE_FILTER_R 7
+    #define SP_STRES_FILTER 8
 
     // sp generators id
     #define SP_WHITE_NOISE_GENERATOR 0

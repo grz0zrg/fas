@@ -18,17 +18,7 @@
     struct _synth_fx_settings {
         int fx_id;
 
-        int ip0;
-        int ip1;
-        int ip2;
-        int ip3;
-
-        double fp0;
-        double fp1;
-        double fp2;
-        double fp3;
-        double fp4;
-        double fp5;
+        double fp[FAS_MAX_FX_PARAMETERS]; // fx parameters
     };
 
     // channel settings

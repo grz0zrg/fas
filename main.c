@@ -96,6 +96,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     LFDS720_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_PHYSICAL_CORE;
 
     float *out = (float*)outputBuffer;
+    float *audio_in = (float*)inputBuffer;
 
     unsigned int i, j, k, d, s, e;
 
@@ -160,6 +161,17 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                     if (chn_settings->synthesis_method == FAS_GRANULAR) {
                         chn_settings->synthesis_method = FAS_VOID;
                     }
+                }
+            }
+
+            // update effects chain
+            if (synth_fx) {
+                for (k = 0; k < frame_data_count; k += 1) {
+#ifdef WITH_SOUNDPIPE
+                    updateEffects(sp, synth_fx[k], &curr_synth.chn_settings[k], impulses, impulses_count);
+#else
+                    updateEffects(synth_fx[k], &curr_synth.chn_settings[k], impulses, impulses_count);
+#endif
                 }
             }
         }
@@ -671,8 +683,35 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         output_l += sl * vl;
                         output_r += sr * vr;
+                    }
+                } else if (chn_settings->synthesis_method == FAS_VOCODER) {
+                    for (j = s; j < e; j += 16) {
+                        struct note *n = &curr_notes[j];
+
+                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                        int chn_src = fmod(fabsf(n->blue), frame_data_count);
+                        int chn_mod = fmod(fabsf(n->alpha), frame_data_count);
+
+                        float sl = 0.0f;
+                        float sr = 0.0f;
+
+                        sp_vocoder_compute(sp, (sp_vocoder *)osc->sp_filters[k][SP_VOCODER_FILTER], &last_sample_l[chn_src], &last_sample_l[chn_mod], &sl);
+                        sp_vocoder_compute(sp, (sp_vocoder *)osc->sp_filters[k][SP_VOCODER_FILTER], &last_sample_r[chn_src], &last_sample_r[chn_mod], &sr);
+
+                        output_l += sl * vl;
+                        output_r += sr * vr;
                     } 
 #endif
+                } else if (chn_settings->synthesis_method == FAS_INPUT) {
+                    // this channel just output all inputs
+                    for (j = 0; j < fas_input_channels / 2; j += 1) {
+                        output_l += (*audio_in++);
+                        output_r += (*audio_in++);
+                    }
                 }
             }
 
@@ -680,11 +719,11 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             j = 0;
             int fx_id = -1;
             do {
-                fx_id = chn_settings->fx[j].fx_id;
-
                 struct _synth_fx *fx = NULL;
 
                 if (synth_fx) {
+                    fx_id = chn_settings->fx[j].fx_id;
+
                     fx = synth_fx[k];
                 }
 
@@ -926,6 +965,26 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 sp_pdhalf *pdhalf = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
                                 pdhalf->ibipolar = 1;
                                 pdhalf->amount = n->alpha;//fminf(fmaxf(n->alpha, -1.f), 1.f);
+#endif
+                            }  
+                        } else if (chn_settings->synthesis_method == FAS_VOCODER) {
+                            for (j = s; j < e; j += 16) {
+                                struct note *n = &curr_notes[j];
+
+                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+#ifdef WITH_SOUNDPIPE
+                                sp_vocoder *vocoder = (sp_vocoder *)osc->sp_filters[k][SP_VOCODER_FILTER];
+
+                                for (d = 0; d < (e-s); d += 1) {
+                                    struct note *n2 = &curr_notes[j + d];
+
+                                    int band = n2->osc_index;
+
+                                    vocoder->atk[band] = 0.001f + n2->blue_frac_part * 0.499f;
+                                    vocoder->rel[band] = n2->cutoff / 256.f;
+                                    vocoder->bwratio[band] = 0.1 + (n2->res * 1.9f);
+                                }
 #endif
                             }  
                         } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE || chn_settings->synthesis_method == FAS_FM) {
@@ -1777,91 +1836,6 @@ fflush(stdout);
 #endif
                         }
 
-                        // initialize effects which depend on given parameters
-                        for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {
-                            struct _synth_fx_settings *fx = &usd->synth->chn_settings[n].fx[j];
-
-                            if (fx->fx_id == -1) {
-                                break;
-                            }
-#ifdef WITH_SOUNDPIPE
-                            if (fx->fx_id == FX_CONV) {
-                                sp_ftbl *imp_ftbl = synth_fx[n]->ft_void;
-                                if (fx->ip0 < impulses_count) {
-                                    struct sample *smp = &impulses[fx->ip0];
-                                    imp_ftbl = smp->ftbl;
-                                }
-
-                                if (isPowerOfTwo(fx->ip1) == 0) {
-                                    fx->ip1 = 1024;
-                                }
-
-                                sp_conv_destroy((sp_conv **)&synth_fx[n]->conv[j]);
-                                sp_conv_destroy((sp_conv **)&synth_fx[n]->conv[j + 1]);
-                                sp_conv_create((sp_conv **)&synth_fx[n]->conv[j]);
-                                sp_conv_create((sp_conv **)&synth_fx[n]->conv[j + 1]);
-
-                                sp_conv_init(sp, (sp_conv *)synth_fx[n]->conv[j], imp_ftbl, fx->ip1);
-                                sp_conv_init(sp, (sp_conv *)synth_fx[n]->conv[j + 1], imp_ftbl, fx->ip1);
-                            } else if (fx->fx_id == FX_VDELAY) {
-                                // TODO: use params
-                                sp_vdelay_destroy((sp_vdelay **)&synth_fx[n]->vdelay[j]);
-                                sp_vdelay_destroy((sp_vdelay **)&synth_fx[n]->vdelay[j + 1]);
-                                sp_vdelay_create((sp_vdelay **)&synth_fx[n]->vdelay[j]);
-                                sp_vdelay_create((sp_vdelay **)&synth_fx[n]->vdelay[j + 1]);
-
-                                sp_vdelay_init(sp, (sp_vdelay *)synth_fx[n]->vdelay[j], fx->fp0);
-                                sp_vdelay_init(sp, (sp_vdelay *)synth_fx[n]->vdelay[j + 1], fx->fp0);
-
-                                sp_vdelay *vdelay = (sp_vdelay *)synth_fx[n]->vdelay[j];
-                                vdelay->del = fx->fp1;
-                                vdelay = (sp_vdelay *)synth_fx[n]->vdelay[j + 1];
-                                vdelay->del = fx->fp1;
-                            } else if (fx->fx_id == FX_SMOOTH_DELAY) {
-                                // TODO: use params
-                                sp_smoothdelay_destroy((sp_smoothdelay **)&synth_fx[n]->sdelay[j]);
-                                sp_smoothdelay_destroy((sp_smoothdelay **)&synth_fx[n]->sdelay[j + 1]);
-                                sp_smoothdelay_create((sp_smoothdelay **)&synth_fx[n]->sdelay[j]);
-                                sp_smoothdelay_create((sp_smoothdelay **)&synth_fx[n]->sdelay[j + 1]);
-
-                                sp_smoothdelay_init(sp, (sp_smoothdelay *)synth_fx[n]->sdelay[j], fx->fp0, fx->ip0);
-                                sp_smoothdelay_init(sp, (sp_smoothdelay *)synth_fx[n]->sdelay[j + 1], fx->fp0, fx->ip0);
-
-                                sp_smoothdelay *sdelay = (sp_smoothdelay *)synth_fx[n]->sdelay[j];
-                                sdelay->del = fx->fp1;
-                                sdelay = (sp_smoothdelay *)synth_fx[n]->sdelay[j + 1];
-                                sdelay->del = fx->fp1;
-                            } else if (fx->fx_id == FX_COMB) {
-                                // TODO: use params
-                                sp_comb_destroy((sp_comb **)&synth_fx[n]->comb[j]);
-                                sp_comb_destroy((sp_comb **)&synth_fx[n]->comb[j + 1]);
-                                sp_comb_create((sp_comb **)&synth_fx[n]->comb[j]);
-                                sp_comb_create((sp_comb **)&synth_fx[n]->comb[j + 1]);
-
-                                sp_comb_init(sp, (sp_comb *)synth_fx[n]->comb[j], fx->fp0);
-                                sp_comb_init(sp, (sp_comb *)synth_fx[n]->comb[j + 1], fx->fp0);
-
-                                sp_comb *comb = (sp_comb *)synth_fx[n]->comb[j];
-                                comb->revtime = fx->fp1;
-                                comb = (sp_comb *)synth_fx[n]->comb[j + 1];
-                                comb->revtime = fx->fp1;
-                            } else if (fx->fx_id == FX_ALLPASS) {
-                                sp_allpass_destroy((sp_allpass **)&synth_fx[n]->allpass[j]);
-                                sp_allpass_destroy((sp_allpass **)&synth_fx[n]->allpass[j + 1]);
-                                sp_allpass_create((sp_allpass **)&synth_fx[n]->allpass[j]);
-                                sp_allpass_create((sp_allpass **)&synth_fx[n]->allpass[j + 1]);
-
-                                sp_allpass_init(sp, (sp_allpass *)synth_fx[n]->allpass[j], fx->fp0);
-                                sp_allpass_init(sp, (sp_allpass *)synth_fx[n]->allpass[j + 1], fx->fp0);
-
-                                sp_allpass *allpass = (sp_allpass *)synth_fx[n]->allpass[j];
-                                allpass->revtime = fx->fp1;
-                                allpass = (sp_allpass *)synth_fx[n]->allpass[j + 1];
-                                allpass->revtime = fx->fp1;
-                            }
-#endif
-                        }
-
                         i += 8;
                         i2 += 3;
                     }
@@ -2507,9 +2481,11 @@ int main(int argc, char **argv)
     curr_synth.lerp_t = 0;
 
     // PortAudio related
+    PaStreamParameters inputParameters;
     PaStreamParameters outputParameters;
     PaError err;
 
+    memset(&inputParameters, 0, sizeof(PaStreamParameters));
     memset(&outputParameters, 0, sizeof(PaStreamParameters));
 
     err = Pa_Initialize();
@@ -2552,6 +2528,11 @@ int main(int argc, char **argv)
 
     int device_max_output_channels;
     if (fas_audio_device >= num_devices || fas_audio_device < 0) {
+        inputParameters.device = Pa_GetDefaultInputDevice();
+        if (inputParameters.device == paNoDevice) {
+            fprintf(stderr, "Error: No default input device.\n");
+            goto error;
+        }
         outputParameters.device = Pa_GetDefaultOutputDevice();
         if (outputParameters.device == paNoDevice) {
             fprintf(stderr, "Error: No default output device.\n");
@@ -2563,6 +2544,11 @@ int main(int argc, char **argv)
             printf("Warning: Requested output_channels program option is larger than the device output channels, defaulting to %i\n", device_max_output_channels);
             fas_output_channels = device_max_output_channels;
         }
+
+        inputParameters.channelCount = fas_input_channels;
+        inputParameters.sampleFormat = paFloat32;
+        inputParameters.suggestedLatency = Pa_GetDeviceInfo(inputParameters.device)->defaultLowOutputLatency;
+        inputParameters.hostApiSpecificStreamInfo = NULL;
 
         outputParameters.channelCount = fas_output_channels;
         outputParameters.sampleFormat = paFloat32;
@@ -2577,6 +2563,12 @@ int main(int argc, char **argv)
             fas_output_channels = device_max_output_channels;
         }
 
+        inputParameters.device = fas_audio_device;
+        inputParameters.channelCount = fas_input_channels;
+        inputParameters.sampleFormat = paFloat32;
+        inputParameters.suggestedLatency = Pa_GetDeviceInfo(inputParameters.device)->defaultLowOutputLatency;
+        inputParameters.hostApiSpecificStreamInfo = NULL;
+
         outputParameters.device = fas_audio_device;
         outputParameters.channelCount = fas_output_channels;
         outputParameters.sampleFormat = paFloat32;
@@ -2589,7 +2581,7 @@ int main(int argc, char **argv)
     last_sample_l = calloc(frame_data_count, sizeof(float));
     last_sample_r = calloc(frame_data_count, sizeof(float));
 
-    printf("\nPortAudio: Using device '%s' with %u output channels\n", Pa_GetDeviceInfo(outputParameters.device)->name, fas_output_channels);
+    printf("\nPortAudio: Using device '%s' with %u output channels / %u input channels\n", Pa_GetDeviceInfo(outputParameters.device)->name, fas_output_channels, fas_input_channels);
 
     err = Pa_IsFormatSupported(NULL, &outputParameters, (double)fas_sample_rate);
     if (err != paFormatIsSupported) {
@@ -2606,7 +2598,7 @@ int main(int argc, char **argv)
 
     err = Pa_OpenStream(
               &stream,
-              NULL,
+              &inputParameters,
               &outputParameters,
               fas_sample_rate,
               fas_frames_per_buffer,

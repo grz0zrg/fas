@@ -137,6 +137,9 @@ struct oscillator *createOscillators(
             sp_mode *mode = (sp_mode *)osc->sp_filters[i][SP_MODE_FILTER];
             mode->freq = frequency;
 
+            sp_vocoder_create((sp_vocoder **)&osc->sp_filters[i][SP_VOCODER_FILTER]);
+            sp_vocoder_init(spd, osc->sp_filters[i][SP_VOCODER_FILTER]);
+
             // Soundpipe generator
             osc->sp_gens[i] = malloc(sizeof(void *) * SP_OSC_GENS);
 
@@ -158,6 +161,7 @@ struct oscillator *createOscillators(
 
             sp_pdhalf_create((sp_pdhalf **)&osc->sp_gens[i][SP_PD_GENERATOR]);
             sp_pdhalf_init(spd, osc->sp_gens[i][SP_PD_GENERATOR]);
+
 #endif
 
             // == PM
@@ -272,6 +276,7 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
             sp_lpf18_destroy((sp_lpf18 **)&oscs[y].sp_filters[i][SP_LPF18_FILTER]);
             sp_fofilt_destroy((sp_fofilt **)&oscs[y].sp_filters[i][SP_FORMANT_FILTER]);
             sp_mode_destroy((sp_mode **)&oscs[y].sp_filters[i][SP_MODE_FILTER]);
+            sp_vocoder_destroy((sp_vocoder **)&oscs[y].sp_filters[i][SP_VOCODER_FILTER]);
 
             free(oscs[y].sp_filters[i]);
 

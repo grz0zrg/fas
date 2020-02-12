@@ -83,6 +83,7 @@
     unsigned int fas_commands_queue_size = FAS_COMMANDS_QUEUE_SIZE;
     unsigned int fas_ssl = FAS_SSL;
     unsigned int fas_osc_out = FAS_OSC_OUT;
+    unsigned int fas_input_channels = FAS_INPUT_CHANNELS;
     unsigned int fas_output_channels = FAS_OUTPUT_CHANNELS;
     unsigned int fas_granular_max_density = FAS_GRANULAR_MAX_DENSITY;
     unsigned int frame_data_count = FAS_OUTPUT_CHANNELS / 2;

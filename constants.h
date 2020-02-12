@@ -39,6 +39,7 @@
     #define FAS_FRAMES_QUEUE_SIZE 7
     #define FAS_COMMANDS_QUEUE_SIZE 16
     #define FAS_OUTPUT_CHANNELS 2
+    #define FAS_INPUT_CHANNELS 2
     #define FAS_SSL 0
     #define FAS_NOISE_AMOUNT 0.1
     #define FAS_ENVS_SIZE 65536 // do not change (due to optimizations)
@@ -74,14 +75,16 @@
     #define FAS_FORMANT_SYNTH 7
     #define FAS_PHASE_DISTORSION 8
     #define FAS_MODAL_SYNTH 9
-    #define FAS_VOID 10
+    #define FAS_VOCODER 10
+    #define FAS_INPUT 11
+    #define FAS_VOID 12
 
     // granular constants
     #define GRAIN_MIN_DURATION 0.0001
 
     // Soundpipe
-    #define SP_OSC_FILTERS 7
-    #define SP_OSC_GENS 6
+    #define SP_OSC_FILTERS 8 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
+    #define SP_OSC_GENS 6 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
 
     // sp filters id
     #define SP_MOOG_FILTER 0
@@ -91,6 +94,7 @@
     #define SP_FORMANT_FILTER 4
     #define SP_MODE_FILTER 5
     #define SP_STRES_FILTER 6
+    #define SP_VOCODER_FILTER 7
 
     // sp generators id
     #define SP_WHITE_NOISE_GENERATOR 0

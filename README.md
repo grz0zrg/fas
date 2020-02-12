@@ -58,6 +58,8 @@ There is a second type of synthesis methods which use any synthesis methods from
 * modal synthesis (resonant filter bank)
 * phase distorsion
 
+There is also input channels (currently limited to one stereo input) which just play input audio on a specified output so effects or second synthesis type can be applied.
+
 All the synthesis methods can be used at the same time by using different output channels, there is no limit on the number of output channels.
 
 FAS is focused on **real-time performances**, being **cross-platform** and **pixels-based**.
@@ -80,6 +82,8 @@ The height can be seen as an oscillator bank which can use any type of synthesis
 FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, wavetable synthesis, by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM) or physical modelling.
 
 It can be said that FAS/Fragment is a generic image-synth (also called graphical audio synthesizer): any RGBA images can be used to produce an infinite variety of sounds by streaming bitmap data to FAS.
+
+With a light wrapper its architecture can also be used as a generic synth right out of the box; just deal with RGBA notes.
 
 ### Specifications
 
@@ -359,6 +363,8 @@ This need a relay program which will link each server instances with the client 
 
 A directly usable implementation with NodeJS of a distributed synthesis relay can be found [here](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
 
+Note : Synthesis methods that require another channel as input may not work correctly, this require a minor 'group' update to the relay program.
+
 This feature was successfully used with cheap small boards clusters and [NetJack](https://github.com/jackaudio/jackaudio.github.com/wiki/WalkThrough_User_NetJack2) in a setup with 10 quad-core ARM boards + i7 (48 cores) running, linked to the NetJack driver, it is important that the relay program run on a powerfull board with (most importantly) a good Gigabit Ethernet controller to reduce latency issues.
 
 #### Frames drop
@@ -383,7 +389,7 @@ FAS support real-time rendering of the pixels data, the pixels data is compresse
 
 The ongoing development is to improve analysis / synthesis algorithms with Soundpipe library and implement new type of synthesis like spectral (through fft, not additive) with the help of the essentia framework (a C essentia wrapper is available).
 
-There is also minor architectural work to do, especially better handling of effects settings.
+There is also minor architectural work to do, especially better handling of effects settings data.
 
 ### OSC
 
@@ -393,11 +399,13 @@ With OSC you can basically do whatever you want with the pixels data, feeding Su
 
 ## Technical implementation
 
-The audio callback contain its own synth. data structure, the data structure is filled from data coming from a lock-free ring buffer to ensure thread safety for the incoming notes data, there is no allocation done in the audio callback.
+The audio callback contain its own synth. data structure, the data structure is filled from data coming from a lock-free ring buffer to ensure thread safety for the incoming notes data.
 
 A free list data structure is used to handle data reuse, the program pre-allocate a pool of notes buffer that is reused.
 
-There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, oscillators etc.), unlike main notes data this currently allocate data on the fly in the network thread, this has room for improvements.
+There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, etc.), unlike main notes data there is some call to free() in the audio callback and allocation in the network thread when changes happen, this has room for improvements but is usually ok since this data does not change once set.
+
+The architecture is done so there is **no memory allocation** done in the audio callback and very few done in the network thread (mainly for packets construction) as long as there is no changes in synth. parameters (bank height) nor effects parameters that require new initialization (for example convolution impulse length)
 
 Additive synthesis is wavetable-based.
 
@@ -405,7 +413,7 @@ Real-time resampling is done with a simple linear method, granular synthesis can
 
 All synthesis algorithms (minus [PolyBLEP](http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/) and Soundpipe provided) are customs.
 
-This program is tested with Valgrind and should be free of memory leaks.
+This program is checked with Valgrind and should be free of memory leaks.
 
 ## Packets description
 

@@ -6,6 +6,9 @@
 #endif
 
     #include <stdlib.h>
+    #include "types.h"
+    #include "samples.h"
+    #include "tools.h"
     #include "constants.h"
 
     // synth. fx
@@ -39,8 +42,10 @@
 
 #ifdef WITH_SOUNDPIPE
     void createEffects(sp_data *spd, struct _synth_fx **fx, unsigned int frame_data_count);
+    void updateEffects(sp_data *spd, struct _synth_fx *fxs, struct _synth_chn_settings *chns, struct sample *impulses, unsigned int impulses_count);
 #else
     void createEffects(struct _synth_fx **fx, unsigned int frame_data_count);
+    void updateEffects(struct _synth_fx *fxs, struct _synth_chn_settings *chns, struct sample *impulses, unsigned int impulses_count);
 #endif
     void freeEffects(struct _synth_fx **fx, unsigned int frame_data_count);
 

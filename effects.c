@@ -91,6 +91,101 @@ void createEffects(
     }
 }
 
+// initialize / update effects which depend on given parameters
+void updateEffects(
+#ifdef WITH_SOUNDPIPE
+    sp_data *sp,
+#endif
+    struct _synth_fx *fxs,
+    struct _synth_chn_settings *chns,
+    struct sample *impulses,
+    unsigned int impulses_count) {
+    int j = 0;
+    for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {
+        struct _synth_fx_settings *fx = &chns->fx[j];
+
+        if (fx->fx_id == -1) {
+            break;
+        }
+    #ifdef WITH_SOUNDPIPE
+        if (fx->fx_id == FX_CONV) {
+            sp_ftbl *imp_ftbl = fxs->ft_void;
+            if (fx->ip0 < impulses_count) {
+                struct sample *smp = &impulses[fx->ip0];
+                imp_ftbl = smp->ftbl;
+            }
+
+            if (isPowerOfTwo(fx->ip1) == 0) {
+                fx->ip1 = 1024;
+            }
+
+            sp_conv_destroy((sp_conv **)&fxs->conv[j]);
+            sp_conv_destroy((sp_conv **)&fxs->conv[j + 1]);
+            sp_conv_create((sp_conv **)&fxs->conv[j]);
+            sp_conv_create((sp_conv **)&fxs->conv[j + 1]);
+
+            sp_conv_init(sp, (sp_conv *)fxs->conv[j], imp_ftbl, fx->ip1);
+            sp_conv_init(sp, (sp_conv *)fxs->conv[j + 1], imp_ftbl, fx->ip1);
+        } else if (fx->fx_id == FX_VDELAY) {
+            // TODO: use params
+            sp_vdelay_destroy((sp_vdelay **)&fxs->vdelay[j]);
+            sp_vdelay_destroy((sp_vdelay **)&fxs->vdelay[j + 1]);
+            sp_vdelay_create((sp_vdelay **)&fxs->vdelay[j]);
+            sp_vdelay_create((sp_vdelay **)&fxs->vdelay[j + 1]);
+
+            sp_vdelay_init(sp, (sp_vdelay *)fxs->vdelay[j], fx->fp0);
+            sp_vdelay_init(sp, (sp_vdelay *)fxs->vdelay[j + 1], fx->fp0);
+
+            sp_vdelay *vdelay = (sp_vdelay *)fxs->vdelay[j];
+            vdelay->del = fx->fp1;
+            vdelay = (sp_vdelay *)fxs->vdelay[j + 1];
+            vdelay->del = fx->fp1;
+        } else if (fx->fx_id == FX_SMOOTH_DELAY) {
+            // TODO: use params
+            sp_smoothdelay_destroy((sp_smoothdelay **)&fxs->sdelay[j]);
+            sp_smoothdelay_destroy((sp_smoothdelay **)&fxs->sdelay[j + 1]);
+            sp_smoothdelay_create((sp_smoothdelay **)&fxs->sdelay[j]);
+            sp_smoothdelay_create((sp_smoothdelay **)&fxs->sdelay[j + 1]);
+
+            sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[j], fx->fp0, fx->ip0);
+            sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[j + 1], fx->fp0, fx->ip0);
+
+            sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[j];
+            sdelay->del = fx->fp1;
+            sdelay = (sp_smoothdelay *)fxs->sdelay[j + 1];
+            sdelay->del = fx->fp1;
+        } else if (fx->fx_id == FX_COMB) {
+            // TODO: use params
+            sp_comb_destroy((sp_comb **)&fxs->comb[j]);
+            sp_comb_destroy((sp_comb **)&fxs->comb[j + 1]);
+            sp_comb_create((sp_comb **)&fxs->comb[j]);
+            sp_comb_create((sp_comb **)&fxs->comb[j + 1]);
+
+            sp_comb_init(sp, (sp_comb *)fxs->comb[j], fx->fp0);
+            sp_comb_init(sp, (sp_comb *)fxs->comb[j + 1], fx->fp0);
+
+            sp_comb *comb = (sp_comb *)fxs->comb[j];
+            comb->revtime = fx->fp1;
+            comb = (sp_comb *)fxs->comb[j + 1];
+            comb->revtime = fx->fp1;
+        } else if (fx->fx_id == FX_ALLPASS) {
+            sp_allpass_destroy((sp_allpass **)&fxs->allpass[j]);
+            sp_allpass_destroy((sp_allpass **)&fxs->allpass[j + 1]);
+            sp_allpass_create((sp_allpass **)&fxs->allpass[j]);
+            sp_allpass_create((sp_allpass **)&fxs->allpass[j + 1]);
+
+            sp_allpass_init(sp, (sp_allpass *)fxs->allpass[j], fx->fp0);
+            sp_allpass_init(sp, (sp_allpass *)fxs->allpass[j + 1], fx->fp0);
+
+            sp_allpass *allpass = (sp_allpass *)fxs->allpass[j];
+            allpass->revtime = fx->fp1;
+            allpass = (sp_allpass *)fxs->allpass[j + 1];
+            allpass->revtime = fx->fp1;
+        }
+    #endif
+    }
+}
+
 void freeEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
     if (fxs == NULL) {
         return;

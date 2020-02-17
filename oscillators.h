@@ -59,6 +59,9 @@
 #ifdef WITH_SOUNDPIPE
         void ***sp_filters;
         void ***sp_gens;
+        void ***sp_mods;
+
+        sp_ftbl *ft_void;
 #endif
     };
 

@@ -20,6 +20,7 @@
         float volume_r; // green (mono = alpha)
         float blue;
         float alpha;
+        float palpha;
 
         float blue_frac_part;
 
@@ -34,8 +35,9 @@
 
         // granular related
         unsigned int density;
+
         float norm_density;
-        //unsigned int pdensity;
+
         unsigned int smp_index;
         unsigned int psmp_index;
 

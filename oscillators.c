@@ -98,7 +98,10 @@ struct oscillator *createOscillators(
 
 #ifdef WITH_SOUNDPIPE
         osc->sp_filters = malloc(sizeof(void **) * frame_data_count);
+        osc->sp_mods = malloc(sizeof(void **) * frame_data_count);
         osc->sp_gens = malloc(sizeof(void **) * frame_data_count);
+
+        sp_ftbl_create(spd, (sp_ftbl **)&osc->ft_void, 1);
 #endif
 
         for (i = 0; i < frame_data_count; i += 1) {
@@ -171,6 +174,33 @@ struct oscillator *createOscillators(
             sp_pdhalf_create((sp_pdhalf **)&osc->sp_gens[i][SP_PD_GENERATOR]);
             sp_pdhalf_init(spd, osc->sp_gens[i][SP_PD_GENERATOR]);
 
+            // Soundpipe modifiers (generic effects)
+            osc->sp_mods[i] = malloc(sizeof(void *) * SP_OSC_MODS);
+
+            sp_comb_create((sp_comb **)&osc->sp_mods[i][SP_COMB_MODS]);
+            sp_comb_init(spd, osc->sp_mods[i][SP_COMB_MODS], 0.5f);
+
+            sp_bitcrush_create((sp_bitcrush **)&osc->sp_mods[i][SP_CRUSH_MODS]);
+            sp_bitcrush_init(spd, osc->sp_mods[i][SP_CRUSH_MODS]);
+
+            sp_autowah_create((sp_autowah **)&osc->sp_mods[i][SP_WAH_MODS]);
+            sp_autowah_init(spd, osc->sp_mods[i][SP_WAH_MODS]);
+
+            sp_autowah *wah = (sp_autowah *)osc->sp_mods[i][SP_WAH_MODS];
+            *wah->level = 1.f;
+
+            sp_dist_create((sp_dist **)&osc->sp_mods[i][SP_WAVSH_MODS]);
+            sp_dist_init(spd, osc->sp_mods[i][SP_WAVSH_MODS]);
+
+            sp_dist *dist = (sp_dist *)osc->sp_mods[i][SP_WAVSH_MODS];
+            dist->pregain = 1.f;
+            dist->postgain = 1.f;
+
+            sp_fold_create((sp_fold **)&osc->sp_mods[i][SP_FOLD_MODS]);
+            sp_fold_init(spd, osc->sp_mods[i][SP_FOLD_MODS]);
+
+            sp_conv_create((sp_conv **)&osc->sp_mods[i][SP_CONV_MODS]);
+            sp_conv_init(spd, osc->sp_mods[i][SP_CONV_MODS], osc->ft_void, 2048);  
 #endif
 
             // == PM
@@ -297,6 +327,15 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
             sp_pdhalf_destroy((sp_pdhalf **)&oscs[y].sp_gens[i][SP_PD_GENERATOR]);
             
             free(oscs[y].sp_gens[i]);
+
+            sp_comb_destroy((sp_comb **)&oscs[y].sp_mods[i][SP_COMB_MODS]);
+            sp_bitcrush_destroy((sp_bitcrush **)&oscs[y].sp_mods[i][SP_CRUSH_MODS]);
+            sp_autowah_destroy((sp_autowah **)&oscs[y].sp_mods[i][SP_WAH_MODS]);
+            sp_dist_destroy((sp_dist **)&oscs[y].sp_mods[i][SP_WAVSH_MODS]);
+            sp_fold_destroy((sp_fold **)&oscs[y].sp_mods[i][SP_FOLD_MODS]);
+            sp_conv_destroy((sp_conv **)&oscs[y].sp_mods[i][SP_CONV_MODS]);
+
+            free(oscs[y].sp_mods[i]);
 #endif
         }
 
@@ -312,6 +351,7 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
 #ifdef WITH_SOUNDPIPE
         free(oscs[y].sp_filters);
         free(oscs[y].sp_gens);
+        free(oscs[y].sp_mods);
 #endif
     }
 

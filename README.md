@@ -46,7 +46,7 @@ Fragment Audio Server (FAS) is a pixels-based graphical audio synthesizer implem
 
 The versatility of its sound engine allow a wide variety of synthesis methods to produce sounds:
 
-* additive / spectral synthesis
+* additive / spectral synthesis with per partial effect (bitcrush, comb etc.)
 * phase modulation (PM/FM)
 * granular
 * subtractive synthesis
@@ -59,7 +59,7 @@ There is a second type of synthesis methods which use any synthesis methods from
 * modal synthesis (resonant filter bank)
 * phase distorsion
 
-There is also input channels which just play input audio so effects or second synthesis type can be applied.
+There is also input channels which just play input audio so amplitude envelope, effects or second synthesis type can be applied.
 
 All the synthesis methods can be used at the same time by using different output channels, there is no limit on the number of output channels.
 
@@ -84,6 +84,8 @@ FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or
 
 It can be said that FAS/Fragment is a generic image-synth (also called graphical audio synthesizer): any RGBA images can be used to produce an infinite variety of sounds by streaming bitmap data to FAS.
 
+Red and Green value generally map to amplitude envelope while Blue and Alpha value map to specific parameters of the chosen synthesis type.
+
 With a light wrapper its architecture can also be used as a generic synth right out of the box; just deal with RGBA notes.
 
 ### Specifications
@@ -98,6 +100,7 @@ Here is some architectural specifications as if it were made by a synth. manufac
 * high quality stereophonic audio with low latency
 * fully microtonal / spectral
 * unlimited effects slot per part (24 by default but adaptable); reverb, convolution, comb, delay, chorus, flanger... you can also choose to add your own effects chain since every part have dedicated stereo output
+* per partial slot effect for additive synthesis
 * per voice filtering for subtractive / wavetable synthesis with one multi mode filter
  * per voice effects is limited by RGBA note data (so it is quite low actually with only one multi mode filter per voice), this is one serious limitation but there is no reason this limitation can't go over with slight adjustements (dropping bitmap data / allowing layers), allowing more layers would provide unlimited effects slot per voice / unlimited modulation options but would stress data rate limit and thus increase demands on network speed / processing... maybe in the future!
 * envelopes ? has it all due to stream based architecture, you can build any types (ADSR etc.) with any interpolation scheme (linear / exp etc.)
@@ -105,13 +108,26 @@ Here is some architectural specifications as if it were made by a synth. manufac
 * events resolution can be defined as you wish (60 Hz but you can go above that through a parameter)
 * cross-platform; run this about anywhere !
 
-Note : "Unlimited" is actually an architectural term, in real conditions it is limited by the available processing power, frequency resolution is also limited by slice height so it may be out of tune with low resolution! (just like analog but still more precise!)
+Note : "Unlimited" is actually an architectural term, in real conditions it is limited by the available processing power, amount of memory available, frequency resolution is also limited by slice height so it may be out of tune with low resolution! (just like analog but still more precise!)
 
 ### Additive synthesis
 
 Additive synthesis is a mean to generate sounds by adding sine waves together, it is an extremely powerful type of sound synthesis able to reproduce any waveforms in theory.
 
-FAS allow to add some amount of white noise to the phase of each sine waves, this may result in enhancement of noisy sounds.
+When compiled with `PARTIAL_FX` defined there is a fx slot available **per partial** with following effects available :
+
+* none
+* comb filter (Time : [0, 1))
+* bitcrush (Bitdepth / Sampling rate : B component [0, 1] / A component [0, 1])
+* wah (Amount : A component [0, 1))
+* phase distorsion (Amount : A component [0, 1] / Bipolar : B component integer 0 or 1)
+* tanh waveshaping (Wave 1 / Wave 2 : B component [0, 1] / A component [0, 1))
+* signal foldover (A component [0, 3])
+* convolver (A component integer part; Note : require huge amount of processing power with high amount of partials)
+
+Any combination of these can be applied to each partials with real-time parameters change. This feature may allow to easily add character to the additive sound.
+
+FAS allow to add some amount of white noise to the phase of each sine waves, this may result in enhancement of noisy sounds. Disabled when `PARTIAL_FX` is defined.
 
 #### RGBA interpretation
 

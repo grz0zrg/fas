@@ -266,11 +266,63 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
+#ifdef PARTIAL_FX
+                        int fx = n->density % (SP_OSC_MODS + 2); // empty / pd half does not count (so + 2)
+#ifdef WITH_SOUNDPIPE
+                        if (fx == SP_COMB_MODS) {
+                            sp_comb *comb = (sp_comb *)osc->sp_mods[k][SP_COMB_MODS];
+                            comb->revtime = n->alpha  * 10;
+
+                            sp_comb_compute(sp, (sp_comb *)osc->sp_mods[k][SP_COMB_MODS], &s, &s);
+                        } else if (fx == SP_CRUSH_MODS) {
+                            sp_bitcrush *crush = (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS];
+                            
+                            crush->bitdepth = 1.f + (n->blue_frac_part * 15.f);
+                            crush->srate = n->res * (float)fas_sample_rate;
+
+                            sp_bitcrush_compute(sp, (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS], &s, &s); 
+                        } else if (fx == SP_WAH_MODS) {
+                            sp_autowah *wah = (sp_autowah *)osc->sp_mods[k][SP_WAH_MODS];
+                            
+                            *wah->wah = n->alpha;
+                            *wah->mix = 100.f;
+
+                            sp_autowah_compute(sp, (sp_autowah *)osc->sp_mods[k][SP_WAH_MODS], &s, &s); 
+                        } else if (fx == SP_PD_MODS) {
+                            sp_pdhalf *pdh = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
+                            
+                            pdh->ibipolar = n->alpha;
+                            pdh->amount = (0.5f - n->res) * 2.f;
+
+                            sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &s, &s); 
+                        } else if (fx == SP_WAVSH_MODS) {
+                            sp_dist *dist = (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS];
+                            
+                            dist->shape1 = n->blue_frac_part;
+                            dist->shape2 = n->alpha;
+
+                            sp_dist_compute(sp, (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS], &s, &s); 
+                        } else if (fx == SP_FOLD_MODS) {
+                            sp_fold *fold = (sp_fold *)osc->sp_mods[k][SP_FOLD_MODS];
+                            
+                            fold->incr = n->alpha;
+
+                            sp_fold_compute(sp, (sp_fold *)osc->sp_mods[k][SP_FOLD_MODS], &s, &s); 
+                        } else if (fx == SP_CONV_MODS) {
+                            sp_conv_compute(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], &s, &s); 
+                        }
+#endif
+#endif
+
                         output_l += vl * s;
                         output_r += vr * s;
 
 #ifdef BANDLIMITED_NOISE
+#ifdef PARTIAL_FX
+                        osc->phase_index[k] += osc->phase_step;
+#else
                         osc->phase_index[k] += osc->phase_step * (1.0f + (fas_white_noise_table[osc->noise_index[k]++] * fas_noise_amount) * n->alpha);
+#endif
 #else
                         osc->phase_index[k] += osc->phase_step;
 #endif
@@ -882,7 +934,35 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         struct _synth_chn_settings *chn_settings = &curr_synth.chn_settings[k];
 
-                        if (chn_settings->synthesis_method == FAS_GRANULAR) {
+                        if (chn_settings->synthesis_method == FAS_ADDITIVE) {
+                            for (j = s; j < e; j += 1) {
+                                struct note *n = &curr_notes[j];
+
+                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                                unsigned int alpha = fabs(round(n->alpha));
+                                unsigned int palpha = fabs(round(n->palpha));
+
+                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0 && alpha != palpha) {
+#ifdef PARTIAL_FX
+                                    int fx = n->density % (SP_OSC_MODS + 2);
+                                    if (fx == SP_CONV_MODS) {
+#ifdef WITH_SOUNDPIPE
+                                        sp_ftbl *imp_ftbl = osc->ft_void;
+                                        if (impulses_count > 0) {
+                                            struct sample *smp = &impulses[alpha % impulses_count];
+                                            imp_ftbl = smp->ftbl;
+                                        }
+                                        sp_conv_destroy((sp_conv **)&osc->sp_mods[k][SP_CONV_MODS]);
+
+                                        sp_conv_create((sp_conv **)&osc->sp_mods[k][SP_CONV_MODS]);
+                                        sp_conv_init(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], imp_ftbl, 2048);
+#endif
+                                    }
+#endif
+                                }
+                            }
+                        } else if (chn_settings->synthesis_method == FAS_GRANULAR) {
                             for (j = s; j < e; j += 1) {
                                 struct note *n = &curr_notes[j];
 

@@ -142,9 +142,11 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
                 _note->osc_index = y;
 
                 _note->alpha = alpha;
+                _note->palpha = pa;
                 _note->blue = blue;
 
                 _note->density = fabs(round(blue));
+
                 _note->norm_density = 1.0f / (_note->density + 0.0000001f);
 
                 if (_note->density < 1) {

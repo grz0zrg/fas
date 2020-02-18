@@ -267,7 +267,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
 #ifdef PARTIAL_FX
-                        int fx = n->density % (SP_OSC_MODS + 2); // empty / pd half does not count (so + 2)
+                        int fx = n->density % SP_OSC_MODS;
 #ifdef WITH_SOUNDPIPE
                         if (fx == SP_COMB_MODS) {
                             sp_comb *comb = (sp_comb *)osc->sp_mods[k][SP_COMB_MODS];
@@ -943,22 +943,31 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 unsigned int alpha = fabs(round(n->alpha));
                                 unsigned int palpha = fabs(round(n->palpha));
 
-                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0 && alpha != palpha) {
+                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
 #ifdef PARTIAL_FX
-                                    int fx = n->density % (SP_OSC_MODS + 2);
-                                    if (fx == SP_CONV_MODS) {
+                                    int fx = n->density % SP_OSC_MODS;
+                                    //if (alpha != palpha) {
+                                        if (fx == SP_CONV_MODS) {
 #ifdef WITH_SOUNDPIPE
-                                        sp_ftbl *imp_ftbl = osc->ft_void;
-                                        if (impulses_count > 0) {
-                                            struct sample *smp = &impulses[alpha % impulses_count];
-                                            imp_ftbl = smp->ftbl;
-                                        }
-                                        sp_conv_destroy((sp_conv **)&osc->sp_mods[k][SP_CONV_MODS]);
+                                            sp_ftbl *imp_ftbl = osc->ft_void;
+                                            if (impulses_count > 0) {
+                                                struct sample *smp = &impulses[alpha % impulses_count];
+                                                imp_ftbl = smp->ftbl;
+                                            }
+                                            sp_conv_destroy((sp_conv **)&osc->sp_mods[k][SP_CONV_MODS]);
 
-                                        sp_conv_create((sp_conv **)&osc->sp_mods[k][SP_CONV_MODS]);
-                                        sp_conv_init(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], imp_ftbl, 2048);
+                                            sp_conv_create((sp_conv **)&osc->sp_mods[k][SP_CONV_MODS]);
+                                            sp_conv_init(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], imp_ftbl, 2048);
 #endif
+                                        }
+                                    //}
+
+                                    if (fx == SP_EMPTY_MODS) {
+                                        //osc->phase_index[k] = n->alpha * fas_wavetable_size_m1;
                                     }
+#else
+                                    // phase control via alpha value
+                                    //osc->phase_index[k] = n->alpha * fas_wavetable_size_m1;
 #endif
                                 }
                             }
@@ -1551,6 +1560,8 @@ if (remaining_payload != 0) {
                     if (synth_fx) {
                         freeEffects(synth_fx, frame_data_count);
                         free(synth_fx);
+
+                        synth_fx = NULL;
                     }
 
                     usd->synth->gain = NULL;
@@ -2794,6 +2805,12 @@ quit:
     free(fas_sine_wavetable);
     free(fas_white_noise_table);
 
+#ifdef WITH_SOUNDPIPE
+    if (sp) {
+        sp_destroy(&sp);
+    }
+#endif
+
     freeEnvelopes(grain_envelope);
     free_samples(&impulses, impulses_count);
     free_samples(&waves, waves_count);
@@ -2864,6 +2881,7 @@ error:
     free(fas_sine_wavetable);
     free(fas_white_noise_table);
 
+    free_samples(&impulses, impulses_count);
     free_samples(&samples, samples_count);
     free_samples(&waves, waves_count);
 

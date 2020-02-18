@@ -303,10 +303,12 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
 #ifndef POLYBLEP
             free(oscs[y].harmo_phase_index[i]);
 #endif
+
             free(oscs[y].fp1[i]);
             free(oscs[y].fp2[i]);
             free(oscs[y].fp3[i]);
             free(oscs[y].fp4[i]);
+            
 #ifdef WITH_SOUNDPIPE
             sp_moogladder_destroy((sp_moogladder **)&oscs[y].sp_filters[i][SP_MOOG_FILTER]);
             sp_diode_destroy((sp_diode **)&oscs[y].sp_filters[i][SP_DIODE_FILTER]);
@@ -349,6 +351,8 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
         free(oscs[y].fp4);
 
 #ifdef WITH_SOUNDPIPE
+        sp_ftbl_destroy((sp_ftbl **)&oscs[y].ft_void);
+
         free(oscs[y].sp_filters);
         free(oscs[y].sp_gens);
         free(oscs[y].sp_mods);

@@ -89,7 +89,7 @@ char *create_filepath(char *directory, char *filename) {
     if (directory[directory_length - 1] != '/') {
         directory_length = directory_length + 1;
 
-        dir = (char *)malloc(directory_length);
+        dir = (char *)malloc(directory_length + 1);
         if (!dir) {
             return NULL;
         }

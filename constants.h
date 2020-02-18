@@ -86,7 +86,7 @@
     // Soundpipe
     #define SP_OSC_FILTERS 9 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
     #define SP_OSC_GENS 6 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
-    #define SP_OSC_MODS 6 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!! (note : empty / pdhalf does not count)
+    #define SP_OSC_MODS 8 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!! (note : empty / pdhalf does count even if not allocated at the same place)
 
     // sp filters id
     #define SP_MOOG_FILTER 0

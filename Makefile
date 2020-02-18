@@ -38,6 +38,9 @@ debug-o:
 debug-o-static:
 	$(compiler) $(source) $(include_path) ${debug_options} ${adv_optimization_options} ${standard_options} $(static_libs) -o $(output)
 
+debug-static-sp-o:
+	$(compiler) $(source) $(include_path) ${debug_options} ${adv_optimization_options} ${standard_options} $(static_libs) ${soundpipe_libs} -DPARTIAL_FX -DWITH_SOUNDPIPE -o $(output)
+
 debug-bln-static-sp-o:
 	$(compiler) $(source) $(include_path) ${debug_options} ${adv_optimization_options} -DBANDLIMITED_NOISE -DWITH_SOUNDPIPE ${standard_options} $(static_libs) ${soundpipe_libs} -o $(output)
 

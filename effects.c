@@ -206,7 +206,6 @@ void freeEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
             sp_revsc_destroy((sp_revsc **)&fx->revsc[j]);
 
             sp_phaser_destroy((sp_phaser **)&fx->phaser[j]);
-
         }
 
         for (j = 0; j < FAS_MAX_FX_SLOTS * 2; j += 2) {

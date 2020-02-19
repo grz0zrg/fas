@@ -164,6 +164,17 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 }
             }
 
+            // do not allow audio input channels when there is no inputs
+            if (fas_input_channels == 0) {
+                for (k = 0; k < frame_data_count; k += 1) {
+                    struct _synth_chn_settings *chn_settings = &curr_synth.chn_settings[k];
+
+                    if (chn_settings->synthesis_method == FAS_INPUT) {
+                        chn_settings->synthesis_method = FAS_VOID;
+                    }
+                }
+            }
+
             // update effects chain
             if (synth_fx) {
                 for (k = 0; k < frame_data_count; k += 1) {
@@ -841,11 +852,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #ifdef WITH_SOUNDPIPE
                     sp_clip_compute(sp, (sp_clip *)fx->clip[j], &output_l, &output_l);
                     sp_clip_compute(sp, (sp_clip *)fx->clip[j + 1], &output_r, &output_r);
-#endif
-                } else if (fx_id == FX_ALLPASS) {
-#ifdef WITH_SOUNDPIPE
-                    sp_allpass_compute(sp, (sp_allpass *)fx->allpass[j], &output_l, &output_l);
-                    sp_allpass_compute(sp, (sp_allpass *)fx->allpass[j + 1], &output_r, &output_r);
 #endif
                 } else if (fx_id == FX_B_LOWPASS) {
 #ifdef WITH_SOUNDPIPE

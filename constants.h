@@ -140,11 +140,10 @@
     #define FX_COMPRESSOR 12
     #define FX_PEAK_LIMITER 13
     #define FX_CLIP 14
-    #define FX_ALLPASS 15
-    #define FX_B_LOWPASS 16
-    #define FX_B_HIGHPASS 17
-    #define FX_B_BANDPASS 18
-    #define FX_B_BANDREJECT 19
-    #define FX_PAREQ 20
+    #define FX_B_LOWPASS 15
+    #define FX_B_HIGHPASS 16
+    #define FX_B_BANDPASS 17
+    #define FX_B_BANDREJECT 18
+    #define FX_PAREQ 19
 
 #endif

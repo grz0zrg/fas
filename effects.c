@@ -68,9 +68,6 @@ void createEffects(
                 sp_clip_create((sp_clip **)&fx->clip[j + k]);
                 sp_clip_init(spd, (sp_clip *)fx->clip[j + k]);
 
-                sp_allpass_create((sp_allpass **)&fx->allpass[j + k]);
-                sp_allpass_init(spd, (sp_allpass *)fx->allpass[j + k], 0.1f);
-
                 sp_butlp_create((sp_butlp **)&fx->butlp[j + k]);
                 sp_butlp_init(spd, (sp_butlp *)fx->butlp[j + k]);
 
@@ -149,8 +146,10 @@ void updateEffects(
             sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[j + 1], fx->fp[0], fx->fp[1]);
 
             sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[j];
-            sdelay->del = fx->fp[2];
+            sdelay->feedback = fx->fp[2];
+            sdelay->del = fx->fp[3];
             sdelay = (sp_smoothdelay *)fxs->sdelay[j + 1];
+            sdelay->feedback = fx->fp[2];
             sdelay->del = fx->fp[3];
         } else if (fx->fx_id == FX_COMB) {
             sp_comb_destroy((sp_comb **)&fxs->comb[j]);
@@ -165,19 +164,6 @@ void updateEffects(
             comb->revtime = fx->fp[1];
             comb = (sp_comb *)fxs->comb[j + 1];
             comb->revtime = fx->fp[1];
-        } else if (fx->fx_id == FX_ALLPASS) {
-            sp_allpass_destroy((sp_allpass **)&fxs->allpass[j]);
-            sp_allpass_destroy((sp_allpass **)&fxs->allpass[j + 1]);
-            sp_allpass_create((sp_allpass **)&fxs->allpass[j]);
-            sp_allpass_create((sp_allpass **)&fxs->allpass[j + 1]);
-
-            sp_allpass_init(sp, (sp_allpass *)fxs->allpass[j], fx->fp[0]);
-            sp_allpass_init(sp, (sp_allpass *)fxs->allpass[j + 1], fx->fp[0]);
-
-            sp_allpass *allpass = (sp_allpass *)fxs->allpass[j];
-            allpass->revtime = fx->fp[1];
-            allpass = (sp_allpass *)fxs->allpass[j + 1];
-            allpass->revtime = fx->fp[1];
         } else if (fx->fx_id == FX_AUTOWAH) {
             sp_autowah *autowah = (sp_autowah *)fxs->autowah[j];
             *autowah->level = fx->fp[0];
@@ -222,7 +208,6 @@ void freeEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
                 sp_compressor_destroy((sp_compressor **)&fx->compressor[j + k]);
                 sp_peaklim_destroy((sp_peaklim **)&fx->peaklimit[j + k]);
                 sp_clip_destroy((sp_clip **)&fx->clip[j + k]);
-                sp_allpass_destroy((sp_allpass **)&fx->allpass[j + k]);
                 sp_butlp_destroy((sp_butlp **)&fx->butlp[j + k]);
                 sp_buthp_destroy((sp_buthp **)&fx->buthp[j + k]);
                 sp_butbp_destroy((sp_butbp **)&fx->butbp[j + k]);

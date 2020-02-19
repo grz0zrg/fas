@@ -29,7 +29,6 @@
         sp_compressor *compressor[FAS_MAX_FX_SLOTS * 2];
         sp_peaklim *peaklimit[FAS_MAX_FX_SLOTS * 2];
         sp_clip *clip[FAS_MAX_FX_SLOTS * 2];
-        sp_allpass *allpass[FAS_MAX_FX_SLOTS * 2];
         sp_butlp *butlp[FAS_MAX_FX_SLOTS * 2];
         sp_buthp *buthp[FAS_MAX_FX_SLOTS * 2];
         sp_butbp *butbp[FAS_MAX_FX_SLOTS * 2];

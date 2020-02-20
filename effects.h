@@ -34,6 +34,11 @@
         sp_butbp *butbp[FAS_MAX_FX_SLOTS * 2];
         sp_butbr *butbr[FAS_MAX_FX_SLOTS * 2];
         sp_pareq *pareq[FAS_MAX_FX_SLOTS * 2];
+        sp_moogladder *mooglp[FAS_MAX_FX_SLOTS * 2];
+        sp_diode *diodelp[FAS_MAX_FX_SLOTS * 2];
+        sp_wpkorg35 *korglp[FAS_MAX_FX_SLOTS * 2];
+        sp_lpf18 *lpf18[FAS_MAX_FX_SLOTS * 2];
+        sp_tbvcf *tbvcf[FAS_MAX_FX_SLOTS * 2];
 
         sp_ftbl *ft_void;
 #endif

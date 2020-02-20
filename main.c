@@ -28,7 +28,7 @@
 
     This collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound in real-time for a smooth experience.
 
-    Only one client is supported (altough many can connect, not tested but it may result in a big audio mess and likely a crash!)
+    Only one client is supported.
 
     You can tweak this program by passing settings to its arguments, for help : fas --h
 
@@ -810,13 +810,17 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
                 } else if (fx_id == FX_VDELAY) {
 #ifdef WITH_SOUNDPIPE
-                    sp_vdelay_compute(sp, (sp_vdelay *)fx->vdelay[j], &output_l, &output_l);
-                    sp_vdelay_compute(sp, (sp_vdelay *)fx->vdelay[j + 1], &output_r, &output_r);
+                    float insl = output_l;
+                    float insr = output_r;
+                    sp_vdelay_compute(sp, (sp_vdelay *)fx->vdelay[j], &insl, &output_l);
+                    sp_vdelay_compute(sp, (sp_vdelay *)fx->vdelay[j + 1], &insr, &output_r);
 #endif
                 } else if (fx_id == FX_SMOOTH_DELAY) {
 #ifdef WITH_SOUNDPIPE
-                    sp_smoothdelay_compute(sp, (sp_smoothdelay *)fx->sdelay[j], &output_l, &output_l);
-                    sp_smoothdelay_compute(sp, (sp_smoothdelay *)fx->sdelay[j + 1], &output_r, &output_r);
+                    float insl = output_l;
+                    float insr = output_r;
+                    sp_smoothdelay_compute(sp, (sp_smoothdelay *)fx->sdelay[j], &insl, &output_l);
+                    sp_smoothdelay_compute(sp, (sp_smoothdelay *)fx->sdelay[j + 1], &insr, &output_r);
 #endif
                 } else if (fx_id == FX_COMB) {
 #ifdef WITH_SOUNDPIPE
@@ -877,6 +881,33 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #ifdef WITH_SOUNDPIPE
                     sp_pareq_compute(sp, (sp_pareq *)fx->pareq[j], &output_l, &output_l);
                     sp_pareq_compute(sp, (sp_pareq *)fx->pareq[j + 1], &output_r, &output_r);
+#endif
+                } else if (fx_id == FX_MOOG_LPF) {
+#ifdef WITH_SOUNDPIPE
+                    sp_moogladder_compute(sp, (sp_moogladder *)fx->mooglp[j], &output_l, &output_l);
+                    sp_moogladder_compute(sp, (sp_moogladder *)fx->mooglp[j + 1], &output_r, &output_r);
+#endif
+                } else if (fx_id == FX_DIODE_LPF) {
+#ifdef WITH_SOUNDPIPE
+                    sp_diode_compute(sp, (sp_diode *)fx->diodelp[j], &output_l, &output_l);
+                    sp_diode_compute(sp, (sp_diode *)fx->diodelp[j + 1], &output_r, &output_r);
+#endif
+                } else if (fx_id == FX_KORG_LPF) {
+#ifdef WITH_SOUNDPIPE
+                    sp_wpkorg35_compute(sp, (sp_wpkorg35 *)fx->korglp[j], &output_l, &output_l);
+                    sp_wpkorg35_compute(sp, (sp_wpkorg35 *)fx->korglp[j + 1], &output_r, &output_r);
+#endif
+                } else if (fx_id == FX_18_LPF) {
+#ifdef WITH_SOUNDPIPE
+                    sp_lpf18_compute(sp, (sp_lpf18 *)fx->lpf18[j], &output_l, &output_l);
+                    sp_lpf18_compute(sp, (sp_lpf18 *)fx->lpf18[j + 1], &output_r, &output_r);
+#endif
+                } else if (fx_id == FX_TBVCF) {
+#ifdef WITH_SOUNDPIPE
+                    float insl = output_l;
+                    float insr = output_r;
+                    sp_tbvcf_compute(sp, (sp_tbvcf *)fx->tbvcf[j], &insl, &output_l);
+                    sp_tbvcf_compute(sp, (sp_tbvcf *)fx->tbvcf[j + 1], &insr, &output_r);
 #endif
                 }
                 

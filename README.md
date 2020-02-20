@@ -99,7 +99,7 @@ Here is some architectural specifications as if it were made by a synth. manufac
 * multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation and allow custom sound engine (WIP: through [Faust](https://faust.grame.fr/))
 * high quality stereophonic audio with low latency
 * fully microtonal / spectral
-* unlimited effects slot per part (24 by default but adaptable); reverb, convolution, comb, delay, chorus, flanger... you can also choose to add your own effects chain since every part have dedicated stereo output
+* unlimited effects slot per part (24 by default but adaptable); reverb, convolution, comb, delay, chorus, flanger... 25 high quality effects type provided by Soundpipe are available, you can also choose to add your own effects chain since every part have dedicated stereo output
 * per partial slot effect for additive synthesis
 * per voice filtering for subtractive / wavetable synthesis with one multi mode filter
  * per voice effects is limited by RGBA note data (so it is quite low actually with only one multi mode filter per voice), this is one serious limitation but there is no reason this limitation can't go over with slight adjustements (dropping bitmap data / allowing layers), allowing more layers would provide unlimited effects slot per voice / unlimited modulation options but would stress data rate limit and thus increase demands on network speed / processing... maybe in the future!

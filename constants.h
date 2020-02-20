@@ -145,5 +145,10 @@
     #define FX_B_BANDPASS 17
     #define FX_B_BANDREJECT 18
     #define FX_PAREQ 19
+    #define FX_MOOG_LPF 20
+    #define FX_DIODE_LPF 21
+    #define FX_KORG_LPF 22
+    #define FX_18_LPF 23
+    #define FX_TBVCF 24
 
 #endif

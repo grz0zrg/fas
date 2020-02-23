@@ -59,6 +59,8 @@ There is a second type of synthesis methods which use any synthesis methods from
 * modal synthesis (resonant filter bank)
 * phase distorsion
 
+Other type of synthesis (Linear Arithmetic Synthesis etc.) may be supported out of the box by a combination of the methods above.
+
 There is also input channels which just play input audio so amplitude envelope, effects or second synthesis type can be applied.
 
 All the synthesis methods can be used at the same time by using different output channels, there is no limit on the number of output channels.
@@ -114,7 +116,7 @@ Note : "Unlimited" is actually an architectural term, in real conditions it is l
 
 Additive synthesis is a mean to generate sounds by adding sine waves together, it is an extremely powerful type of sound synthesis able to reproduce any waveforms in theory.
 
-When compiled with `PARTIAL_FX` defined there is a fx slot available **per partial** with following effects available :
+When compiled with `PARTIAL_FX` defined there is a fx slot available **per partial** with following effects available (only stereophonic, monophonic may work but fx parameters may not):
 
 * none
 * comb filter (Time : [0, 1))
@@ -124,10 +126,11 @@ When compiled with `PARTIAL_FX` defined there is a fx slot available **per parti
 * tanh waveshaping (Wave 1 / Wave 2 : B component [0, 1] / A component [0, 1))
 * signal foldover (A component [0, 3])
 * convolver (A component integer part; Note : require huge amount of processing power with high amount of partials)
+* noise (B added white noise factor to sine wave phase, maximum defined by command-line parameter)
 
 Any combination of these can be applied to each partials with real-time parameters change. This feature may allow to easily add character to the additive sound.
 
-FAS allow to add some amount of white noise to the phase of each sine waves, this may result in enhancement of noisy sounds. Disabled when `PARTIAL_FX` is defined.
+Partials effects can be disabled to speed up additive synthesis (or if FAS doesn't make use of Soundpipe), phase noise is then available when `BANDLIMITED_NOISE` is defined and can also be turned off.
 
 #### RGBA interpretation
 
@@ -146,8 +149,8 @@ FAS allow to add some amount of white noise to the phase of each sine waves, thi
 | ---------: | :--------------------------------------- |
 |          R | Amplitude value of the LEFT channel      |
 |          G | Amplitude value of the RIGHT channel     |
-|          B | Added noise factor for the LEFT and RIGHT oscillator |
-|          A | unused                                   |
+|          B | see above |
+|          A | see above                                   |
 
 ### Granular synthesis
 
@@ -367,7 +370,7 @@ Each samples loaded from the `grains` or `waves` folder are processed, one of th
 
 ### Effects
 
-This synthesizer support unlimited (user-defined maximum at compile time) number of effects chain per channels, all effects (phaser, comb, reverb, delay...) come from the Soundpipe library which is thus required for effects usage.
+This synthesizer support unlimited (user-defined maximum at compile time) number of effects chain per channels with bypass support, all effects (phaser, comb, reverb, delay...) come from the Soundpipe library which is thus required for effects usage.
 
 Convolution effect use impulses response which are audio files loaded from the `impulses` folder.
 
@@ -434,6 +437,8 @@ With OSC you can basically do whatever you want with the pixels data, feeding Su
 The audio callback contain its own synth. data structure, the data structure is filled from data coming from a lock-free ring buffer to ensure thread safety for the incoming notes data.
 
 A free list data structure is used to handle data reuse, the program pre-allocate a pool of notes buffer that is reused.
+
+Audio synthesis is processed with minimum computation / branching, values which depend on note parameter change are pre-computed per-channel / oscillator in a dedicated processing block outside synthesis block.
 
 There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, etc.), unlike main notes data there is some call to free() in the audio callback and allocation in the network thread when changes happen, this has room for improvements but is usually ok since this data does not change once set.
 

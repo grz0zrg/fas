@@ -17,6 +17,7 @@
     // fx settings
     struct _synth_fx_settings {
         int fx_id;
+        int bypass;
 
         double fp[FAS_MAX_FX_PARAMETERS]; // fx parameters
     };

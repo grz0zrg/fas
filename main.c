@@ -44,6 +44,8 @@
 
 #include "fas.h"
 
+void freeSynth(struct _synth **s);
+
 // liblfds data structures cleanup callbacks
 void flf_element_cleanup_callback(struct lfds720_freelist_n_state *fs, struct lfds720_freelist_n_element *fe) {
     struct _freelist_frames_data *freelist_frames_data;
@@ -321,6 +323,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             sp_fold_compute(sp, (sp_fold *)osc->sp_mods[k][SP_FOLD_MODS], &s, &s); 
                         } else if (fx == SP_CONV_MODS) {
                             sp_conv_compute(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], &s, &s); 
+                        } else if (fx == NOISE_MODS) {
+                            osc->phase_index[k] += osc->phase_step * (1.0f + (fas_white_noise_table[osc->noise_index[k]++]) * n->alpha);
                         }
 #endif
 #endif
@@ -679,6 +683,21 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             osc->fp4[k][1] -= smp->frames;
                         }
                     }
+                } else if (chn_settings->synthesis_method == FAS_INPUT) {
+                    for (j = s; j < e; j += 1) {
+                        struct note *n = &curr_notes[j];
+
+                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                        int chn_count = fas_input_channels / 2;
+                        int chn = fmod(fabsf(n->blue), chn_count);
+
+                        output_l += audio_in[i * 2 * chn_count + chn * 2] * vl;
+                        output_r += audio_in[i * 2 * chn_count + 1 + chn * 2] * vr;
+                    }
                 }
 #ifdef WITH_SOUNDPIPE
                 else if (chn_settings->synthesis_method == FAS_FORMANT_SYNTH) {
@@ -750,35 +769,26 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_l += sl * vl;
                         output_r += sr * vr;
                     }
-#endif
-                } else if (chn_settings->synthesis_method == FAS_INPUT) {
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
-
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
-
-                        int chn_count = fas_input_channels / 2;
-                        int chn = fmod(fabsf(n->blue), chn_count);
-
-                        output_l += audio_in[i * 2 * chn_count + chn * 2] * vl;
-                        output_r += audio_in[i * 2 * chn_count + 1 + chn * 2] * vr;
-                    }
                 }
+#endif
             }
 
             // channel effects
-            j = 0;
+            
+            d = 0; j = 0;
             int fx_id = -1;
             do {
                 struct _synth_fx *fx = NULL;
 
                 if (synth_fx) {
-                    fx_id = chn_settings->fx[j].fx_id;
+                    int bypass = chn_settings->fx[d].bypass;
+                    if (bypass) {
+                        fx_id = -1;
+                    } else {
+                        fx_id = chn_settings->fx[d].fx_id;
 
-                    fx = synth_fx[k];
+                        fx = synth_fx[k];
+                    }
                 }
 
                 if (fx_id == FX_CONV) {
@@ -788,7 +798,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
                 } else if (fx_id == FX_ZITAREV) {
 #ifdef WITH_SOUNDPIPE
-                    sp_zitarev_compute(sp, (sp_zitarev *)fx->zitarev[j], &output_l, &output_r, &output_l, &output_r);
+                    sp_zitarev_compute(sp, (sp_zitarev *)fx->zitarev[d], &output_l, &output_r, &output_l, &output_r);
 #endif
                 } else if (fx_id == FX_JCREV) {
 #ifdef WITH_SOUNDPIPE
@@ -797,7 +807,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
                 } else if (fx_id == FX_SCREV) {
 #ifdef WITH_SOUNDPIPE
-                    sp_revsc_compute(sp, (sp_revsc *)fx->revsc[j], &output_l, &output_r, &output_l, &output_r);
+                    sp_revsc_compute(sp, (sp_revsc *)fx->revsc[d], &output_l, &output_r, &output_l, &output_r);
 #endif
                 } else if (fx_id == FX_AUTOWAH) {
 #ifdef WITH_SOUNDPIPE
@@ -806,7 +816,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
                 } else if (fx_id == FX_PHASER) {
 #ifdef WITH_SOUNDPIPE
-                    sp_phaser_compute(sp, (sp_phaser *)fx->phaser[j], &output_l, &output_r, &output_l, &output_r);
+                    sp_phaser_compute(sp, (sp_phaser *)fx->phaser[d], &output_l, &output_r, &output_l, &output_r);
 #endif
                 } else if (fx_id == FX_VDELAY) {
 #ifdef WITH_SOUNDPIPE
@@ -911,7 +921,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
                 }
                 
-                j += 1;
+                d += 1;
+                j += 2;
             } while (fx_id != -1);
             //
 
@@ -1309,9 +1320,18 @@ void freeSynth(struct _synth **s) {
             freeGrains(&synth->grains, samples_count, frame_data_count, synth->settings->h, fas_granular_max_density);
         }
 
-        free(synth->chn_settings);
-        free(synth->settings);
-        free(synth->gain);
+        if (synth->chn_settings) {
+            free(synth->chn_settings);
+        }
+
+        if (synth->settings) {
+            free(synth->settings);
+        }
+
+        if (synth->gain) {
+            free(synth->gain);
+        }
+
         free(synth);
     }
 }
@@ -1859,6 +1879,7 @@ if (remaining_payload != 0) {
 
                     usd->synth = NULL;
                 } else if (pid == CHN_SETTINGS) {
+                    int i = 0;
                     static unsigned int channels_count[1];
                     memcpy(&channels_count, &((char *) usd->packet)[PACKET_HEADER_LENGTH], sizeof(channels_count));
 
@@ -1871,7 +1892,7 @@ if (remaining_payload != 0) {
                             goto free_packet;
                         }
 
-                        usd->synth->chn_settings = (struct _synth_chn_settings*)malloc(sizeof(struct _synth_chn_settings) * (*channels_count));
+                        usd->synth->chn_settings = (struct _synth_chn_settings*)malloc(frame_data_count * sizeof(struct _synth_chn_settings));
                         if (usd->synth->chn_settings == NULL) {
                             printf("Skipping packet due to synth chn_settings alloc. error.\n");
                             fflush(stdout);
@@ -1883,7 +1904,12 @@ if (remaining_payload != 0) {
                         }
                     }
 
-                    //usd->synth->chn_settings->fx[0].fx_id = -1;
+                    // initialize fx chains with no fx
+                    for (i = 0; i < frame_data_count; i += 1) {   
+                        usd->synth->chn_settings[i].fx[0].fx_id = -1;
+                        usd->synth->chn_settings[i].synthesis_method = FAS_VOID;
+                    }
+
 #ifdef DEBUG
 printf("CHN_SETTINGS : chn count %i\n", *channels_count);
 fflush(stdout);
@@ -1891,7 +1917,7 @@ fflush(stdout);
 
                     int *data = (int *)&usd->packet[PACKET_HEADER_LENGTH + 8];
                     double *data_double = (double *)&usd->packet[PACKET_HEADER_LENGTH + 16];
-                    int i = 0, j = 0, i2 = 0;
+                    int j = 0, i2 = 0;
                     for (n = 0; n < (*channels_count); n += 1) {
                         // channels settings
                         usd->synth->chn_settings[n].synthesis_method = data[i];
@@ -1914,9 +1940,16 @@ fflush(stdout);
                             int *data_efx = (int *)&usd->packet[data_index];
                             fx->fx_id = data_efx[0];
 
+#ifdef DEBUG
+printf("chn %i fx chain slot %i type %i\n", n, j, fx->fx_id);
+fflush(stdout);
+#endif
+
                             if (data_efx[0] == -1) {
                                 break;
                             }
+
+                            fx->bypass = data_efx[1];
 
                             double *double_data_efx = (double *)&usd->packet[data_index + 8];
 
@@ -1930,7 +1963,6 @@ fflush(stdout);
                             fx->fp[7] = double_data_efx[7];
                             fx->fp[8] = double_data_efx[8];
                             fx->fp[9] = double_data_efx[9];
-
                         }
 
                         i += 8;
@@ -2666,6 +2698,10 @@ int main(int argc, char **argv)
         outputParameters.hostApiSpecificStreamInfo = NULL;
     } else {
         device_info = Pa_GetDeviceInfo(fas_audio_device);
+        if (device_info == NULL) {
+            fprintf(stderr, "Error: Output device does not exist.\n");
+            goto error;
+        }
 
         device_max_output_channels = device_info->maxOutputChannels;
         if (fas_output_channels > device_max_output_channels) {
@@ -2699,7 +2735,11 @@ int main(int argc, char **argv)
         inputParameters.suggestedLatency = Pa_GetDeviceInfo(inputParameters.device)->defaultLowInputLatency;
         inputParameters.hostApiSpecificStreamInfo = NULL;
     } else {
-        device_info = Pa_GetDeviceInfo(fas_audio_device);
+        device_info = Pa_GetDeviceInfo(fas_input_audio_device);
+        if (device_info == NULL) {
+            fprintf(stderr, "Error: Input device does not exist.\n");
+            goto error;
+        }
 
         device_max_input_channels = device_info->maxInputChannels;
         if (fas_input_channels > device_max_input_channels) {

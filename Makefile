@@ -77,7 +77,7 @@ release-static-osc-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} -DWITH_OSC $(static_libs) $(osc_libs) -o $(output)
 
 release-static-sp-o:
-	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) ${soundpipe_libs} -DWITH_SOUNDPIPE -o $(output)
+	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) ${soundpipe_libs} -DPARTIAL_FX -DWITH_SOUNDPIPE -o $(output)
 
 release-bln-static-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} -DBANDLIMITED_NOISE ${standard_options} $(static_libs) -o $(output)

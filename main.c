@@ -102,6 +102,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
     unsigned int i, j, k, d, s, e;
 
+    struct _freelist_frames_data *freelist_frames_data;
+
     void *queue_synth_void;
     if (lfds720_queue_bss_dequeue(&synth_commands_queue_state, NULL, &queue_synth_void) == 1) {
         struct _synth *queue_synth = (struct _synth *)queue_synth_void;
@@ -233,6 +235,11 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             curr_synth.lerp_t = fminf(curr_synth.lerp_t, 1.0f);
         }
 
+        if (curr_notes) {
+            LFDS720_FREELIST_N_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
+            lfds720_freelist_n_threadsafe_push(&freelist_frames, NULL, &curr_freelist_frames_data->fe);
+        }
+
         curr_notes = NULL;
 
         curr_synth.lerp_t = 0.0;
@@ -244,7 +251,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     }
 
     struct note *_notes;
-    struct _freelist_frames_data *freelist_frames_data;
     unsigned int note_buffer_len = 0, pv_note_buffer_len = 0;
 
     for (i = 0; i < framesPerBuffer; i += 1) {
@@ -1915,7 +1921,7 @@ printf("CHN_SETTINGS : chn count %i\n", *channels_count);
 fflush(stdout);
 #endif
 
-                    int *data = (int *)&usd->packet[PACKET_HEADER_LENGTH + 8];
+                    int *data = (int *)&usd->packet[PACKET_HEADER_LENGTH];
                     double *data_double = (double *)&usd->packet[PACKET_HEADER_LENGTH + 16];
                     int j = 0, i2 = 0;
                     for (n = 0; n < (*channels_count); n += 1) {
@@ -1966,7 +1972,7 @@ fflush(stdout);
                         }
 
                         i += 8;
-                        i2 += 3;
+                        i2 += 4;
                     }
 
                     usd->synth->oscillators = NULL;

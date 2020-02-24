@@ -1921,9 +1921,10 @@ printf("CHN_SETTINGS : chn count %i\n", *channels_count);
 fflush(stdout);
 #endif
 
-                    int *data = (int *)&usd->packet[PACKET_HEADER_LENGTH];
+                    int *data = (int *)&usd->packet[PACKET_HEADER_LENGTH + 8];
                     double *data_double = (double *)&usd->packet[PACKET_HEADER_LENGTH + 16];
                     int j = 0, i2 = 0;
+                    i = 0;
                     for (n = 0; n < (*channels_count); n += 1) {
                         // channels settings
                         usd->synth->chn_settings[n].synthesis_method = data[i];

@@ -13,7 +13,6 @@ Table of Contents
       * [Pixels-based](#pixels-based)
       * [Additive synthesis](#additive-synthesis)
       * [Granular synthesis](#granular-synthesis)
-      * [Spectral synthesis (planned)](#spectral-synthesis-(planned))
       * [Sampler](#sampler)
       * [Subtractive synthesis](#subtractive-synthesis)
       * [PM synthesis](#pm-synthesis)
@@ -119,14 +118,12 @@ Additive synthesis is a mean to generate sounds by adding sine waves together, i
 When compiled with `PARTIAL_FX` defined there is a fx slot available **per partial** with following effects available (only stereophonic, monophonic may work but fx parameters may not):
 
 * none
-* comb filter (Time : [0, 1))
 * bitcrush (Bitdepth / Sampling rate : B component [0, 1] / A component [0, 1])
-* wah (Amount : A component [0, 1))
 * phase distorsion (Amount : A component [0, 1] / Bipolar : B component integer 0 or 1)
 * tanh waveshaping (Wave 1 / Wave 2 : B component [0, 1] / A component [0, 1))
 * signal foldover (A component [0, 3])
-* convolver (A component integer part; Note : require huge amount of processing power with high amount of partials)
 * noise (B added white noise factor to sine wave phase, maximum defined by command-line parameter)
+* convolver (A component integer part; Note : require huge amount of processing power with high amount of partials / long impulse)
 
 Any combination of these can be applied to each partials with real-time parameters change. This feature may allow to easily add character to the additive sound.
 
@@ -180,10 +177,6 @@ The grains window/envelope type is defined as a channel dependent settings, FAS 
 |          G | Amplitude value of the RIGHT channel     |
 |          B | Sample index bounded to [0, 1] (cyclic) and grains density when > 2 |
 |          A | Grains start index bounded [0, 1] (cyclic), grains start index random [0, 1] factor when > 1, play the grain backward when negative |
-
-### Spectral synthesis (planned)
-
-Spectral synthesis is a mean to generate sounds by using the FFT and IFFT algorithm preserving phase information, this is one of the most powerful synthesis algorithm available, it is able to re-produce sounds with great accuracy.
 
 ### Sampler
 
@@ -440,11 +433,11 @@ A free list data structure is used to handle data reuse, the program pre-allocat
 
 Audio synthesis is processed with minimum computation / branching, values which depend on note parameter change are pre-computed per-channel / oscillator in a dedicated processing block outside synthesis block.
 
-There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, etc.), unlike main notes data there is some call to free() in the audio callback and allocation in the network thread when changes happen, this has room for improvements but is usually ok since this data does not change once set.
+There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, etc.), unlike main notes data there is some call to free() in the audio callback and allocation in the network thread when changes happen, this has room for improvements but is usually ok since this data does not change once set, it was done that way to avoid locks / sync mechanisms and add code clutter.
 
 The architecture is done so there is **no memory allocation** done in the audio callback and very few done in the network thread (mainly for packets construction) as long as there is no changes in synth. parameters (bank height) nor effects parameters that require new initialization (for example convolution impulse length)
 
-Additive synthesis is wavetable-based.
+Additive synthesis is wavetable-based, a [magic circle](https://github.com/ccrma/chugins/blob/master/MagicSine/MagicSine.cpp) based sine generator is also available when `MAGIC_SINE` is enabled, this may be faster on some platforms.
 
 Real-time resampling is done with a simple linear method, granular synthesis can also be resampled by using cubic interpolation method (uncomment the line in `constants.h`) which is slower than linear.
 

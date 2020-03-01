@@ -52,6 +52,12 @@ struct oscillator *createOscillators(
         osc->phase_index2 = malloc(sizeof(unsigned int) * frame_data_count);
 #endif
 
+#ifdef MAGIC_CIRCLE
+        osc->mc_eps = 2. * sin(2. * 3.141592653589 * (frequency / (double)sample_rate) / 2.);
+        osc->mc_x = malloc(sizeof(float) * frame_data_count);
+        osc->mc_y = malloc(sizeof(float) * frame_data_count);
+#endif
+
         osc->fphase = malloc(sizeof(double) * frame_data_count);
 
         // subtractive with additive synthesis
@@ -108,6 +114,11 @@ struct oscillator *createOscillators(
             osc->phase_index[i] = rand() / (double)RAND_MAX * wavetable_size;
             osc->noise_index[i] = rand() / (double)RAND_MAX * wavetable_size;
             osc->pvalue[i] = 0;
+
+#ifdef MAGIC_CIRCLE
+            osc->mc_x[i] = 1;
+            osc->mc_y[i] = 0;
+#endif
 
 #ifdef WITH_SOUNDPIPE
             // Soundpipe filters
@@ -177,17 +188,8 @@ struct oscillator *createOscillators(
             // Soundpipe modifiers (generic effects)
             osc->sp_mods[i] = malloc(sizeof(void *) * SP_OSC_MODS);
 
-            sp_comb_create((sp_comb **)&osc->sp_mods[i][SP_COMB_MODS]);
-            sp_comb_init(spd, osc->sp_mods[i][SP_COMB_MODS], 0.5f);
-
             sp_bitcrush_create((sp_bitcrush **)&osc->sp_mods[i][SP_CRUSH_MODS]);
             sp_bitcrush_init(spd, osc->sp_mods[i][SP_CRUSH_MODS]);
-
-            sp_autowah_create((sp_autowah **)&osc->sp_mods[i][SP_WAH_MODS]);
-            sp_autowah_init(spd, osc->sp_mods[i][SP_WAH_MODS]);
-
-            sp_autowah *wah = (sp_autowah *)osc->sp_mods[i][SP_WAH_MODS];
-            *wah->level = 1.f;
 
             sp_dist_create((sp_dist **)&osc->sp_mods[i][SP_WAVSH_MODS]);
             sp_dist_init(spd, osc->sp_mods[i][SP_WAVSH_MODS]);
@@ -299,6 +301,11 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
         free(oscs[y].harmonics);
 #endif
 
+#ifdef MAGIC_CIRCLE
+        free(oscs[y].mc_x);
+        free(oscs[y].mc_y);
+#endif
+
         for (i = 0; i < frame_data_count; i += 1) {
 #ifndef POLYBLEP
             free(oscs[y].harmo_phase_index[i]);
@@ -330,9 +337,7 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
             
             free(oscs[y].sp_gens[i]);
 
-            sp_comb_destroy((sp_comb **)&oscs[y].sp_mods[i][SP_COMB_MODS]);
             sp_bitcrush_destroy((sp_bitcrush **)&oscs[y].sp_mods[i][SP_CRUSH_MODS]);
-            sp_autowah_destroy((sp_autowah **)&oscs[y].sp_mods[i][SP_WAH_MODS]);
             sp_dist_destroy((sp_dist **)&oscs[y].sp_mods[i][SP_WAVSH_MODS]);
             sp_fold_destroy((sp_fold **)&oscs[y].sp_mods[i][SP_FOLD_MODS]);
             sp_conv_destroy((sp_conv **)&oscs[y].sp_mods[i][SP_CONV_MODS]);

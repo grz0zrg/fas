@@ -30,6 +30,12 @@
     #endif
 #endif
 
+#ifdef MAGIC_CIRCLE
+        float mc_eps;
+        float *mc_x;
+        float *mc_y;
+#endif
+
 #ifdef FIXED_WAVETABLE
         uint16_t *phase_index;
         uint16_t phase_step;

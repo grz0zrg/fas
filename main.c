@@ -276,37 +276,31 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
+#ifdef MAGIC_CIRCLE
+                        osc->mc_x[k] = osc->mc_x[k] + osc->mc_eps * osc->mc_y[k];
+                        osc->mc_y[k] = -osc->mc_eps * osc->mc_x[k] + osc->mc_y[k];
+
+                        float s = osc->mc_y[k];
+#else
 #ifndef FIXED_WAVETABLE
                         float s = fas_sine_wavetable[osc->phase_index[k]];
 #else
                         float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
 #endif
-
+#endif
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
 #ifdef PARTIAL_FX
                         int fx = n->density % SP_OSC_MODS;
 #ifdef WITH_SOUNDPIPE
-                        if (fx == SP_COMB_MODS) {
-                            sp_comb *comb = (sp_comb *)osc->sp_mods[k][SP_COMB_MODS];
-                            comb->revtime = n->alpha  * 10;
-
-                            sp_comb_compute(sp, (sp_comb *)osc->sp_mods[k][SP_COMB_MODS], &s, &s);
-                        } else if (fx == SP_CRUSH_MODS) {
+                        if (fx == SP_CRUSH_MODS) {
                             sp_bitcrush *crush = (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS];
                             
                             crush->bitdepth = 1.f + (n->blue_frac_part * 15.f);
                             crush->srate = n->res * (float)fas_sample_rate;
 
                             sp_bitcrush_compute(sp, (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS], &s, &s); 
-                        } else if (fx == SP_WAH_MODS) {
-                            sp_autowah *wah = (sp_autowah *)osc->sp_mods[k][SP_WAH_MODS];
-                            
-                            *wah->wah = n->alpha;
-                            *wah->mix = 100.f;
-
-                            sp_autowah_compute(sp, (sp_autowah *)osc->sp_mods[k][SP_WAH_MODS], &s, &s); 
                         } else if (fx == SP_PD_MODS) {
                             sp_pdhalf *pdh = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
                             
@@ -330,7 +324,9 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         } else if (fx == SP_CONV_MODS) {
                             sp_conv_compute(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], &s, &s); 
                         } else if (fx == NOISE_MODS) {
+#ifndef MAGIC_CIRCLE
                             osc->phase_index[k] += osc->phase_step * (1.0f + (fas_white_noise_table[osc->noise_index[k]++]) * n->alpha);
+#endif
                         }
 #endif
 #endif
@@ -338,6 +334,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_l += vl * s;
                         output_r += vr * s;
 
+#ifndef MAGIC_CIRCLE
 #ifdef BANDLIMITED_NOISE
 #ifdef PARTIAL_FX
                         osc->phase_index[k] += osc->phase_step;
@@ -350,6 +347,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
 #ifndef FIXED_WAVETABLE
                         osc->phase_index[k] %= fas_wavetable_size;
+#endif
 #endif
                     }
                 } else if (chn_settings->synthesis_method == FAS_GRANULAR) {
@@ -1522,7 +1520,7 @@ int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
 
                 memcpy(usd->packet, &((char *) in)[0], len);
 
-#ifdef DEBUG
+#ifdef DEBUG_NETWORK
     printf("\nReceiving packet...\n");
 #endif
             } else {
@@ -1546,19 +1544,19 @@ int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
                 memcpy(&(usd->packet)[usd->packet_len - len], &((char *) in)[0], len);
             }
 
-#ifdef DEBUG
+#ifdef DEBUG_NETWORK
 if (remaining_payload != 0) {
     printf("Remaining packet payload: %lu\n", remaining_payload);
 }
 #endif
 
             if (is_final_fragment) {
-#ifdef DEBUG
+#ifdef DEBUG_NETWORK
     printf("Full packet received, length: %lu\n", usd->packet_len);
 #endif
                 pid = usd->packet[0];
 
-#ifdef DEBUG
+#ifdef DEBUG_NETWORK
     printf("Packet id: %u\n", pid);
     fflush(stdout);
 #endif
@@ -1724,7 +1722,7 @@ if (remaining_payload != 0) {
 
                     usd->synth = NULL;
                 } else if (pid == FRAME_DATA) {
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DATA
     printf("FRAME_DATA\n");
 
     static unsigned int frame_data_length[1];
@@ -1750,7 +1748,7 @@ if (remaining_payload != 0) {
                         goto free_packet;
                     }
 
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DATA
     lfds720_pal_uint_t frames_data_freelist_count;
     lfds720_freelist_n_query(&freelist_frames, LFDS720_FREELIST_N_QUERY_SINGLETHREADED_GET_COUNT, NULL, (void *)&frames_data_freelist_count);
     printf("frames_data_freelist_count : %llu\n", frames_data_freelist_count);
@@ -1774,7 +1772,7 @@ if (remaining_payload != 0) {
                     memcpy(&channels, &usd->packet[PACKET_HEADER_LENGTH], sizeof(channels));
 
                     if ((*channels) > frame_data_count) {
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DATA
                         printf("Frame channels > Output channels. (%i chn ignored)\n", (*channels) - frame_data_count);
                         fflush(stdout);
 #endif
@@ -1785,7 +1783,7 @@ if (remaining_payload != 0) {
                     } else if ((*channels) < frame_data_count) {
                         memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->packet_len - PACKET_HEADER_LENGTH);
                         memset(&usd->frame_data[usd->expected_frame_length * (*channels)], 0, usd->expected_frame_length * (frame_data_count - (*channels)));
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DATA
                         printf("Frame channels < Output channels.\n");
                         fflush(stdout);
 #endif
@@ -1970,6 +1968,7 @@ fflush(stdout);
                             fx->fp[7] = double_data_efx[7];
                             fx->fp[8] = double_data_efx[8];
                             fx->fp[9] = double_data_efx[9];
+                            fx->fp[10] = double_data_efx[10];
                         }
 
                         i += 8;

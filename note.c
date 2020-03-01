@@ -206,7 +206,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
 */
         note_buffer[note_osc_index].osc_index = osc_count;
 
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DATA
     if ((*monophonic) == 1) {
         printf("Channel l/r (mono) %u : %i oscillators \n", (j + 1), osc_count);
     } else {

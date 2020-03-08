@@ -41,6 +41,9 @@
         sp_tbvcf *tbvcf[FAS_MAX_FX_SLOTS * 2];
 
         sp_ftbl *ft_void;
+
+        float dry[FAS_MAX_FX_SLOTS];
+        float wet[FAS_MAX_FX_SLOTS];
 #endif
     };
 

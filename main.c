@@ -787,7 +787,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 if (synth_fx) {
                     int bypass = chn_settings->fx[d].bypass;
                     if (bypass) {
-                        fx_id = -1;
+                        fx_id = -2;
                     } else {
                         fx_id = chn_settings->fx[d].fx_id;
 
@@ -797,8 +797,17 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                 if (fx_id == FX_CONV) {
 #ifdef WITH_SOUNDPIPE
-                    sp_conv_compute(sp, (sp_conv *)fx->conv[j], &output_l, &output_l);
-                    sp_conv_compute(sp, (sp_conv *)fx->conv[j + 1], &output_r, &output_r);
+                    float insl = output_l;
+                    float insr = output_r;
+
+                    float outsl = 0;
+                    float outsr = 0;
+                    
+                    sp_conv_compute(sp, (sp_conv *)fx->conv[j], &insl, &outsl);
+                    sp_conv_compute(sp, (sp_conv *)fx->conv[j + 1], &insr, &outsr);
+
+                    output_l = output_l * fx->dry[d] + outsl * fx->wet[d];
+                    output_r = output_r * fx->dry[d] + outsr * fx->wet[d];
 #endif
                 } else if (fx_id == FX_ZITAREV) {
 #ifdef WITH_SOUNDPIPE
@@ -1073,7 +1082,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #ifdef WITH_SOUNDPIPE
                                 sp_fofilt *fofilt_l = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L];
                                 sp_fofilt *fofilt_r = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R];
-                                fofilt_l->atk = fofilt_l->atk = fabs(n->blue_frac_part);
+                                fofilt_l->atk = fofilt_l->atk = fabsf(n->blue_frac_part);
                                 fofilt_r->dec = fofilt_r->dec = fabs(n->res);
 #endif
                             }    
@@ -1109,24 +1118,27 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
 #ifdef WITH_SOUNDPIPE
-                                double freq = osc->freq * n->cutoff;
-                                double res = fabs(n->res * 2.); // allow > 1 resonance
+                                SPFLOAT freq = osc->freq * n->cutoff;
+                                SPFLOAT res = fabs(n->res * 2.); // allow > 1 resonance
+
+                                // clamp to nyquist limit / filter limit
+                                freq = fminf(freq, fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
 
                                 sp_moogladder *spmf = (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER];
                                 spmf->freq = freq;
-                                spmf->res = fabs(res);
+                                spmf->res = fabsf(res);
 
                                 sp_diode *spdf = (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER];
                                 spdf->freq = freq;
-                                spdf->res = fabs(res);
+                                spdf->res = fabsf(res);
 
                                 sp_wpkorg35 *spkf = (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER];
                                 spkf->cutoff = freq;
-                                spkf->res = fabs(res);
+                                spkf->res = fabsf(res);
 
                                 sp_lpf18 *splf = (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER];
                                 splf->cutoff = freq;
-                                splf->res = fabs(n->res);
+                                splf->res = fabsf(n->res);
 #else
                                 huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (double)fas_sample_rate);
 
@@ -1150,10 +1162,10 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #ifdef WITH_SOUNDPIPE
                                 if (model_type == 1) {
                                     sp_drip *drip = (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR];
-                                    drip->damp = fabs(n->blue_frac_part * 2.f);
+                                    drip->damp = fabsf(n->blue_frac_part * 2.f);
                                     drip->shake_max = n->res;
-                                    drip->freq1 = fabs(round(n->blue));
-                                    drip->freq2 = fabs(round(n->alpha));
+                                    drip->freq1 = fminf(fabsf(round(n->blue)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
+                                    drip->freq2 = fminf(fabsf(round(n->alpha)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
                                 }
 #endif
 
@@ -1209,7 +1221,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
 #ifdef DEBUG
     frames_read += 1;
-    if ((frames_read % 512) == 0) {
+    if ((frames_read % 64) == 0) {
         printf("%lu frames read\n", frames_read);
         fflush(stdout);
     }
@@ -2456,8 +2468,8 @@ int main(int argc, char **argv)
         fas_port = FAS_PORT;
     }
 
-    if (fas_frames_per_buffer == 0) {
-        printf("Warning: frames program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_FRAMES_PER_BUFFER);
+    if (fas_frames_per_buffer < 0) {
+        printf("Warning: frames program option argument is invalid, should be >= 0 (where 0 mean variable number of frames), the default value (%u) will be used.\n", FAS_FRAMES_PER_BUFFER);
 
         fas_frames_per_buffer = FAS_FRAMES_PER_BUFFER;
     }

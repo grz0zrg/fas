@@ -28,7 +28,7 @@
 
     // program settings constants
     #define FAS_SAMPLE_RATE 44100
-    #define FAS_FRAMES_PER_BUFFER 512
+    #define FAS_FRAMES_PER_BUFFER 0
     #define FAS_DEFLATE 0
     #define FAS_WAVETABLE 1
     #define FAS_WAVETABLE_SIZE 8192
@@ -50,6 +50,9 @@
     #define FAS_STREAM_LOAD_SEND_DELAY 2
     #define FAS_MAX_DROP 60 // 1 second
     #define FAS_RENDER_WIDTH 4096
+
+    // limit max. frequency for filters & some soundpipe effects (eq etc.), this is in percent of Nyquist frequency
+    #define FAS_FREQ_LIMIT_FACTOR 0.75 // ~36.0kHz for 96kHz sampling rate
 
     #define FAS_MAX_FX_SLOTS 24
     #define FAS_MAX_FX_PARAMETERS 11

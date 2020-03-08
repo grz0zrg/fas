@@ -31,6 +31,8 @@ struct oscillator *createOscillators(
     uint64_t phase_step;
     int nmo = n - 1;
 
+    double nyquist_limit = sample_rate / 2;
+
     double max_frequency = base_frequency * pow(2.0, nmo / octave_length);
 
     for (y = 0; y < n; y += 1) {
@@ -146,10 +148,10 @@ struct oscillator *createOscillators(
             sp_fofilt_init(spd, osc->sp_filters[i][SP_FORMANT_FILTER_R]);
 
             sp_fofilt *fofilt_l = (sp_fofilt *)osc->sp_filters[i][SP_FORMANT_FILTER_L];
-            fofilt_l->freq = frequency;
+            fofilt_l->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
 
             sp_fofilt *fofilt_r = (sp_fofilt *)osc->sp_filters[i][SP_FORMANT_FILTER_R];
-            fofilt_r->freq = frequency;
+            fofilt_r->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
 
             sp_mode_create((sp_mode **)&osc->sp_filters[i][SP_MODE_FILTER_L]);
             sp_mode_init(spd, osc->sp_filters[i][SP_MODE_FILTER_L]);
@@ -158,10 +160,10 @@ struct oscillator *createOscillators(
             sp_mode_init(spd, osc->sp_filters[i][SP_MODE_FILTER_R]);
 
             sp_mode *mode_l = (sp_mode *)osc->sp_filters[i][SP_MODE_FILTER_L];
-            mode_l->freq = frequency;
+            mode_l->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
 
             sp_mode *mode_r = (sp_mode *)osc->sp_filters[i][SP_MODE_FILTER_R];
-            mode_r->freq = frequency;
+            mode_r->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
 
             // Soundpipe generator
             osc->sp_gens[i] = malloc(sizeof(void *) * SP_OSC_GENS);
@@ -180,7 +182,7 @@ struct oscillator *createOscillators(
 
             sp_drip *drip = (sp_drip *)osc->sp_gens[i][SP_DRIP_GENERATOR];
             drip->amp = 1.f;
-            drip->freq = frequency;
+            drip->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
 
             sp_pdhalf_create((sp_pdhalf **)&osc->sp_gens[i][SP_PD_GENERATOR]);
             sp_pdhalf_init(spd, osc->sp_gens[i][SP_PD_GENERATOR]);

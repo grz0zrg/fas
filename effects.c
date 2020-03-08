@@ -122,7 +122,10 @@ void updateEffects(
         }
 
 #ifdef WITH_SOUNDPIPE
-        if (fx->fx_id == FX_ZITAREV) {
+        if (fx->fx_id == FX_CONV) {
+            fxs->dry[j] = fx->fp[2];
+            fxs->wet[j] = fx->fp[3];
+        } else if (fx->fx_id == FX_ZITAREV) {
             sp_zitarev *zita = (sp_zitarev *)fxs->zitarev[j];
             *zita->in_delay = fx->fp[0];
             *zita->lf_x = fx->fp[1];
@@ -150,7 +153,7 @@ void updateEffects(
         } else if (fx->fx_id == FX_SCREV) {
             sp_revsc *revsc = (sp_revsc *)fxs->revsc[j];
             revsc->feedback = fx->fp[0];
-            revsc->lpfreq = fx->fp[1];
+            revsc->lpfreq = fmin(fx->fp[1], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
         }
 #endif
     }
@@ -172,7 +175,7 @@ void updateEffects(
                 }
 
                 if (isPowerOfTwo(fx->fp[1]) == 0) {
-                    fx->fp[1] = 1024;
+                    fx->fp[1] = 4096;
                 }
 
                 sp_conv_destroy((sp_conv **)&fxs->conv[j + k]);
@@ -239,45 +242,45 @@ void updateEffects(
                 clip->lim = fx->fp[0];
             } else if (fx->fx_id == FX_B_LOWPASS) {
                 sp_butlp *blp = (sp_butlp *)fxs->butlp[j + k];
-                blp->freq = fx->fp[0];
+                blp->freq = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
             } else if (fx->fx_id == FX_B_HIGHPASS) {
                 sp_buthp *bhp = (sp_buthp *)fxs->buthp[j + k];
-                bhp->freq = fx->fp[0];
+                bhp->freq = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
             } else if (fx->fx_id == FX_B_BANDPASS) {
                 sp_butbp *bbp = (sp_butbp *)fxs->butbp[j + k];
-                bbp->freq = fx->fp[0];
+                bbp->freq = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
                 bbp->bw = fx->fp[1];
             } else if (fx->fx_id == FX_B_BANDREJECT) {
                 sp_butbr *bbr = (sp_butbr *)fxs->butbr[j + k];
-                bbr->freq = fx->fp[0];
+                bbr->freq = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
                 bbr->bw = fx->fp[1];
             } else if (fx->fx_id == FX_PAREQ) {
                 sp_pareq *peq = (sp_pareq *)fxs->pareq[j + k];
-                peq->fc = fx->fp[0];
+                peq->fc = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
                 peq->v = fx->fp[1];
                 peq->q = fx->fp[2];
                 peq->mode = fx->fp[3];
             } else if (fx->fx_id == FX_MOOG_LPF) {
                 sp_moogladder *mooglp = (sp_moogladder *)fxs->mooglp[j + k];
-                mooglp->freq = fx->fp[0];
+                mooglp->freq = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
                 mooglp->res = fx->fp[1];
             } else if (fx->fx_id == FX_DIODE_LPF) {
                 sp_diode *diodelp = (sp_diode *)fxs->diodelp[j + k];
-                diodelp->freq = fx->fp[0];
+                diodelp->freq = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
                 diodelp->res = fx->fp[1];
             } else if (fx->fx_id == FX_KORG_LPF) {
                 sp_wpkorg35 *korglp = (sp_wpkorg35 *)fxs->korglp[j + k];
-                korglp->cutoff = fx->fp[0];
+                korglp->cutoff = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
                 korglp->res = fx->fp[1];
                 korglp->saturation = fx->fp[2];
             } else if (fx->fx_id == FX_18_LPF) {
                 sp_lpf18 *lpf18 = (sp_lpf18 *)fxs->lpf18[j + k];
-                lpf18->cutoff = fx->fp[0];
+                lpf18->cutoff = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
                 lpf18->res = fx->fp[1];
                 lpf18->dist = fx->fp[2];
             } else if (fx->fx_id == FX_TBVCF) {
                 sp_tbvcf *tbvcf = (sp_tbvcf *)fxs->tbvcf[j + k];
-                tbvcf->fco = fx->fp[0];
+                tbvcf->fco = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
                 tbvcf->res = fx->fp[1];
                 tbvcf->dist = fx->fp[2];
                 tbvcf->asym = fx->fp[3];

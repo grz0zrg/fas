@@ -365,7 +365,7 @@ Each samples loaded from the `grains` or `waves` folder are processed, one of th
 
 This synthesizer support unlimited (user-defined maximum at compile time) number of effects chain per channels with bypass support, all effects (phaser, comb, reverb, delay...) come from the Soundpipe library which is thus required for effects usage.
 
-Convolution effect use impulses response which are audio files loaded from the `impulses` folder.
+Convolution effect use impulses response which are audio files loaded from the `impulses` folder (mono / stereo), free high quality convolution samples from real world places can be found [here](https://openairlib.net/).
 
 ### Performances
 

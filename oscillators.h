@@ -14,6 +14,9 @@
     struct oscillator {
         double freq;
 
+        // above + below Hz gap
+        double *bw;
+
         // filters fb
         double **fp1, **fp2, **fp3, **fp4;
 

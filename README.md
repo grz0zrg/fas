@@ -299,6 +299,8 @@ Specific type of synthesis which use a canvas-mapped bank of bandpass filters (s
 
 It can be used with rich form of synthesis (subtractive etc.) as a spectrum sculpt tool (vocoding etc.)
 
+Bandwidth can be adjusted individually through alpha channel value which is a factor of current bank gap.
+
 As a speed example ~256 filters can be enabled at the same time with ~6 subtractive oscillators as input on an i7 6700 with a single FAS instance (96000kHz)
 
 #### RGBA interpretation
@@ -308,7 +310,7 @@ As a speed example ~256 filters can be enabled at the same time with ~6 subtract
 |          R | Amplitude value of the input LEFT channel    |
 |          G | Amplitude value of the input RIGHT channel   |
 |          B | integral part : source channel index   |
-|          A | unused                                 |
+|          A | bandwidth factor : a value of 1 mean a bandwidth of current bank above + below gap |
 
 **Note** : Monophonic mode is not implemented.
 
@@ -317,6 +319,8 @@ As a speed example ~256 filters can be enabled at the same time with ~6 subtract
 Only available with Soundpipe.
 
 Specific type of synthesis which use a canvas-mapped bank of formant filters, each activated formant filters use an user-defined channel as source. It can be used to mimic speech.
+
+It is similar to bandpass mode with a different algorithm.
 
 #### RGBA interpretation
 
@@ -341,7 +345,7 @@ Specific type of synthesis which use an user-defined source channel as input and
 | ---------: | :------------------------------------- |
 |          R | Amplitude value of the input LEFT channel    |
 |          G | Amplitude value of the input RIGHT channel   |
-|          B | Unused       |
+|          B | integral part : source channel index       |
 |          A | Amount of distorsion [-1, 1]        |
 
 **Note** : Monophonic mode is not implemented.
@@ -352,20 +356,28 @@ Only available with Soundpipe.
 
 Specific type of synthesis which use a canvas-mapped bank of resonant filters, each activated resonant filters use an user-defined channel as source. It produce sounds similar to physical modelling.
 
+A list of frequencies for several instruments are available [here](http://www.csounds.com/manual/html/MiscModalFreq.html)
+
+A high Q factor will make the sound more "resonant".
+
+As an easy first step a noisy sound such as one produced with subtractive synthesis may be used.
+
+Note : Due to stabilization filter bank frequency will be tresholded when it match that condition : (samplerate / filter_frequency) < pi
+
 #### RGBA interpretation
 
 | Components | Interpretations                        |
 | ---------: | :------------------------------------- |
 |          R | Amplitude value of the input LEFT channel    |
 |          G | Amplitude value of the input RIGHT channel   |
-|          B | Unused       |
-|          A | Q factor of the resonant filter (a Q factor around the frequency produce ok results)        |
+|          B | integral part : source channel index       |
+|          A | Q factor of the resonant filter        |
 
 **Note** : Monophonic mode is not implemented.
 
 ### Input
 
-This just play an input channel. Typically used in conjunction with formant / modal / pd synthesis and effects.
+This just play an input channel. Typically used in conjunction with formant / modal / bandpass / pd synthesis and effects.
 
 #### RGBA interpretation
 

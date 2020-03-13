@@ -108,6 +108,8 @@ struct oscillator *createOscillators(
 
         osc->pvalue = malloc(sizeof(float) * frame_data_count);
 
+        osc->bw = malloc(sizeof(float) * frame_data_count);
+
 #ifdef WITH_SOUNDPIPE
         osc->sp_filters = malloc(sizeof(void **) * frame_data_count);
         osc->sp_mods = malloc(sizeof(void **) * frame_data_count);
@@ -125,6 +127,8 @@ struct oscillator *createOscillators(
             osc->mc_x[i] = 1;
             osc->mc_y[i] = 0;
 #endif
+
+            osc->bw[i] = (fabs(frequency - frequency_prev) + fabs(frequency - frequency_next));
 
 #ifdef WITH_SOUNDPIPE
             // Soundpipe filters
@@ -163,11 +167,13 @@ struct oscillator *createOscillators(
             sp_mode_create((sp_mode **)&osc->sp_filters[i][SP_MODE_FILTER_R]);
             sp_mode_init(spd, osc->sp_filters[i][SP_MODE_FILTER_R]);
 
+            double stabilized_modal_frequency = (sample_rate / frequency) < M_PI ? sample_rate / M_PI - 1 : frequency;
+
             sp_mode *mode_l = (sp_mode *)osc->sp_filters[i][SP_MODE_FILTER_L];
-            mode_l->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
+            mode_l->freq = fmin(stabilized_modal_frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
 
             sp_mode *mode_r = (sp_mode *)osc->sp_filters[i][SP_MODE_FILTER_R];
-            mode_r->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
+            mode_r->freq = fmin(stabilized_modal_frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
 
             sp_butbp_create((sp_butbp **)&osc->sp_filters[i][SP_BANDPASS_FILTER_L]);
             sp_butbp_init(spd, osc->sp_filters[i][SP_BANDPASS_FILTER_L]);
@@ -175,15 +181,13 @@ struct oscillator *createOscillators(
             sp_butbp_create((sp_butbp **)&osc->sp_filters[i][SP_BANDPASS_FILTER_R]);
             sp_butbp_init(spd, osc->sp_filters[i][SP_BANDPASS_FILTER_R]);
 
-            double bw = (fabs(frequency - frequency_prev) + fabs(frequency - frequency_next));
-
             sp_butbp *bpb_l = (sp_butbp *)osc->sp_filters[i][SP_BANDPASS_FILTER_L];
             bpb_l->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
-            bpb_l->bw = bw;
+            bpb_l->bw = osc->bw[i];
 
             sp_butbp *bpb_r = (sp_butbp *)osc->sp_filters[i][SP_BANDPASS_FILTER_R];
             bpb_r->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
-            bpb_r->bw = bw;
+            bpb_r->bw = osc->bw[i];
 
             // Soundpipe generator
             osc->sp_gens[i] = malloc(sizeof(void *) * SP_OSC_GENS);

@@ -1108,11 +1108,10 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
 #ifdef WITH_SOUNDPIPE
-                                // TODO : adjust bandwidth ?
-                                //sp_butbp *bpb_l = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L];
-                                //sp_butbp *bpb_r = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R];
-                                //bpb_l->bw = fabsf(n->blue_frac_part);
-                                //bpb_r->bw = fabs(n->res);
+                                sp_butbp *bpb_l = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L];
+                                sp_butbp *bpb_r = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R];
+                                bpb_l->bw = osc->bw[k] * fabs(n->alpha);
+                                bpb_r->bw = osc->bw[k] * fabs(n->alpha);
 #endif
                             }  
                         } else if (chn_settings->synthesis_method == FAS_FORMANT_SYNTH) {
@@ -2698,6 +2697,10 @@ int main(int argc, char **argv)
 
     memset(&inputParameters, 0, sizeof(PaStreamParameters));
     memset(&outputParameters, 0, sizeof(PaStreamParameters));
+
+#ifdef __unix__
+    PaJack_SetClientName("Fragment Audio Server");
+#endif
 
     err = Pa_Initialize();
     if (err != paNoError) goto error;

@@ -27,6 +27,8 @@ struct oscillator *createOscillators(
     int index = 0;
     double octave_length = (double)n / octaves;
     double frequency;
+    double frequency_prev;
+    double frequency_next;
     double phase_increment;
     uint64_t phase_step;
     int nmo = n - 1;
@@ -39,6 +41,8 @@ struct oscillator *createOscillators(
         index = nmo - y;
 
         frequency = base_frequency * pow(2.0, y / octave_length);
+        frequency_prev = base_frequency * pow(2.0, (y - 1) / octave_length);
+        frequency_next = base_frequency * pow(2.0, (y + 1) / octave_length);
         phase_step = frequency / (double)sample_rate * wavetable_size;
         phase_increment = frequency * 2 * 3.141592653589 / (double)sample_rate;
 
@@ -164,6 +168,22 @@ struct oscillator *createOscillators(
 
             sp_mode *mode_r = (sp_mode *)osc->sp_filters[i][SP_MODE_FILTER_R];
             mode_r->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
+
+            sp_butbp_create((sp_butbp **)&osc->sp_filters[i][SP_BANDPASS_FILTER_L]);
+            sp_butbp_init(spd, osc->sp_filters[i][SP_BANDPASS_FILTER_L]);
+
+            sp_butbp_create((sp_butbp **)&osc->sp_filters[i][SP_BANDPASS_FILTER_R]);
+            sp_butbp_init(spd, osc->sp_filters[i][SP_BANDPASS_FILTER_R]);
+
+            double bw = (fabs(frequency - frequency_prev) + fabs(frequency - frequency_next));
+
+            sp_butbp *bpb_l = (sp_butbp *)osc->sp_filters[i][SP_BANDPASS_FILTER_L];
+            bpb_l->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
+            bpb_l->bw = bw;
+
+            sp_butbp *bpb_r = (sp_butbp *)osc->sp_filters[i][SP_BANDPASS_FILTER_R];
+            bpb_r->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
+            bpb_r->bw = bw;
 
             // Soundpipe generator
             osc->sp_gens[i] = malloc(sizeof(void *) * SP_OSC_GENS);
@@ -328,6 +348,8 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
             sp_fofilt_destroy((sp_fofilt **)&oscs[y].sp_filters[i][SP_FORMANT_FILTER_R]);
             sp_mode_destroy((sp_mode **)&oscs[y].sp_filters[i][SP_MODE_FILTER_L]);
             sp_mode_destroy((sp_mode **)&oscs[y].sp_filters[i][SP_MODE_FILTER_R]);
+            sp_butbp_destroy((sp_butbp **)&oscs[y].sp_filters[i][SP_BANDPASS_FILTER_L]);
+            sp_butbp_destroy((sp_butbp **)&oscs[y].sp_filters[i][SP_BANDPASS_FILTER_R]);
 
             free(oscs[y].sp_filters[i]);
 

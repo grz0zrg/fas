@@ -77,17 +77,18 @@
     #define FAS_SUBTRACTIVE 4
     #define FAS_PHYSICAL_MODELLING 5
     #define FAS_WAVETABLE_SYNTH 6
-    #define FAS_FORMANT_SYNTH 7
-    #define FAS_PHASE_DISTORSION 8
-    #define FAS_MODAL_SYNTH 9
-    #define FAS_INPUT 10
-    #define FAS_VOID 11
+    #define FAS_BANDPASS 7
+    #define FAS_FORMANT_SYNTH 8
+    #define FAS_PHASE_DISTORSION 9
+    #define FAS_MODAL_SYNTH 10
+    #define FAS_INPUT 11
+    #define FAS_VOID 12
 
     // granular constants
     #define GRAIN_MIN_DURATION 0.0001
 
     // Soundpipe
-    #define SP_OSC_FILTERS 9 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
+    #define SP_OSC_FILTERS 11 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
     #define SP_OSC_GENS 6 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
     #define SP_OSC_MODS 7 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!! (note : empty / pdhalf does count even if not allocated at the same place)
 
@@ -100,7 +101,9 @@
     #define SP_FORMANT_FILTER_R 5
     #define SP_MODE_FILTER_L 6
     #define SP_MODE_FILTER_R 7
-    #define SP_STRES_FILTER 8
+    #define SP_BANDPASS_FILTER_L 8
+    #define SP_BANDPASS_FILTER_R 9
+    #define SP_STRES_FILTER 10
 
     // sp generators id
     #define SP_WHITE_NOISE_GENERATOR 0

@@ -25,6 +25,7 @@
     // channel settings
     struct _synth_chn_settings {
         unsigned int synthesis_method;
+        unsigned int muted;
         int p0;
         double p1;
         double p2;

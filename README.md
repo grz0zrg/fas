@@ -45,7 +45,7 @@ Fragment Audio Server (FAS) is a pixels-based graphical audio synthesizer implem
 
 The versatility of its sound engine allow a wide variety of synthesis methods to produce sounds:
 
-* additive / spectral synthesis with per partial effect (bitcrush, comb etc.)
+* additive / spectral synthesis with per partial effects (bitcrush, phase distorsion, waveshaping, fold, convolve)
 * phase modulation (PM/FM)
 * granular
 * subtractive synthesis
@@ -54,6 +54,7 @@ The versatility of its sound engine allow a wide variety of synthesis methods to
 
 There is a second type of synthesis methods which use any synthesis methods from above as input:
 
+* second-order band-pass Butterworth filter (bandpass filter bank)
 * formant synthesis (formant filter bank)
 * modal synthesis (resonant filter bank)
 * phase distorsion
@@ -97,7 +98,7 @@ Here is some architectural specifications as if it were made by a synth. manufac
 * multitimbral; unlimited number of timbres / parts with **dedicated stereo output**
 * distributed architecture; more than one instance can run on same machine / a network with independent processing of voice / part, example : [FAS relay](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
 * driven by pixels data over the wire; this synth has about no limitations and is typically used with a client that implement higher order features like MIDI / OSC such as [Fragment client](https://github.com/grz0zrg/fsynth)
-* multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation and allow custom sound engine (WIP: through [Faust](https://faust.grame.fr/))
+* multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation, bank of filters, phase distorsion and allow custom sound engine (WIP: through [Faust](https://faust.grame.fr/))
 * high quality stereophonic audio with low latency
 * fully microtonal / spectral
 * unlimited effects slot per part (24 by default but adaptable); reverb, convolution, comb, delay, chorus, flanger... 25 high quality effects type provided by Soundpipe are available, you can also choose to add your own effects chain since every part have dedicated stereo output
@@ -123,11 +124,13 @@ When compiled with `PARTIAL_FX` defined there is a fx slot available **per parti
 * tanh waveshaping (Wave 1 / Wave 2 : B component [0, 1] / A component [0, 1))
 * signal foldover (A component [0, 3])
 * noise (B added white noise factor to sine wave phase, maximum defined by command-line parameter)
-* convolver (A component integer part; Note : require huge amount of processing power with high amount of partials / long impulse)
+* convolver (A component integer part; Note : require huge amount of processing power with even low amount of partials / long impulse)
 
 Any combination of these can be applied to each partials with real-time parameters change. This feature may allow to easily add character to the additive sound.
 
 Partials effects can be disabled to speed up additive synthesis (or if FAS doesn't make use of Soundpipe), phase noise is then available when `BANDLIMITED_NOISE` is defined and can also be turned off.
+
+Additive synthesis use either magic circle algorithm or a wavetable, speed depend on architecture, magic circle algorithm is recommended. (note : noise is not available with magic circle)
 
 #### RGBA interpretation
 
@@ -288,6 +291,27 @@ Integral part of blue / alpha component correspond to the first / second resonan
 
 **Note** : Monophonic mode Physical modelling synthesis is not implemented.
 
+### Bandpass synthesis
+
+Only available with Soundpipe.
+
+Specific type of synthesis which use a canvas-mapped bank of bandpass filters (second-order Butterworth), each activated filters use an user-defined channel as source.
+
+It can be used with rich form of synthesis (subtractive etc.) as a spectrum sculpt tool (vocoding etc.)
+
+As a speed example ~256 filters can be enabled at the same time with ~6 subtractive oscillators as input on an i7 6700 with a single FAS instance (96000kHz)
+
+#### RGBA interpretation
+
+| Components | Interpretations                        |
+| ---------: | :------------------------------------- |
+|          R | Amplitude value of the input LEFT channel    |
+|          G | Amplitude value of the input RIGHT channel   |
+|          B | integral part : source channel index   |
+|          A | unused                                 |
+
+**Note** : Monophonic mode is not implemented.
+
 ### Formant synthesis
 
 Only available with Soundpipe.
@@ -298,8 +322,8 @@ Specific type of synthesis which use a canvas-mapped bank of formant filters, ea
 
 | Components | Interpretations                        |
 | ---------: | :------------------------------------- |
-|          R | Amplitude value of the LEFT channel    |
-|          G | Amplitude value of the RIGHT channel   |
+|          R | Amplitude value of the input LEFT channel    |
+|          G | Amplitude value of the input RIGHT channel   |
 |          B | integral part : source channel index / fractional part : Impulse response attack time (in seconds)       |
 |          A | Impulse reponse decay time (in seconds)        |
 
@@ -315,8 +339,8 @@ Specific type of synthesis which use an user-defined source channel as input and
 
 | Components | Interpretations                        |
 | ---------: | :------------------------------------- |
-|          R | Amplitude value of the LEFT channel    |
-|          G | Amplitude value of the RIGHT channel   |
+|          R | Amplitude value of the input LEFT channel    |
+|          G | Amplitude value of the input RIGHT channel   |
 |          B | Unused       |
 |          A | Amount of distorsion [-1, 1]        |
 
@@ -332,8 +356,8 @@ Specific type of synthesis which use a canvas-mapped bank of resonant filters, e
 
 | Components | Interpretations                        |
 | ---------: | :------------------------------------- |
-|          R | Amplitude value of the LEFT channel    |
-|          G | Amplitude value of the RIGHT channel   |
+|          R | Amplitude value of the input LEFT channel    |
+|          G | Amplitude value of the input RIGHT channel   |
 |          B | Unused       |
 |          A | Q factor of the resonant filter (a Q factor around the frequency produce ok results)        |
 
@@ -486,6 +510,7 @@ Synth channels settings, packet identifier 3 :
 ```c
 struct _synth_chn_settings {
     unsigned int synthesis_method; // mapping can be found in constants.h
+    unsigned int muted; // wether this channel is muted or not, a muted channel will not output any sounds but is still available as an input
     // generic integer parameter
     // Granular : granular envelope type for this channel (there is 13 types of envelopes)
     // Subtractive : filter type  (require Soundpipe)
@@ -567,7 +592,7 @@ Copy include files of portaudio / soundpipe / libwebsocket into "inc" directory.
 
 FAS now use liblfds720 which is not yet released thus you may have to use a wrapper to liblfds711 which can be found [here](https://github.com/grz0zrg/fas/issues/4#issuecomment-457007224)
 
-Copy the \*.a into "fas" root directory then compile by using one of the rule below (recommended rule for Linux and similar is `release-static-o` **without** Soundpipe and `release-static-sp-o` **with** Soundpipe).
+Copy the \*.a into "fas" root directory then compile by using one of the rule below (recommended rule for Linux and similar is `release-static-o` **without** Soundpipe and `release-static-sp-mc-o` **with** Soundpipe).
 
 Recommended launch parameters with HiFiBerry DAC+ :
     ./fas --alsa_realtime_scheduling 1 --frames_queue_size 63 --sample_rate 48000 --device 2
@@ -643,6 +668,8 @@ Statically linked and advanced optimizations : **make release-static-o**
 Statically linked, advanced optimizations, netjack without ALSA : **release-static-netjack-o**
 
 Statically linked + Soundpipe and advanced optimizations : **make release-static-sp-o**
+
+Statically linked + Soundpipe + magic circle and advanced optimizations : **make release-static-sp-mc-o**
 
 Statically linked with bandlimited-noise, advanced optimizations (default build) : **make release-bln-static-o**
 

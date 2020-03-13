@@ -292,7 +292,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
 #ifdef PARTIAL_FX
-                        int fx = n->density % SP_OSC_MODS;
+                        int fx = (int)n->cutoff % SP_OSC_MODS; // TODO : rename pre-computed note parameters with generic ones
 #ifdef WITH_SOUNDPIPE
                         if (fx == SP_CRUSH_MODS) {
                             sp_bitcrush *crush = (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS];
@@ -704,7 +704,30 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                     }
                 }
 #ifdef WITH_SOUNDPIPE
-                else if (chn_settings->synthesis_method == FAS_FORMANT_SYNTH) {
+                else if (chn_settings->synthesis_method == FAS_BANDPASS) {
+                    for (j = s; j < e; j += 1) {
+                        struct note *n = &curr_notes[j];
+
+                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                        int chn = fmod(fabsf(n->blue), frame_data_count);
+
+                        float sl = 0.0f;
+                        float sr = 0.0f;
+
+                        float il = last_sample_l[chn] * vl;
+                        float ir = last_sample_r[chn] * vr;
+
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &ir, &sr);
+
+                        output_l += sl * vl;
+                        output_r += sr * vr;
+                    }
+                } else if (chn_settings->synthesis_method == FAS_FORMANT_SYNTH) {
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
 
@@ -942,8 +965,13 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             last_sample_l[k] = output_l;
             last_sample_r[k] = output_r;
 
-            *out++ = last_sample_l[k] * curr_synth.gain->gain_lr;
-            *out++ = last_sample_r[k] * curr_synth.gain->gain_lr;
+            if (chn_settings->muted) {
+                *out++ = 0;
+                *out++ = 0;
+            } else {
+                *out++ = last_sample_l[k] * curr_synth.gain->gain_lr;
+                *out++ = last_sample_r[k] * curr_synth.gain->gain_lr;
+            }
         }
 
         curr_synth.lerp_t += lerp_t_step * fas_smooth_factor;
@@ -1073,6 +1101,20 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                     }
                                 }
                             }
+                        } else if (chn_settings->synthesis_method == FAS_BANDPASS) {
+                            for (j = s; j < e; j += 1) {
+                                struct note *n = &curr_notes[j];
+
+                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+#ifdef WITH_SOUNDPIPE
+                                // TODO : adjust bandwidth ?
+                                //sp_butbp *bpb_l = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L];
+                                //sp_butbp *bpb_r = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R];
+                                //bpb_l->bw = fabsf(n->blue_frac_part);
+                                //bpb_r->bw = fabs(n->res);
+#endif
+                            }  
                         } else if (chn_settings->synthesis_method == FAS_FORMANT_SYNTH) {
                             for (j = s; j < e; j += 1) {
                                 struct note *n = &curr_notes[j];
@@ -1098,7 +1140,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 mode_l->q = n->alpha;
                                 mode_r->q = n->alpha;
 #endif
-                            }  
+                            }
                         } else if (chn_settings->synthesis_method == FAS_PHASE_DISTORSION) {
                             for (j = s; j < e; j += 1) {
                                 struct note *n = &curr_notes[j];
@@ -1895,7 +1937,7 @@ if (remaining_payload != 0) {
 
                     usd->synth = NULL;
                 } else if (pid == CHN_SETTINGS) {
-                    int i = 0;
+                    int i = 0, j = 0;
                     static unsigned int channels_count[1];
                     memcpy(&channels_count, &((char *) usd->packet)[PACKET_HEADER_LENGTH], sizeof(channels_count));
 
@@ -1922,8 +1964,11 @@ if (remaining_payload != 0) {
 
                     // initialize fx chains with no fx
                     for (i = 0; i < frame_data_count; i += 1) {   
-                        usd->synth->chn_settings[i].fx[0].fx_id = -1;
+                        for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {  
+                            usd->synth->chn_settings[i].fx[j].fx_id = -1;
+                        }
                         usd->synth->chn_settings[i].synthesis_method = FAS_VOID;
+                        usd->synth->chn_settings[i].muted = 0;
                     }
 
 #ifdef DEBUG
@@ -1933,18 +1978,20 @@ fflush(stdout);
 
                     int *data = (int *)&usd->packet[PACKET_HEADER_LENGTH + 8];
                     double *data_double = (double *)&usd->packet[PACKET_HEADER_LENGTH + 16];
-                    int j = 0, i2 = 0;
+                    j = 0;
+                    int i2 = 0;
                     i = 0;
                     for (n = 0; n < (*channels_count); n += 1) {
                         // channels settings
                         usd->synth->chn_settings[n].synthesis_method = data[i];
-                        usd->synth->chn_settings[n].p0 = data[i + 1];
+                        usd->synth->chn_settings[n].muted = data[i + 1];
+                        usd->synth->chn_settings[n].p0 = data[i + 2];
                         usd->synth->chn_settings[n].p1 = data_double[i2];
                         usd->synth->chn_settings[n].p2 = data_double[i2 + 1];
                         usd->synth->chn_settings[n].p3 = data_double[i2 + 2];
 
 #ifdef DEBUG
-printf("chn %i data : %i, %i, %f, %f, %f\n", n, usd->synth->chn_settings[n].synthesis_method, usd->synth->chn_settings[n].p0, usd->synth->chn_settings[n].p1, usd->synth->chn_settings[n].p2, usd->synth->chn_settings[n].p3);
+printf("chn %i data : %i, %i, %i, %f, %f, %f\n", n, usd->synth->chn_settings[n].synthesis_method, usd->synth->chn_settings[n].muted, usd->synth->chn_settings[n].p0, usd->synth->chn_settings[n].p1, usd->synth->chn_settings[n].p2, usd->synth->chn_settings[n].p3);
 fflush(stdout);
 #endif
 
@@ -2799,7 +2846,7 @@ int main(int argc, char **argv)
               &outputParameters,
               fas_sample_rate,
               fas_frames_per_buffer,
-              paDitherOff,
+              paDitherOff, // paClipOff // paNeverDropInput
               paCallback,
               NULL );
     if (err != paNoError) goto error;

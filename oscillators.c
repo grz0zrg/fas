@@ -143,8 +143,17 @@ struct oscillator *createOscillators(
             sp_wpkorg35_create((sp_wpkorg35 **)&osc->sp_filters[i][SP_KORG35_FILTER]);
             sp_wpkorg35_init(spd, osc->sp_filters[i][SP_KORG35_FILTER]);
 
-            sp_streson_create((sp_streson **)&osc->sp_filters[i][SP_STRES_FILTER]);
-            sp_streson_init(spd, osc->sp_filters[i][SP_STRES_FILTER]);
+            sp_streson_create((sp_streson **)&osc->sp_filters[i][SP_STRES_FILTER_L]);
+            sp_streson_init(spd, osc->sp_filters[i][SP_STRES_FILTER_L]);
+
+            sp_streson_create((sp_streson **)&osc->sp_filters[i][SP_STRES_FILTER_R]);
+            sp_streson_init(spd, osc->sp_filters[i][SP_STRES_FILTER_R]);
+
+            sp_streson *streson_l = (sp_streson *)osc->sp_filters[i][SP_STRES_FILTER_L];
+            streson_l->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
+
+            sp_streson *streson_r = (sp_streson *)osc->sp_filters[i][SP_STRES_FILTER_R];
+            streson_r->freq = fmin(frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
 
             sp_lpf18_create((sp_lpf18 **)&osc->sp_filters[i][SP_LPF18_FILTER]);
             sp_lpf18_init(spd, osc->sp_filters[i][SP_LPF18_FILTER]);
@@ -332,6 +341,8 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
         free(oscs[y].mc_y);
 #endif
 
+        free(oscs[y].bw);
+
         for (i = 0; i < frame_data_count; i += 1) {
 #ifndef POLYBLEP
             free(oscs[y].harmo_phase_index[i]);
@@ -346,7 +357,8 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
             sp_moogladder_destroy((sp_moogladder **)&oscs[y].sp_filters[i][SP_MOOG_FILTER]);
             sp_diode_destroy((sp_diode **)&oscs[y].sp_filters[i][SP_DIODE_FILTER]);
             sp_wpkorg35_destroy((sp_wpkorg35 **)&oscs[y].sp_filters[i][SP_KORG35_FILTER]);
-            sp_streson_destroy((sp_streson **)&oscs[y].sp_filters[i][SP_STRES_FILTER]);
+            sp_streson_destroy((sp_streson **)&oscs[y].sp_filters[i][SP_STRES_FILTER_L]);
+            sp_streson_destroy((sp_streson **)&oscs[y].sp_filters[i][SP_STRES_FILTER_R]);
             sp_lpf18_destroy((sp_lpf18 **)&oscs[y].sp_filters[i][SP_LPF18_FILTER]);
             sp_fofilt_destroy((sp_fofilt **)&oscs[y].sp_filters[i][SP_FORMANT_FILTER_L]);
             sp_fofilt_destroy((sp_fofilt **)&oscs[y].sp_filters[i][SP_FORMANT_FILTER_R]);

@@ -77,7 +77,7 @@ void reset_phys_modelling(unsigned int chn, struct oscillator *osc, struct note 
         //sp_pinknoise_compute(sp, (sp_pinknoise *)osc->sp_gens[chn][SP_PINK_NOISE_GENERATOR], NULL, &si);
         //sp_brown_compute(sp, (sp_brown *)osc->sp_gens[chn][SP_BROWN_NOISE_GENERATOR], NULL, &si);
 
-        sp_streson *streson = (sp_streson *)osc->sp_filters[chn][SP_STRES_FILTER];
+        sp_streson *streson = (sp_streson *)osc->sp_filters[chn][SP_STRES_FILTER_L];
         streson->freq = osc->freq * n->cutoff;
         streson->fdbgain = (n->res > 1.f) ? 1.f : n->res;
         sp_streson_compute(sp, streson, &si, &so);
@@ -750,6 +750,29 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_l += sl * vl;
                         output_r += sr * vr;
                     }
+                } else if (chn_settings->synthesis_method == FAS_STRING_RESON) {
+                    for (j = s; j < e; j += 1) {
+                        struct note *n = &curr_notes[j];
+
+                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                        int chn = fmod(fabsf(n->blue), frame_data_count);
+
+                        float sl = 0.0f;
+                        float sr = 0.0f;
+
+                        float il = last_sample_l[chn] * vl;
+                        float ir = last_sample_r[chn] * vr;
+
+                        sp_streson_compute(sp, (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_L], &il, &sl);
+                        sp_streson_compute(sp, (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_R], &ir, &sr);
+
+                        output_l += sl * vl;
+                        output_r += sr * vr;
+                    }
                 } else if (chn_settings->synthesis_method == FAS_MODAL_SYNTH) {
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
@@ -1127,6 +1150,19 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 fofilt_r->dec = fofilt_r->dec = fabs(n->res);
 #endif
                             }    
+                        } else if (chn_settings->synthesis_method == FAS_STRING_RESON) {
+                            for (j = s; j < e; j += 1) {
+                                struct note *n = &curr_notes[j];
+
+                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+#ifdef WITH_SOUNDPIPE
+                                sp_streson *streson_l = (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_L];
+                                sp_streson *streson_r = (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_R];
+                                streson_l->fdbgain = n->res;//fminf(n->alpha, 1.f);
+                                streson_r->fdbgain = n->res;//fminf(n->alpha, 1.f);
+#endif
+                            }
                         } else if (chn_settings->synthesis_method == FAS_MODAL_SYNTH) {
                             for (j = s; j < e; j += 1) {
                                 struct note *n = &curr_notes[j];

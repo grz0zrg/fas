@@ -18,8 +18,10 @@ Table of Contents
       * [PM synthesis](#pm-synthesis)
       * [Wavetable synthesis (WIP)](#wavetable-synthesis)
       * [Physical modelling](#physical-modelling)
+      * [Bandpass synthesis](#bandpass-synthesis)
       * [Formant synthesis](#formant-synthesis)
       * [Phase Distorsion synthesis](#phase-distorsion-synthesis)
+      * [String resonator synthesis](#string-resonator-synthesis)
       * [Modal synthesis](#modal-synthesis)
       * [Input](#input)
       * [Samples map](#samples-map)
@@ -52,10 +54,11 @@ The versatility of its sound engine allow a wide variety of synthesis methods to
 * physical modelling (Karplus-strong, droplet)
 * wavetable
 
-There is a second type of synthesis methods which use any synthesis methods from above as input:
+There is a second type of synthesis methods (or modifiers) which use any synthesis methods from above as input:
 
 * second-order band-pass Butterworth filter (bandpass filter bank)
 * formant synthesis (formant filter bank)
+* string resonator synthesis (complex filter bank similar to Karplus-Strong)
 * modal synthesis (resonant filter bank)
 * phase distorsion
 
@@ -347,6 +350,29 @@ Specific type of synthesis which use an user-defined source channel as input and
 |          G | Amplitude value of the input RIGHT channel   |
 |          B | integral part : source channel index       |
 |          A | Amount of distorsion [-1, 1]        |
+
+**Note** : Monophonic mode is not implemented.
+
+### String resonator synthesis
+
+Only available with Soundpipe.
+
+Specific type of synthesis which use a canvas-mapped bank of string resonator, each activated filters use an user-defined channel as source. It produce sounds similar to physical modelling / modal synthesis.
+
+A list of frequencies for several instruments are available [here](http://www.csounds.com/manual/html/MiscModalFreq.html)
+
+A high feedback gain will create a slower decay and a more pronounced resonance.
+
+As an easy first step a noisy sound such as one produced with subtractive synthesis may be used.
+
+#### RGBA interpretation
+
+| Components | Interpretations                        |
+| ---------: | :------------------------------------- |
+|          R | Amplitude value of the input LEFT channel    |
+|          G | Amplitude value of the input RIGHT channel   |
+|          B | integral part : source channel index       |
+|          A | feedback gain; typically > 0.9        |
 
 **Note** : Monophonic mode is not implemented.
 

@@ -108,7 +108,7 @@ struct oscillator *createOscillators(
 
         osc->pvalue = malloc(sizeof(float) * frame_data_count);
 
-        osc->bw = malloc(sizeof(float) * frame_data_count);
+        osc->bw = malloc(sizeof(double) * frame_data_count);
 
 #ifdef WITH_SOUNDPIPE
         osc->sp_filters = malloc(sizeof(void **) * frame_data_count);

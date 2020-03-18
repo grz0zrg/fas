@@ -2001,6 +2001,7 @@ if (remaining_payload != 0) {
                     for (i = 0; i < frame_data_count; i += 1) {   
                         for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {  
                             usd->synth->chn_settings[i].fx[j].fx_id = -1;
+                            usd->synth->chn_settings[i].fx[j].bypass = 0;
                         }
                         usd->synth->chn_settings[i].synthesis_method = FAS_VOID;
                         usd->synth->chn_settings[i].muted = 0;

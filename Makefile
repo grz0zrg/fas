@@ -2,9 +2,9 @@ compiler = gcc
 cppcompiler = g++
 emcompiler = emcc -s WASM=1 -Oz -s ERROR_ON_UNDEFINED_SYMBOLS=0
 x86-64-cross-compiler = /usr/bin/x86_64-w64-mingw32-gcc
-source = main.c tools.c samples.c grains.c effects.c oscillators.c wavetables.c note.c usage.c lib/lodepng.c lib/Yin.c filters.c
+source = main.c tools.c samples.c grains.c effects.c oscillators.c wavetables.c note.c usage.c lib/lodepng.c lib/Yin.c filters.c afSTFT/afSTFTlib.c afSTFT/fft4g.c afSTFT/vecTools.c
 cpp_source = essentia_wrapper.cpp
-obj = main.o tools.o samples.o grains.o effects.o oscillators.o wavetables.o filters.o note.o usage.o Yin.o lodepng.o
+obj = main.o tools.o samples.o grains.o effects.o oscillators.o wavetables.o filters.o note.o usage.o Yin.o lodepng.o afSTFTlib.o fft4g.o vecTools.o
 cpp_obj = essentia_wrapper.o
 cpp_options = -std=c++11
 essentia_libs = libessentia.a -lfftw3 -lfftw3f

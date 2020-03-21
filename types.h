@@ -1,6 +1,8 @@
 #ifndef _FAS_TYPES_H_
 #define _FAS_TYPES_H_
 
+    #include "afSTFT/afSTFTlib.h"
+
     #include "constants.h"
 
     struct _synth_settings {
@@ -33,6 +35,22 @@
 
         // channel fx
         struct _synth_fx_settings fx[FAS_MAX_FX_SLOTS];
+    };
+
+    // channels related states
+    struct _synth_chn_states {
+        unsigned int position;
+
+        // spectral related
+        void *afSTFT_handle;
+
+        complexVector stft_result[2];
+        complexVector stft_temp[2];
+
+        float *in[2];
+        float *out[2];
+
+        unsigned int hop_size;
     };
 
     // synth. data

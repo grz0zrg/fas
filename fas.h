@@ -160,6 +160,7 @@
 
     int keep_running = 1;
 
+    struct _synth_chn_states *fas_chn_states = NULL;
 
     // liblfds related
     enum lfds720_misc_flag overwrite_occurred_flag;

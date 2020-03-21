@@ -44,6 +44,7 @@
 
 #include "fas.h"
 
+void createChannelState(struct _synth_chn_states *state, unsigned int hop_size);
 void freeSynth(struct _synth **s);
 
 // liblfds data structures cleanup callbacks
@@ -100,7 +101,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
     float *out = (float*)outputBuffer;
     float *audio_in = (float*)inputBuffer;
 
-    unsigned int i, j, k, d, s, e;
+    unsigned int i, j, k, d, s, e, w;
 
     struct _freelist_frames_data *freelist_frames_data;
 
@@ -149,11 +150,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         }
 
         if (queue_synth->chn_settings) {
-            if (curr_synth.chn_settings) {
-                free(curr_synth.chn_settings);
-
-                curr_synth.chn_settings = NULL;
-            }
+            struct _synth_chn_settings *prev_chn_settings = curr_synth.chn_settings;
 
             curr_synth.chn_settings = queue_synth->chn_settings;
 
@@ -179,6 +176,22 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 }
             }
 
+            for (k = 0; k < frame_data_count; k += 1) {
+                struct _synth_chn_settings *chn_settings = &curr_synth.chn_settings[k];
+
+                if (chn_settings->synthesis_method == FAS_SPECTRAL) {
+                    // window size change
+                    if (prev_chn_settings) {
+                        if (prev_chn_settings[k].synthesis_method != FAS_SPECTRAL ||
+                            (prev_chn_settings[k].synthesis_method == FAS_SPECTRAL && chn_settings->p1 != prev_chn_settings[k].p1)) {
+                            createChannelState(&fas_chn_states[k], (unsigned int)chn_settings->p1);
+                        }
+                    } else {
+                        createChannelState(&fas_chn_states[k], (unsigned int)chn_settings->p1);
+                    }
+                }
+            }
+
             // update effects chain
             if (synth_fx) {
                 for (k = 0; k < frame_data_count; k += 1) {
@@ -188,6 +201,10 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                     updateEffects(synth_fx[k], &curr_synth.chn_settings[k], impulses, impulses_count);
 #endif
                 }
+            }
+
+            if (prev_chn_settings) {
+                free(prev_chn_settings);
             }
         }
 
@@ -280,12 +297,12 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         osc->mc_x[k] = osc->mc_x[k] + osc->mc_eps * osc->mc_y[k];
                         osc->mc_y[k] = -osc->mc_eps * osc->mc_x[k] + osc->mc_y[k];
 
-                        float s = osc->mc_y[k];
+                        float smp = osc->mc_y[k];
 #else
 #ifndef FIXED_WAVETABLE
-                        float s = fas_sine_wavetable[osc->phase_index[k]];
+                        float smp = fas_sine_wavetable[osc->phase_index[k]];
 #else
-                        float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
+                        float smp = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
 #endif
 #endif
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
@@ -300,29 +317,29 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             crush->bitdepth = 1.f + (n->blue_frac_part * 15.f);
                             crush->srate = n->res * (float)fas_sample_rate;
 
-                            sp_bitcrush_compute(sp, (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS], &s, &s); 
+                            sp_bitcrush_compute(sp, (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS], &smp, &smp); 
                         } else if (fx == SP_PD_MODS) {
                             sp_pdhalf *pdh = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
                             
                             pdh->ibipolar = n->alpha;
                             pdh->amount = (0.5f - n->res) * 2.f;
 
-                            sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &s, &s); 
+                            sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &smp, &smp); 
                         } else if (fx == SP_WAVSH_MODS) {
                             sp_dist *dist = (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS];
                             
                             dist->shape1 = n->blue_frac_part;
                             dist->shape2 = n->alpha;
 
-                            sp_dist_compute(sp, (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS], &s, &s); 
+                            sp_dist_compute(sp, (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS], &smp, &smp); 
                         } else if (fx == SP_FOLD_MODS) {
                             sp_fold *fold = (sp_fold *)osc->sp_mods[k][SP_FOLD_MODS];
                             
                             fold->incr = n->alpha;
 
-                            sp_fold_compute(sp, (sp_fold *)osc->sp_mods[k][SP_FOLD_MODS], &s, &s); 
+                            sp_fold_compute(sp, (sp_fold *)osc->sp_mods[k][SP_FOLD_MODS], &smp, &smp); 
                         } else if (fx == SP_CONV_MODS) {
-                            sp_conv_compute(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], &s, &s); 
+                            sp_conv_compute(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], &smp, &smp); 
                         } else if (fx == NOISE_MODS) {
 #ifndef MAGIC_CIRCLE
                             osc->phase_index[k] += osc->phase_step * (1.0f + (fas_white_noise_table[osc->noise_index[k]++]) * n->alpha);
@@ -331,8 +348,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
 #endif
 
-                        output_l += vl * s;
-                        output_r += vr * s;
+                        output_l += vl * smp;
+                        output_r += vr * smp;
 
 #ifndef MAGIC_CIRCLE
 #ifdef BANDLIMITED_NOISE
@@ -350,6 +367,89 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
 #endif
                     }
+                } else if (chn_settings->synthesis_method == FAS_SPECTRAL) {
+                    struct _synth_chn_states *chn_states = &fas_chn_states[k];
+
+                    // accumulate frames until there is enough for a STFT frame
+                    unsigned int input_channel = chn_settings->p0 % frame_data_count;
+                    chn_states->in[0][chn_states->position] = last_sample_l[input_channel];
+                    chn_states->in[1][chn_states->position] = last_sample_r[input_channel];
+
+                    chn_states->position += 1;
+                    if (chn_states->position >= chn_states->hop_size) {
+                        if (chn_settings->p2 != 1) {
+                            afSTFTforward(chn_states->afSTFT_handle, chn_states->in, chn_states->stft_result);
+                        }
+
+                        // empty processing buffer
+                        for (d = 0; d < 2; d += 1) {
+                            for (w = 0; w < chn_states->hop_size / 2; w += 1) {
+                                chn_states->stft_temp[d].re[w] = 0;
+                                chn_states->stft_temp[d].im[w] = 0;
+                            }
+                        }
+
+                        // process incoming data
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
+
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                            float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                            float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                            float v[2] = { vl, vr };
+                            float p[2] = { n->blue, n->alpha };
+
+                            double bin_delta = ((double)(fas_sample_rate / 2) / chn_states->hop_size);
+                            double bin = osc->freq / bin_delta;
+
+                            int ibin = round(bin);
+
+                            // stereo spectral processing
+                            for (d = 0; d < 2; d += 1) {                                
+                                if (chn_settings->p2 == 1) {
+                                    chn_states->stft_temp[d].re[ibin] = v[d];
+                                    chn_states->stft_temp[d].im[ibin] = p[d];
+                                } else {
+                                    float real = chn_states->stft_result[d].re[ibin];
+                                    float imag = chn_states->stft_result[d].im[ibin];
+
+                                    // polar
+                                    float mag = sqrtf(real * real + imag * imag);
+                                    float pha = atan2f(imag, real);
+
+                                    mag *= v[d];
+                                    pha *= p[d];
+
+                                    // rectangular
+                                    float creal = mag * cosf(pha);
+                                    float cimag = mag * sinf(pha);
+
+                                    chn_states->stft_temp[d].re[ibin] = creal;
+                                    chn_states->stft_temp[d].im[ibin] = cimag;
+                                }
+                            }
+                        }
+
+                        // copy processing result
+                        for (d = 0; d < 2; d += 1) {
+                            for (w = 0; w < chn_states->hop_size / 2; w += 1) {
+                                float re = chn_states->stft_temp[d].re[w];
+                                float im = chn_states->stft_temp[d].im[w];
+
+                                chn_states->stft_result[d].re[w] = re;
+                                chn_states->stft_result[d].im[w] = im;
+                            }
+                        }
+
+                        afSTFTinverse(chn_states->afSTFT_handle, chn_states->stft_result, chn_states->out);
+
+                        chn_states->position = 0;
+                    }
+
+                    output_l += chn_states->out[0][chn_states->position];
+                    output_r += chn_states->out[1][chn_states->position];
                 } else if (chn_settings->synthesis_method == FAS_GRANULAR) {
                     int env_type = chn_settings->p0;
                     float *gr_env = grain_envelope[env_type];
@@ -414,23 +514,23 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         double phase_step = n->alpha / (double)fas_sample_rate * fas_wavetable_size;
 
 #ifndef FIXED_WAVETABLE
-                        float s = fas_sine_wavetable[osc->phase_index[k]];
-                        float s2 = fas_sine_wavetable[osc->phase_index2[k]];
+                        float smp = fas_sine_wavetable[osc->phase_index[k]];
+                        float smp2 = fas_sine_wavetable[osc->phase_index2[k]];
 #else
-                        float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
-                        float s2 = fas_sine_wavetable[osc->phase_index2[k] & fas_wavetable_size_m1];
+                        float smp = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
+                        float smp2 = fas_sine_wavetable[osc->phase_index2[k] & fas_wavetable_size_m1];
 #endif
 
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        output_l += vl * s;
-                        output_r += vr * s;
+                        output_l += vl * smp;
+                        output_r += vr * smp;
 
-                        osc->phase_index[k] += osc->phase_step + ((s2 * n->blue_frac_part) * fas_wavetable_size);
+                        osc->phase_index[k] += osc->phase_step + ((smp2 * n->blue_frac_part) * fas_wavetable_size);
                         osc->phase_index2[k] += phase_step + ((osc->pvalue[k] * (n->density / 1024.0f)) * fas_wavetable_size);
 
-                        osc->pvalue[k] = s2; // for feedback
+                        osc->pvalue[k] = smp2; // for feedback
 
 #ifndef FIXED_WAVETABLE
                         if (osc->phase_index[k] >= fas_wavetable_size) {
@@ -452,11 +552,11 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #ifndef POLYBLEP // Additive synthesis method to generate anti-aliased waveforms
                         // fundamental
  #ifndef FIXED_WAVETABLE
-                        float s = fas_sine_wavetable[osc->phase_index[k]];
+                        float smp = fas_sine_wavetable[osc->phase_index[k]];
 
                         uint16_t *hphase_index = (uint16_t *)osc->harmo_phase_index[k];
  #else
-                        float s = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
+                        float smp = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
 
                         unsigned int *hphase_index = (unsigned int *)osc->harmo_phase_index[k];
  #endif
@@ -465,9 +565,9 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         int odd = n->waveform; // sawtooth - square & triangle (pow wavetable below)
                         for (d = odd; d < osc->max_harmonics; d += (1 + odd)) {
  #ifndef FIXED_WAVETABLE
-                            s += fas_sine_wavetable[osc->harmo_phase_index[k][d]] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
+                            smp += fas_sine_wavetable[osc->harmo_phase_index[k][d]] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
  #else
-                            s += fas_sine_wavetable[osc->harmo_phase_index[k][d] & fas_wavetable_size_m1] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
+                            smp += fas_sine_wavetable[osc->harmo_phase_index[k][d] & fas_wavetable_size_m1] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
  #endif
 
                             osc->harmo_phase_index[k][d] += osc->harmo_phase_step[d];
@@ -479,36 +579,36 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
  #endif
                         }
 #else // implementation from http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/
-                        float s;
+                        float smp;
                         double t = osc->fphase[k] / M_PI2;
 
                         int waveform = ((int)fabs(floor(n->alpha))) % 6;
 
                         switch (waveform) {
                             case 0:
-                                s = raw_waveform(osc->fphase[k], 1);
-                                s -= poly_blep(osc->phase_increment, t);
+                                smp = raw_waveform(osc->fphase[k], 1);
+                                smp -= poly_blep(osc->phase_increment, t);
                                 break;
                             case 1:
-                                s = raw_waveform(osc->fphase[k], 2);
-                                s += poly_blep(osc->phase_increment, t);
-                                s -= poly_blep(osc->phase_increment, fmod(t + 0.5, 1.0));
+                                smp = raw_waveform(osc->fphase[k], 2);
+                                smp += poly_blep(osc->phase_increment, t);
+                                smp -= poly_blep(osc->phase_increment, fmod(t + 0.5, 1.0));
                                 break;
                             case 2:
-                                s = raw_waveform(osc->fphase[k], 3);
-                                s += poly_blep(osc->phase_increment, t);
-                                s -= poly_blep(osc->phase_increment, fmod(t + 0.5, 1.0));
-                                s = osc->phase_increment * s + (1.0 - osc->phase_increment) * osc->pvalue[k];
-                                osc->pvalue[k] = s;
+                                smp = raw_waveform(osc->fphase[k], 3);
+                                smp += poly_blep(osc->phase_increment, t);
+                                smp -= poly_blep(osc->phase_increment, fmod(t + 0.5, 1.0));
+                                smp = osc->phase_increment * smp + (1.0 - osc->phase_increment) * osc->pvalue[k];
+                                osc->pvalue[k] = smp;
                                 break;
                             case 3: // white noise
 #ifdef WITH_SOUNDPIPE
-                                sp_noise_compute(sp, (sp_noise *)osc->sp_gens[k][SP_WHITE_NOISE_GENERATOR], NULL, &s);
+                                sp_noise_compute(sp, (sp_noise *)osc->sp_gens[k][SP_WHITE_NOISE_GENERATOR], NULL, &smp);
 #else
     #ifndef FIXED_WAVETABLE
-                                s = fas_white_noise_table[osc->phase_index[k]];
+                                smp = fas_white_noise_table[osc->phase_index[k]];
     #else
-                                s = fas_white_noise_table[osc->phase_index[k] & fas_wavetable_size_m1];
+                                smp = fas_white_noise_table[osc->phase_index[k] & fas_wavetable_size_m1];
     #endif
                                 osc->phase_index[k] += osc->phase_step;
     #ifndef FIXED_WAVETABLE
@@ -518,10 +618,10 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 break;
 #ifdef WITH_SOUNDPIPE
                             case 4: // pink noise
-                                sp_pinknoise_compute(sp, (sp_pinknoise *)osc->sp_gens[k][SP_PINK_NOISE_GENERATOR], NULL, &s);
+                                sp_pinknoise_compute(sp, (sp_pinknoise *)osc->sp_gens[k][SP_PINK_NOISE_GENERATOR], NULL, &smp);
                                 break;
                             case 5: // brown noise
-                                sp_brown_compute(sp, (sp_brown *)osc->sp_gens[k][SP_BROWN_NOISE_GENERATOR], NULL, &s);
+                                sp_brown_compute(sp, (sp_brown *)osc->sp_gens[k][SP_BROWN_NOISE_GENERATOR], NULL, &smp);
                                 break;
 #endif
                             default:
@@ -539,20 +639,20 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
 #ifdef WITH_SOUNDPIPE
                         if (filter_type == 0) {
-                            sp_moogladder_compute(sp, (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER], &s, &s); 
+                            sp_moogladder_compute(sp, (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER], &smp, &smp); 
                         } else if (filter_type == 1) {
-                            sp_diode_compute(sp, (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER], &s, &s);
+                            sp_diode_compute(sp, (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER], &smp, &smp);
                         } else if (filter_type == 2) {
-                            sp_wpkorg35_compute(sp, (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER], &s, &s);
+                            sp_wpkorg35_compute(sp, (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER], &smp, &smp);
                         } else if (filter_type == 3) {
-                            sp_lpf18_compute(sp, (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER], &s, &s);
+                            sp_lpf18_compute(sp, (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER], &smp, &smp);
                         }
 #else
-                        s = huovilainen_moog(s, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
+                        smp = huovilainen_moog(smp, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
 #endif
 
-                        output_l += vl * s;
-                        output_r += vr * s;
+                        output_l += vl * smp;
+                        output_r += vr * smp;
 
 #ifndef POLYBLEP
                         osc->phase_index[k] += osc->phase_step;
@@ -652,7 +752,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         float sl2 = smp->data_l[curr_sample_index] + mu * (smp->data_l[curr_sample_index2] - smp->data_l[curr_sample_index]);
 
-                        float s = 0.0f;
+                        float ssmp = 0.0f;
 
                         if (psmp_index != smp_index) {
                             unsigned int curr_psample_index = osc->fp4[k][0];
@@ -661,21 +761,21 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                             float pmu = osc->fp4[k][0] - (float)curr_psample_index;
                             float sl1 = psmp->data_l[curr_psample_index] + pmu * (psmp->data_l[curr_psample_index2] - psmp->data_l[curr_psample_index]);
 
-                            s = (sl1 + (sl2 - sl1) * curr_synth.lerp_t);
+                            ssmp = (sl1 + (sl2 - sl1) * curr_synth.lerp_t);
                         } else {
-                            s = sl2;
+                            ssmp = sl2;
                         }
 
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 #ifdef WITH_SOUNDPIPE
-                        sp_moogladder_compute(sp, (sp_moogladder *)osc->sp_filters[k][0], &s, &s); 
+                        sp_moogladder_compute(sp, (sp_moogladder *)osc->sp_filters[k][0], &ssmp, &ssmp); 
 #else
-                        s = huovilainen_moog(s, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
+                        ssmp = huovilainen_moog(ssmp, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
 #endif
 
-                        output_l += vl * s;
-                        output_r += vr * s;
+                        output_l += vl * ssmp;
+                        output_r += vr * ssmp;
 
                         osc->fp4[k][0] += osc->fp4[k][2];
                         if (osc->fp4[k][0] >= psmp->frames) {
@@ -2013,7 +2113,7 @@ fflush(stdout);
 #endif
 
                     int *data = (int *)&usd->packet[PACKET_HEADER_LENGTH + 8];
-                    double *data_double = (double *)&usd->packet[PACKET_HEADER_LENGTH + 16];
+                    double *data_double = (double *)&usd->packet[PACKET_HEADER_LENGTH + 24];
                     j = 0;
                     int i2 = 0;
                     i = 0;
@@ -2035,7 +2135,7 @@ fflush(stdout);
                         for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {
                             struct _synth_fx_settings *fx = &usd->synth->chn_settings[n].fx[j];
 
-                            unsigned int data_index = PACKET_HEADER_LENGTH + 8 + (*channels_count) * (3 * 8 + 2 * 4) + (8 + 8 * FAS_MAX_FX_PARAMETERS) * j + n * ((8 + 8 * FAS_MAX_FX_PARAMETERS) * FAS_MAX_FX_SLOTS);
+                            unsigned int data_index = PACKET_HEADER_LENGTH + 8 + (*channels_count) * (3 * 8 + 4 * 4) + (8 + 8 * FAS_MAX_FX_PARAMETERS) * j + n * ((8 + 8 * FAS_MAX_FX_PARAMETERS) * FAS_MAX_FX_SLOTS);
 
                             int *data_efx = (int *)&usd->packet[data_index];
                             fx->fx_id = data_efx[0];
@@ -2066,8 +2166,8 @@ fflush(stdout);
                             fx->fp[10] = double_data_efx[10];
                         }
 
-                        i += 8;
-                        i2 += 4;
+                        i += 10;
+                        i2 += 5;
                     }
 
                     usd->synth->oscillators = NULL;
@@ -2227,6 +2327,72 @@ free_packet:
     }
 
     return 0;
+}
+
+void freeChannelState(struct _synth_chn_states *state) {
+    afSTFTfree(state->afSTFT_handle);
+
+    for (int j = 0; j < 2; j += 1) {
+        free(state->in[j]);
+        free(state->out[j]);
+
+        free(state->stft_result[j].re);
+        free(state->stft_result[j].im);
+
+        free(state->stft_temp[j].re);
+        free(state->stft_temp[j].im);
+    }
+}
+
+void createChannelState(struct _synth_chn_states *state, unsigned int hop_size) {
+    if (hop_size > 1024) {
+        return;
+    }
+    
+    if (state->afSTFT_handle) {
+        freeChannelState(state);
+    }
+
+    afSTFTinit(&state->afSTFT_handle, hop_size, 2, 2, 0, 0);
+
+    for (int j = 0; j < 2; j += 1) {
+        state->in[j] = (float *)calloc(hop_size, sizeof(float));
+        state->out[j] = (float *)calloc(hop_size, sizeof(float));
+
+        state->stft_result[j].re = (float *)calloc((hop_size + 1), sizeof(float));
+        state->stft_result[j].im = (float *)calloc((hop_size + 1), sizeof(float));
+
+        state->stft_temp[j].re = (float *)calloc((hop_size + 1), sizeof(float));
+        state->stft_temp[j].im = (float *)calloc((hop_size + 1), sizeof(float));
+    }
+
+    state->hop_size = hop_size;
+}
+
+struct _synth_chn_states *createChannelsState(unsigned int channels) {
+    struct _synth_chn_states *chn_states = (struct _synth_chn_states*)calloc(channels, sizeof(struct _synth_chn_states));
+
+    for (int i = 0; i < channels; i += 1) {
+        struct _synth_chn_states *state = &chn_states[i];
+
+        createChannelState(state, FAS_STFT_HOP_SIZE);
+    }
+
+    return chn_states;
+}
+
+void freeChannelsState(struct _synth_chn_states *chn_states, unsigned int channels) {
+    if (!chn_states) {
+        return;
+    }
+
+    for (int i = 0; i < channels; i += 1) {
+        struct _synth_chn_states *state = &chn_states[i];
+
+        freeChannelState(state);
+    }
+
+    free(chn_states);
 }
 
 static const struct lws_extension exts[] = {
@@ -2864,6 +3030,8 @@ int main(int argc, char **argv)
     last_sample_l = calloc(frame_data_count, sizeof(float));
     last_sample_r = calloc(frame_data_count, sizeof(float));
 
+    fas_chn_states = createChannelsState(frame_data_count);
+
     printf("\nPortAudio: Using device '%s' with %u output channels", Pa_GetDeviceInfo(outputParameters.device)->name, fas_output_channels);
     printf("\nPortAudio: Using device '%s' with %u input channels\n", Pa_GetDeviceInfo(inputParameters.device)->name, fas_input_channels);
 
@@ -2969,6 +3137,8 @@ quit:
 
     Pa_Terminate();
 
+    freeChannelsState(fas_chn_states, frame_data_count);
+
     // free callback synth copy
     if (curr_synth.oscillators) {
         freeOscillators(&curr_synth.oscillators, curr_synth.settings->h, frame_data_count);
@@ -3052,6 +3222,8 @@ error:
         fprintf(stderr, "Error number: %d\n", err);
         fprintf(stderr, "Error message: %s\n", Pa_GetErrorText(err));
     }
+
+    freeChannelsState(fas_chn_states, frame_data_count);
 
 #ifdef WITH_ESSENTIA
     freeSineModelCEssentia(cessentia);

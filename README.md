@@ -18,6 +18,7 @@ Table of Contents
       * [PM synthesis](#pm-synthesis)
       * [Wavetable synthesis (WIP)](#wavetable-synthesis)
       * [Physical modelling](#physical-modelling)
+      * [Spectral synthesis](#spectral-synthesis)
       * [Bandpass synthesis](#bandpass-synthesis)
       * [Formant synthesis](#formant-synthesis)
       * [Phase Distorsion synthesis](#phase-distorsion-synthesis)
@@ -45,6 +46,8 @@ Table of Contents
 
 Fragment Audio Server (FAS) is a pixels-based graphical audio synthesizer implemented as a WebSocket server with the C language.
 
+One can see this as a limitless bank of generators / filters.
+
 The versatility of its sound engine allow a wide variety of synthesis methods to produce sounds:
 
 * additive / spectral synthesis with per partial effects (bitcrush, phase distorsion, waveshaping, fold, convolve)
@@ -62,7 +65,11 @@ There is a second type of synthesis methods (or modifiers) which use any synthes
 * modal synthesis (resonant filter bank)
 * phase distorsion
 
-Other type of synthesis (Linear Arithmetic Synthesis etc.) may be supported out of the box by a combination of the methods above.
+And there is also a third method which can do both; modify or synthesize sounds :
+
+* spectral (via STFT)
+
+Other type of synthesis (Linear Arithmetic Synthesis, Vector synthesis etc.) may be supported out of the box by a combination of the methods above.
 
 There is also input channels which just play input audio so amplitude envelope, effects or second synthesis type can be applied.
 
@@ -83,8 +90,6 @@ Unlike other synthesizers, the notes data format understood by FAS is entirely p
 
 The RGBA data collected is 1px wide with an user-defined height, the height is mapped to frequencies with an user-defined logarithmic frequency map.
 
-The height can be seen as an oscillator bank which can use any type of synthesis methods listed above.
-
 FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, wavetable synthesis, by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM) or physical modelling.
 
 It can be said that FAS/Fragment is a generic image-synth (also called graphical audio synthesizer): any RGBA images can be used to produce an infinite variety of sounds by streaming bitmap data to FAS.
@@ -101,7 +106,7 @@ Here is some architectural specifications as if it were made by a synth. manufac
 * multitimbral; unlimited number of timbres / parts with **dedicated stereo output**
 * distributed architecture; more than one instance can run on same machine / a network with independent processing of voice / part, example : [FAS relay](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
 * driven by pixels data over the wire; this synth has about no limitations and is typically used with a client that implement higher order features like MIDI / OSC such as [Fragment client](https://github.com/grz0zrg/fsynth)
-* multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation, bank of filters, phase distorsion and allow custom sound engine (WIP: through [Faust](https://faust.grame.fr/))
+* multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation, spectral, bank of filters, phase distorsion and allow custom sound engine (WIP: through [Faust](https://faust.grame.fr/))
 * high quality stereophonic audio with low latency
 * fully microtonal / spectral
 * unlimited effects slot per part (24 by default but adaptable); reverb, convolution, comb, delay, chorus, flanger... 25 high quality effects type provided by Soundpipe are available, you can also choose to add your own effects chain since every part have dedicated stereo output
@@ -264,6 +269,40 @@ There is only one high quality low-pass filter (Moog type) implemented.
 |          A | Filter resonance [0, 1] & wavetable selection on integral part (0.x, 1.x, 2.x etc) |
 
 **Note** : Monophonic mode Wavetable synthesis is not implemented.
+
+### Spectral synthesis
+
+Spectral synthesis produce sounds by modifying (mode 0) any input channel / generate (mode 1) in frequency domain via a [Short-time Fourier transform](https://en.wikipedia.org/wiki/Short-time_Fourier_transform) with overlap add method.
+
+Since FAS use a fixed window size of up to 1024 bins will be differently mapped and thus some frequencies of the vertical axis may fall onto the same bin.
+
+To get the corresponding bin one can use this formula : `frequency / (sample_rate / 2) / window_size`
+
+Channel settings are used to change spectral parameters :
+
+ * p0 : source channel
+ * p1 : window size (power of two; 32 up to 1024)
+ * p2 : mode (0 or 1)
+
+Mode is a parameter which select how the frequency domain changes will be applied
+
+ * mode 0 (re-synthesis) : incoming data is used as a factor of the input data bins (polar form)
+ * mode 1 (synthesis) : incoming data is directly placed into the corresponding bin, input channel is unused, it is faster because a FFT step is discarded (note : some frequencies may fall into the same bin due to differences in how frequencies are mapped)
+
+Typical example may be a vocoder (which can be done using bandpass as well) and more generally cross synthesis (combining characteristics of different sounds), some effects involving phases may be done as well.
+
+While the actual implementation work nicely it may change in the future to incorporate more features.
+
+#### RGBA interpretation
+
+| Components | Interpretations                                              |
+| ---------: | :----------------------------------------------------------- |
+|          R | Magnitude factor of the LEFT channel (depend on mode)        |
+|          G | Magnitude factor of the RIGHT channel                        |
+|          B | Phase factor of the LEFT channel                             |
+|          A | Phase factor of the RIGHT channel                            |
+
+**Note** : Monophonic mode spectral synthesis is not implemented.
 
 ### Physical modelling
 
@@ -477,9 +516,9 @@ FAS support real-time rendering of the pixels data, the pixels data is compresse
 
 ### Future
 
-The ongoing development is to improve analysis / synthesis algorithms with Soundpipe library and implement new type of synthesis like spectral (through fft, not additive) with the help of the essentia framework (a C essentia wrapper is available).
+The ongoing development is to improve analysis / synthesis algorithms with Soundpipe library and implement new type of synthesis / effects.
 
-There is also minor architectural work to do, especially better handling of effects settings data.
+There is also minor architectural work to do, especially some cleaning and better handling of channel settings.
 
 ### OSC
 
@@ -500,6 +539,8 @@ There is a generic lock-free thread-safe commands queue for synth. parameters ch
 The architecture is done so there is **no memory allocation** done in the audio callback and very few done in the network thread (mainly for packets construction) as long as there is no changes in synth. parameters (bank height) nor effects parameters that require new initialization (for example convolution impulse length)
 
 Additive synthesis is wavetable-based, a [magic circle](https://github.com/ccrma/chugins/blob/master/MagicSine/MagicSine.cpp) based sine generator is also available when `MAGIC_SINE` is enabled, this may be faster on some platforms.
+
+Spectral synthesis use [afSTFT](https://github.com/jvilkamo/afSTFT) library which is bundled
 
 Real-time resampling is done with a simple linear method, granular synthesis can also be resampled by using cubic interpolation method (uncomment the line in `constants.h`) which is slower than linear.
 
@@ -548,16 +589,24 @@ Synth channels settings, packet identifier 3 :
 ```c
 struct _synth_chn_settings {
     unsigned int synthesis_method; // mapping can be found in constants.h
-    unsigned int muted; // wether this channel is muted or not, a muted channel will not output any sounds but is still available as an input
+    unsigned int muted; // wether this channel is muted or not, a muted channel will not output any sounds but is still available as an input, this is useful for methods that use an input channel as source
     // generic integer parameter
     // Granular : granular envelope type for this channel (there is 13 types of envelopes)
     // Subtractive : filter type  (require Soundpipe)
     // Physical modeling : Physical model type (require Soundpipe)
+    // Spectral : input channel
     int p0; 
-    // generic floating-point parameters (only used by granular synthesis right now)
-    double p1; // granular grain duration (min. bound)
-    double p2; // granular grain duration (max. bound)
-    double p3; // granular grain spread
+    // generic floating-point parameters
+    // Granular : grain duration (min. bound)
+    // Spectral : window size
+    double p1;
+    // Granular
+    // grain duration (max. bound)
+    // Spectral : mode
+    double p2;
+    // Granular
+    // grain spread
+    double p3;
 
     // contain effects settings
     struct _synth_fx_settings fx[FAS_MAX_FX_SLOTS];

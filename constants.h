@@ -26,6 +26,8 @@
     #define CHN_SETTINGS 3
     #define ACTION 4
 
+    #define FAS_STFT_HOP_SIZE 1024
+
     // program settings constants
     #define FAS_SAMPLE_RATE 44100
     #define FAS_FRAMES_PER_BUFFER 0

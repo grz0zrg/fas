@@ -1,6 +1,7 @@
 #include "inc/sndfile.h"
 #include "inc/tinydir.h"
 
+#include "tools.h"
 #include "samples.h"
 
 unsigned int notes_length = 120;
@@ -76,53 +77,6 @@ void fix_samplerate (struct sample *sample, unsigned int samplerate, int convert
         sample->samplerate = samplerate;
         sample->frames = data.output_frames_gen;
     }
-}
-
-char *create_filepath(char *directory, char *filename) {
-    int cdir = 0;
-
-    size_t filename_length = strlen(filename);
-    size_t directory_length = strlen(directory);
-
-    char *dir = directory;
-
-    if (directory[directory_length - 1] != '/') {
-        directory_length = directory_length + 1;
-
-        dir = (char *)malloc(directory_length + 1);
-        if (!dir) {
-            return NULL;
-        }
-
-        dir[0] = '\0';
-        strcat(dir, directory);
-        dir[directory_length - 1] = '/';
-        dir[directory_length] = '\0';
-
-        cdir = 1;
-    }
-
-    size_t filepath_len = strlen(dir) + filename_length;
-
-    char *filepath = (char *)malloc(filepath_len + 1);
-    if (!filepath) {
-        if (cdir) {
-            free(dir);
-        }
-
-        return NULL;
-    }
-
-    filepath[0] = '\0';
-    strcat(filepath, dir);
-    strcat(filepath, filename);
-    filepath[filepath_len] = '\0';
-
-    if (cdir) {
-        free(dir);
-    }
-
-    return filepath;
 }
 
 unsigned int load_samples(

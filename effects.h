@@ -5,6 +5,10 @@
     #include "soundpipe.h"
 #endif
 
+#ifdef WITH_FAUST
+    #include "faust.h"
+#endif
+
     #include <stdlib.h>
     #include "types.h"
     #include "samples.h"
@@ -42,8 +46,13 @@
 
         sp_ftbl *ft_void;
 
+#endif
+
         float dry[FAS_MAX_FX_SLOTS];
         float wet[FAS_MAX_FX_SLOTS];
+
+#ifdef WITH_FAUST
+        struct _fas_faust_dsp *fdsp[FAS_MAX_FX_SLOTS];
 #endif
     };
 

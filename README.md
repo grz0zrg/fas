@@ -25,6 +25,7 @@ Table of Contents
       * [String resonator synthesis](#string-resonator-synthesis)
       * [Modal synthesis](#modal-synthesis)
       * [Input](#input)
+      * [Faust](#faust)
       * [Samples map](#samples-map)
       * [Effects](#effects)
       * [Performances](#performances)
@@ -69,6 +70,8 @@ And there is also a third method which can do both; modify or synthesize sounds 
 
 * spectral (via STFT)
 
+There is also the [Faust](https://faust.grame.fr/) option which allow to import / write custom generators and effects built out of Faust DSP specification language and load them at runtime to extend FAS dynamically with custom DSP code.
+
 Other type of synthesis (Linear Arithmetic Synthesis, Vector synthesis etc.) may be supported out of the box by a combination of the methods above.
 
 There is also input channels which just play input audio so amplitude envelope, effects or second synthesis type can be applied.
@@ -98,6 +101,8 @@ Red and Green value generally map to amplitude envelope while Blue and Alpha val
 
 With a light wrapper its architecture can also be used as a generic synth right out of the box; just deal with RGBA notes.
 
+As a fun side note FAS can be considered as a basis to build a music workstation / DAW since its architecture is similar to thoses.
+
 ### Specifications
 
 Here is some architectural specifications as if it were made by a synth. manufacturer :
@@ -106,7 +111,8 @@ Here is some architectural specifications as if it were made by a synth. manufac
 * multitimbral; unlimited number of timbres / parts with **dedicated stereo output**
 * distributed architecture; more than one instance can run on same machine / a network with independent processing of voice / part, example : [FAS relay](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
 * driven by pixels data over the wire; this synth has about no limitations and is typically used with a client that implement higher order features like MIDI / OSC such as [Fragment client](https://github.com/grz0zrg/fsynth)
-* multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation, spectral, bank of filters, phase distorsion and allow custom sound engine (WIP: through [Faust](https://faust.grame.fr/))
+* multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation, spectral, bank of filters, phase distorsion
+* allow to extend the sound engine at runtime with user-defined generators and effects written with [Faust](https://faust.grame.fr/) DSP specification language  
 * high quality stereophonic audio with low latency
 * fully microtonal / spectral
 * unlimited effects slot per part (24 by default but adaptable); reverb, convolution, comb, delay, chorus, flanger... 25 high quality effects type provided by Soundpipe are available, you can also choose to add your own effects chain since every part have dedicated stereo output
@@ -455,6 +461,62 @@ This just play an input channel. Typically used in conjunction with formant / mo
 
 **Note** : Monophonic mode is not implemented.
 
+### Faust
+
+[Faust](https://faust.grame.fr/) is embedded (when compiled with `WITH_FAUST`) and allow to dynamically extend FAS bank generators and effects with custom one written with the Faust DSP specification language.
+
+Faust DSP focused language is simple and intuitive to learn and produce highly optimized effects and generators. Faust documentation is available [here](https://faust.grame.fr/doc/manual/index.html)
+
+FAS look and load any Faust DSP code (*.dsp) at startup in the `faust/generators` and `faust/effects` directories. FAS can also reload Faust code dynamically when the appropriate packet is received.
+
+All Faust DSP generators will be registered into the special synthesis type Faust, channel settings parameter 0 can then be used to switch between generators.
+
+All Faust DSP effects will be registered into the special effect type Faust, the first effect parameter can then be used to switch between effects.
+
+Generators code will be hooked to the synthesis part of the sound engine while effects code will be hooked to the fx chain part.
+
+Some generators and effects already exist and extend FAS with bandpass filters bank and so on...
+
+FAS to Faust DSP parameters can be specified through [nentry](https://faust.grame.fr/doc/manual/#nentry-primitive) interface primitive and are used to transfer note / initial generator data.
+
+Here is a list of usable Faust generators `nentry` key :
+
+Generator data (when FAS oscillators bank is initialized; depend on canvas settings) :
+
+* `fs_frequency` : bank generator frequency
+* `fs_bw` : bank generator bandwidth
+
+Note data :
+
+* `fs_r` : RED
+* `fs_b` : BLUE
+* `fs_g` : GREEN
+* `fs_a` : ALPHA
+
+Channel data :
+
+* `fs_p0` : parameter 0
+* `fs_p1` : parameter 1
+* `fs_p2` : parameter 2
+* `fs_p3` : parameter 3
+
+Here is simple example of a stereo Faust generator which add a bandlimited pulse wave oscillator to the bank with controllable L/R duty cycle through BLUE and ALPHA channels :
+
+```
+import("stdfaust.lib");
+
+freq = nentry("fs_freq",440,0,96000,1);
+b = nentry("fs_b",0,0,1,0.01) : si.smoo;
+a = nentry("fs_a",0,0,1,0.01) : si.smoo;
+process = os.pulsetrain(freq, b),os.pulsetrain(freq, a);
+```
+
+Faust effects : WIP
+
+All FAS pre-defined algorithms can be rewritten as Faust DSP code which mean that one could produce a light version of FAS with all the pre-defined algorithms removed and only make use of custom Faust DSP code.
+
+Note : Faust DSP code cannot be used to extend available synthesis methods which mean that using Faust to extend per partial effects or add filters to subtractive synthesis is not possible.
+
 ### Samples map
 
 Each samples loaded from the `grains` or `waves` folder are processed, one of the most important process is the sample pitch mapping, this process try to gather informations or guess the sample pitch to map it correctly onto the user-defined image height, the guessing algorithm is in order :
@@ -474,13 +536,17 @@ This program is tailored for performances, it is memory intensive (about 512mb i
 
 FAS should be compiled with Soundpipe for best performance / more high quality algorithms; for example subtractive moog filter see 3x speed improvement compared to the standalone algorithm.
 
+FAS should also be compiled with Faust which may provide high quality / performance algorithms however using a huge number of generators and effects may vastly affect memory requirements.
+
 A fast and reliable Gigabit connection is recommended in order to process frames data from the network correctly.
 
 Poor network transfer rate limit the number of channels / the frequency resolution (frame height) / number of events to process per seconds, a Gigabit connection is good enough for most usage, for example with a theorical data rate limit of 125MB/s and without packets compression (`deflate` argument) it would allow a configuration of 8 stereo channels with 1000px height slices float data at 60 fps without issues and beyond that (2000px / 240fps or 16 stereo channels / 1000 / 240fps), 8-bit data could also be used to go beyond that limit through Gigabit. This can go further with packets compression at the price of processing time.
 
 #### Raspberry PI
 
-FAS was executed on a [Raspberry Pi](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~500 additive synthesis oscillators can be played simultaneously on the Raspberry Pi with four cores and minimum Raspbian stuff enabled.
+FAS was tested on a [Raspberry Pi 3B](https://www.raspberrypi.org/) with a [HifiBerry](https://www.hifiberry.com/) DAC for example, ~500 additive synthesis (wavetable) oscillators can be played simultaneously on the Raspberry Pi with four cores and minimum Raspbian stuff enabled, it can probably go beyond by using the magic circle algorithm.
+
+It was also tested on [NapoPI NEO 2](https://www.friendlyarm.com/index.php?route=product/product&product_id=180) and [NanoPI Fire 3](https://www.friendlyarm.com/index.php?route=product/product&product_id=206) boards.
 
 #### Distributed/multi-core synthesis
 
@@ -492,9 +558,9 @@ This need a relay program which will link each server instances with the client 
 
 A directly usable implementation with NodeJS of a distributed synthesis relay can be found [here](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
 
-Note : Synthesis methods that require another channel as input may not work correctly, this require a minor 'group' update to the relay program.
+Note : Synthesis methods that require another channel as input may not work correctly, this require a minor 'group' update to the relay program. (WIP)
 
-This feature was successfully used with cheap small boards clusters and [NetJack](https://github.com/jackaudio/jackaudio.github.com/wiki/WalkThrough_User_NetJack2) in a setup with 10 quad-core ARM boards + i7 (48 cores) running, linked to the NetJack driver, it is important that the relay program run on a powerfull board with (most importantly) a good Gigabit Ethernet controller to reduce latency issues.
+This feature was successfully used with cheap small boards clusters of [NapoPI NEO 2](https://www.friendlyarm.com/index.php?route=product/product&product_id=180) and [NetJack](https://github.com/jackaudio/jackaudio.github.com/wiki/WalkThrough_User_NetJack2) in a setup with 10 quad-core ARM boards + i7 (48 cores) running, linked to the NetJack driver, it is important that the relay program run on a powerfull board with (most importantly) a good Gigabit Ethernet controller to reduce latency issues.
 
 #### Frames drop
 
@@ -512,13 +578,13 @@ The server send the CPU load of the stream at regular interval (adjustable) to t
 
 ### Offline rendering (WIP)
 
-FAS support real-time rendering of the pixels data, the pixels data is compressed on-the-fly into a single file, FAS can then do offline processing and be used again to convert the pixels data into an audio .flac file, this  ensure professional quality audio output.
+FAS support real-time rendering of the pixels data, the pixels data is compressed on-the-fly into a single file, FAS can then do offline processing and be used again to convert the pixels data into an audio .flac file, this ensure professional quality audio output.
 
 ### Future
 
-The ongoing development is to improve analysis / synthesis algorithms with Soundpipe library and implement new type of synthesis / effects.
+The ongoing development is to improve analysis / synthesis algorithms, implement new type of synthesis / effects and add support for offline rendering.
 
-There is also minor architectural work to do, especially some cleaning and better handling of channel settings.
+There is also minor architectural work to do, especially some cleanup and better handling of channel settings.
 
 ### OSC
 
@@ -629,12 +695,13 @@ Requirements :
  * [liblfds](http://liblfds.org/)
  * [libwebsockets](https://libwebsockets.org/)
  * [liblo](http://liblo.sourceforge.net/) (Optional)
- * libsamplerate
+ * [libsamplerate](https://github.com/erikd/libsamplerate)
  * [Soundpipe](https://github.com/PaulBatchelor/Soundpipe) (Optional)
+ * [Faust](https://github.com/grame-cncm/faust) (Optional)
 
 The granular synthesis part make use of [libsndfile](https://github.com/erikd/libsndfile) and [tinydir](https://github.com/cxong/tinydir) (bundled)
 
-Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
+Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build with Faust) :
 
  * Get latest [PortAudio v19 package](http://www.portaudio.com/download.html)
    * sudo apt-get install libasound-dev jackd qjackctl libjack-jackd2-dev
@@ -674,12 +741,17 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build) :
 * Get latest [Soundpipe](https://github.com/PaulBatchelor/Soundpipe)
   * make
   * "libsoundpipe.a" can now be found in the Soundpipe directory
+* Get latest [Faust](https://github.com/grame-cncm/faust)
+  * sudo apt-get install cmake llvm libmicrohttpd-dev
+  * make all
+  * sudo make install
+  * copy the library found in "build/lib/libfaust.a" to FAS root folder
 
 Copy include files of portaudio / soundpipe / libwebsocket into "inc" directory.
 
-FAS now use liblfds720 which is not yet released thus you may have to use a wrapper to liblfds711 which can be found [here](https://github.com/grz0zrg/fas/issues/4#issuecomment-457007224)
+FAS now use liblfds720 (for ARM64 support) which is not yet released thus you may have to use a wrapper to liblfds711 which can be found [here](https://github.com/grz0zrg/fas/issues/4#issuecomment-457007224)
 
-Copy the \*.a into "fas" root directory then compile by using one of the rule below (recommended rule for Linux and similar is `release-static-o` **without** Soundpipe and `release-static-sp-mc-o` **with** Soundpipe).
+Copy the \*.a into "fas" root directory then compile by using one of the rule below (recommended rule for Linux and similar is `release-static-o` **without** Soundpipe, `release-static-sp-mc-o` **with** Soundpipe, `release-static-sp-faust-mc-o` **with** Soundpipe plus Faust).
 
 Recommended launch parameters with HiFiBerry DAC+ :
     ./fas --alsa_realtime_scheduling 1 --frames_queue_size 63 --sample_rate 48000 --device 2
@@ -736,9 +808,7 @@ For those which are using cmake, a custom cmake toolchain file must be used
 
 Debug : **make**
 
-Debug (with libessentia) : **make debug-essentia**
-
-Debug (with Soundpipe) : **make debug-soundpipe**
+Debug (with Soundpipe + Faust) : **make debug-soundpipe-faust**
 
 Profile (benchmark) : **make profile**
 
@@ -758,13 +828,13 @@ Statically linked + Soundpipe and advanced optimizations : **make release-static
 
 Statically linked + Soundpipe + magic circle and advanced optimizations : **make release-static-sp-mc-o**
 
-Statically linked with bandlimited-noise, advanced optimizations (default build) : **make release-bln-static-o**
+Statically linked + Soundpipe + Faust + magic circle and advanced optimizations (default build) : **make release-static-sp-faust-mc-o**
 
-Statically linked + Soundpipe with bandlimited-noise, advanced optimizations (default build) : **make release-bln-static-sp-o**
+Statically linked with bandlimited-noise, advanced optimizations : **make release-bln-static-o**
+
+Statically linked + Soundpipe with bandlimited-noise, advanced optimizations : **make release-bln-static-sp-o**
 
 Statically linked, advanced optimizations and profiling: **make release-static-o-profile**
-
-Statically linked (with libessentia) : **make release-essentia-static**
 
 With MinGW (Statically linked) :  **make win-release-static**
 

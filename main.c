@@ -24,7 +24,7 @@
 */
 
 /*
-    Additive/spectral/granular/Wavetable/PM synthesizer built for the Fragment Synthesizer, a web-based image-synth collaborative audio/visual synthesizer.
+    Additive/spectral/granular/Wavetable/PM and more synthesizer built for the Fragment Synthesizer, a web-based image-synth collaborative audio/visual synthesizer.
 
     This collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound in real-time for a smooth experience.
 
@@ -38,8 +38,6 @@
 
     Author : Julien Verneuil
     License : Simplified BSD License
-
-    TODO : data coming from the network for notes etc. should NOT be handled like it is right now (it should instead come with IEEE 754 representation or something...)
 */
 
 #include "fas.h"
@@ -189,7 +187,41 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                     } else {
                         createChannelState(&fas_chn_states[k], (unsigned int)chn_settings->p1);
                     }
+#ifdef WITH_FAUST
+                } else if (chn_settings->synthesis_method == FAS_FAUST) {
+                    // update all Faust generators with channel settings data
+                    for (i = 0; i < curr_synth.settings->h; i += 1) {
+                        struct oscillator *osc = &curr_synth.oscillators[i];
+
+                        for (j = 0; j < osc->faust_gens_len; j += 1) {
+                            struct _fas_faust_dsp *fas_faust_dsp = osc->faust_gens[k][j];
+                            
+                            struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
+
+                            struct _fas_faust_ui_control *tmp;
+                            tmp = getFaustControl(ctrl, "fs_p0");
+                            if (tmp) {
+                                *tmp->zone = (FAUSTFLOAT)chn_settings->p0;
+                            }
+
+                            tmp = getFaustControl(ctrl, "fs_p1");
+                            if (tmp) {
+                                *tmp->zone = chn_settings->p1;
+                            }
+
+                            tmp = getFaustControl(ctrl, "fs_p2");
+                            if (tmp) {
+                                *tmp->zone = chn_settings->p1;
+                            }
+
+                            tmp = getFaustControl(ctrl, "fs_p3");
+                            if (tmp) {
+                                *tmp->zone = chn_settings->p1;
+                            }
+                        }
+                    }
                 }
+#endif
             }
 
             // update effects chain
@@ -918,6 +950,76 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         output_l += sl * vl;
                         output_r += sr * vr;
+                    }
+                }
+#endif
+#ifdef WITH_FAUST
+                else if (chn_settings->synthesis_method == FAS_FAUST) {
+                    for (j = s; j < e; j += 1) {
+                        struct note *n = &curr_notes[j];
+
+                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                        int faust_dsp_index = chn_settings->p0 % osc->faust_gens_len;
+
+                        struct _fas_faust_dsp *fas_faust_dsp = osc->faust_gens[k][faust_dsp_index];
+
+                        // update Faust DSP params
+                        struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
+
+                        struct _fas_faust_ui_control *tmp;
+                        tmp = getFaustControl(ctrl, "fs_r");
+                        if (tmp) {
+                            *tmp->zone = n->volume_l;
+                        }
+
+                        tmp = getFaustControl(ctrl, "fs_g");
+                        if (tmp) {
+                            *tmp->zone = n->volume_r;
+                        }
+
+                        tmp = getFaustControl(ctrl, "fs_b");
+                        if (tmp) {
+                            *tmp->zone = n->blue;
+                        }
+
+                        tmp = getFaustControl(ctrl, "fs_a");
+                        if (tmp) {
+                            *tmp->zone = n->alpha;
+                        }
+
+                        int faust_dsp_input_count = getNumInputsCDSPInstance(fas_faust_dsp->dsp);
+
+                        if (faust_dsp_input_count >= 1) {
+                            int chn = fmod(fabsf(n->blue), frame_data_count);
+
+                            float sl = 0.0f;
+                            float sr = 0.0f;
+
+                            float il = last_sample_l[chn] * vl;
+                            float ir = last_sample_r[chn] * vr;
+
+                            FAUSTFLOAT *faust_input[2] = { &il, &ir };
+                            FAUSTFLOAT *faust_output[2] = { &sl, &sr };
+
+                            computeCDSPInstance(fas_faust_dsp->dsp, 1, faust_input, faust_output);
+
+                            output_l += sl * vl;
+                            output_r += sr * vr;
+                        } else {
+                            float sl = 0.0f;
+                            float sr = 0.0f;
+
+                            FAUSTFLOAT *faust_output[2] = { &sl, &sr };
+
+                            computeCDSPInstance(fas_faust_dsp->dsp, 1, NULL, faust_output);
+
+                            output_l += sl * vl;
+                            output_r += sr * vr;
+                        }
                     }
                 }
 #endif
@@ -1863,20 +1965,33 @@ if (remaining_payload != 0) {
 
                     // create a global copy of the oscillators for the user (for OSC)
 #ifdef WITH_OSC
-                    usd->oscillators = createOscillators(usd->synth->settings->h,
-                        usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
-#endif
-
+                    usd->oscillators = createOscillators(
 #ifdef WITH_SOUNDPIPE
-                    usd->synth->oscillators = createOscillators(sp, usd->synth->settings->h,
+                        sp,
+#endif
+#ifdef WITH_FAUST
+                        fas_faust_gens,
+#endif
+                        usd->synth->settings->h,
+                        usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
+#endif
+
+                    usd->synth->oscillators = createOscillators(
+#ifdef WITH_SOUNDPIPE
+                        sp,
+#endif
+#ifdef WITH_FAUST
+                        fas_faust_gens,
+#endif
+                        usd->synth->settings->h,
                         usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
 
-                    createEffects(sp, synth_fx, frame_data_count);
-#else
-                    usd->synth->oscillators = createOscillators(usd->synth->settings->h,
-                        usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, fas_wavetable_size, frame_data_count);
-                    createEffects(synth_fx, frame_data_count);
+                    createEffects(
+#ifdef WITH_SOUNDPIPE
+                        sp,
 #endif
+                        synth_fx, frame_data_count);
+
                     usd->synth->grains = createGrains(&samples, samples_count, usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, frame_data_count, fas_granular_max_density);
 
                     free(usd->synth->chn_settings);
@@ -2842,6 +2957,10 @@ int main(int argc, char **argv)
             samples_count_m1 = samples_count - 1;
         }
 
+#ifdef WITH_FAUST
+        fas_faust_gens = createFaustFactories("./faust/generators");
+#endif
+
         // fas setup
         note_time = 1 / (double)fas_fps;
         note_time_samples = round(note_time * fas_sample_rate);
@@ -2879,11 +2998,6 @@ int main(int argc, char **argv)
         }
 #endif
     }
-
-#ifdef WITH_ESSENTIA
-    cessentia = newCEssentia();
-    initializeSineModelCEssentia(cessentia, fas_sample_rate, window_size, hop_size);
-#endif
 
     curr_synth.oscillators = NULL;
     curr_synth.gain = NULL;
@@ -3168,10 +3282,7 @@ quit:
     free_samples(&waves, waves_count);
     free_samples(&samples, samples_count);
 
-    #ifdef WITH_ESSENTIA
-        freeSineModelCEssentia(cessentia);
-        delCEssentia(cessentia);
-    #endif
+    freeFaustFactories(fas_faust_gens);
 
     if (re) {
         lfds720_ringbuffer_n_cleanup(&rs, rb_element_cleanup_callback);
@@ -3225,11 +3336,6 @@ error:
 
     freeChannelsState(fas_chn_states, frame_data_count);
 
-#ifdef WITH_ESSENTIA
-    freeSineModelCEssentia(cessentia);
-    delCEssentia(cessentia);
-#endif
-
     freeEnvelopes(grain_envelope);
 
     free(fas_sine_wavetable);
@@ -3238,6 +3344,8 @@ error:
     free_samples(&impulses, impulses_count);
     free_samples(&samples, samples_count);
     free_samples(&waves, waves_count);
+
+    freeFaustFactories(fas_faust_gens);
 
     free(last_sample_l);
     free(last_sample_r);

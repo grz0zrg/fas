@@ -8,6 +8,10 @@
     #include "soundpipe.h"
 #endif
 
+#ifdef WITH_FAUST
+    #include "faust.h"
+#endif
+
     #include "constants.h"
     #include "tools.h"
 
@@ -65,6 +69,11 @@
 
         uint16_t *noise_index;
 
+#ifdef WITH_FAUST
+        struct _fas_faust_dsp ***faust_gens;
+        size_t faust_gens_len;
+#endif
+
 #ifdef WITH_SOUNDPIPE
         void ***sp_filters;
         void ***sp_gens;
@@ -74,11 +83,15 @@
 #endif
     };
 
+    extern struct oscillator *createOscillators(
 #ifdef WITH_SOUNDPIPE
-    extern struct oscillator *createOscillators(sp_data *spd, unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int wavetable_size, unsigned int frame_data_count);
-#else
-    extern struct oscillator *createOscillators(unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int wavetable_size, unsigned int frame_data_count);
+        sp_data *spd,
 #endif
+#ifdef WITH_FAUST
+        struct _faust_factories *faust_factories,
+#endif
+        unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int wavetable_size, unsigned int frame_data_count);
+        
     extern struct oscillator *freeOscillators(struct oscillator **oscs, unsigned int n, unsigned int frame_data_count);
 
     extern struct oscillator *copyOscillators(struct oscillator **oscs, unsigned int n, unsigned int frame_data_count);

@@ -26,9 +26,6 @@
     #include "inc/liblfds720.h"
     #include "lo/lo.h"
     #include "lib/lodepng.h"
-    #include "essentia_wrapper.h"
-
-    CEssentia cessentia;
 
     #ifdef WITH_SOUNDPIPE
       #include "soundpipe.h"
@@ -37,6 +34,11 @@
     #endif
 
     // fas
+    #ifdef WITH_FAUST
+      #include "faust.h"
+
+      struct _faust_factories *fas_faust_gens = NULL;
+    #endif
     #include "tools.h"
     #include "effects.h"
     #include "types.h"

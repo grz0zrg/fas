@@ -85,7 +85,8 @@
     #define FAS_STRING_RESON 10
     #define FAS_MODAL_SYNTH 11
     #define FAS_INPUT 12
-    #define FAS_VOID 13
+    #define FAS_FAUST 13
+    #define FAS_VOID 14
 
     // granular constants
     #define GRAIN_MIN_DURATION 0.0001

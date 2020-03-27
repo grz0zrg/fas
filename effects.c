@@ -4,8 +4,12 @@ void createEffects(
 #ifdef WITH_SOUNDPIPE
     sp_data *spd,
 #endif
+#ifdef WITH_FAUST
+    struct _faust_factories *faust_factories,
+#endif
     struct _synth_fx **fxs,
-    unsigned int frame_data_count
+    unsigned int frame_data_count,
+    unsigned int sample_rate
 ) {
     int i = 0, j = 0, k = 0;
 
@@ -13,6 +17,58 @@ void createEffects(
         fxs[i] = (struct _synth_fx *)malloc(sizeof(struct _synth_fx));
 
         struct _synth_fx *fx = fxs[i];
+
+#ifdef WITH_FAUST
+        fx->faust_effs_len = faust_factories->len;
+
+        for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {
+            fx->faust_effs[j] = (struct _fas_faust_dsp **)malloc(sizeof(struct _fas_faust_dsp **) * (faust_factories->len));
+            
+            for (k = 0; k < faust_factories->len; k += 1) {
+                struct _fas_faust_dsp *fdsp = malloc(sizeof(struct _fas_faust_dsp));
+
+                fx->faust_effs[j][k] = fdsp;
+
+                struct _fas_faust_ui_control *uiface = calloc(1, sizeof(struct _fas_faust_ui_control));
+                
+                UIGlue *ui = malloc(sizeof(UIGlue));
+                ui->openTabBox = ui_open_tab_box;
+                ui->openHorizontalBox = ui_open_horizontal_box;
+                ui->openVerticalBox = ui_open_vertical_box;
+                ui->closeBox = ui_close_box;
+                ui->addButton = ui_add_button;
+                ui->addCheckButton = ui_add_check_button;
+                ui->addVerticalSlider = ui_add_vertical_slider;
+                ui->addHorizontalSlider = ui_add_horizontal_slider;
+                ui->addNumEntry = ui_add_num_entry;
+                ui->addHorizontalBargraph = ui_add_horizontal_bargraph;
+                ui->addVerticalBargraph = ui_add_vertical_bargraph;
+                ui->addSoundfile = ui_add_sound_file;
+                ui->declare = ui_declare;
+                ui->uiInterface = uiface;
+                
+                llvm_dsp *dsp = createCDSPInstance(faust_factories->factories[k]);
+
+                buildUserInterfaceCDSPInstance(dsp, ui);
+
+                initCDSPInstance(dsp, sample_rate);
+
+                // initialize on known controls
+                /*
+                struct _fas_faust_ui_control *tmp;
+                tmp = getFaustControl(uiface, "fs_freq");
+                if (tmp) {
+                    *tmp->zone = frequency;
+                }
+                */
+                //
+
+                fdsp->controls = uiface;
+                fdsp->ui = ui;
+                fdsp->dsp = dsp;
+            }
+        }
+#endif
 
 #ifdef WITH_SOUNDPIPE
         sp_ftbl_create(spd, (sp_ftbl **)&fx->ft_void, 1);
@@ -32,9 +88,6 @@ void createEffects(
         // no stereo support (so duplicate)
         for (j = 0; j < FAS_MAX_FX_SLOTS * 2; j += 2) {
             for (k = 0; k < 2; k += 1) {
-                sp_jcrev_create((sp_jcrev **)&fx->jcrev[j + k]);
-                sp_jcrev_init(spd, (sp_jcrev *)fx->jcrev[j + k]);
-
                 sp_autowah_create((sp_autowah **)&fx->autowah[j + k]);
                 sp_autowah_init(spd, (sp_autowah *)fx->autowah[j + k]);
 
@@ -154,6 +207,65 @@ void updateEffects(
             sp_revsc *revsc = (sp_revsc *)fxs->revsc[j];
             revsc->feedback = fx->fp[0];
             revsc->lpfreq = fmin(fx->fp[1], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
+        }
+#endif
+
+#ifdef WITH_FAUST
+        if (fx->fx_id == FX_FAUST) {
+            for (k = 0; k < fxs->faust_effs_len; k += 1) {
+                struct _fas_faust_dsp *fdsp = fxs->faust_effs[j][k];
+
+                struct _fas_faust_ui_control *tmp;
+                tmp = getFaustControl(fdsp->controls, "fs_p0");
+                if (tmp) {
+                    *tmp->zone = fx->fp[1];
+                }
+
+                tmp = getFaustControl(fdsp->controls, "fs_p1");
+                if (tmp) {
+                    *tmp->zone = fx->fp[2];
+                }
+
+                tmp = getFaustControl(fdsp->controls, "fs_p2");
+                if (tmp) {
+                    *tmp->zone = fx->fp[3];
+                }
+
+                tmp = getFaustControl(fdsp->controls, "fs_p3");
+                if (tmp) {
+                    *tmp->zone = fx->fp[4];
+                }
+
+                tmp = getFaustControl(fdsp->controls, "fs_p4");
+                if (tmp) {
+                    *tmp->zone = fx->fp[5];
+                }
+
+                tmp = getFaustControl(fdsp->controls, "fs_p5");
+                if (tmp) {
+                    *tmp->zone = fx->fp[6];
+                }
+
+                tmp = getFaustControl(fdsp->controls, "fs_p6");
+                if (tmp) {
+                    *tmp->zone = fx->fp[7];
+                }
+
+                tmp = getFaustControl(fdsp->controls, "fs_p7");
+                if (tmp) {
+                    *tmp->zone = fx->fp[8];
+                }
+
+                tmp = getFaustControl(fdsp->controls, "fs_p8");
+                if (tmp) {
+                    *tmp->zone = fx->fp[9];
+                }
+
+                tmp = getFaustControl(fdsp->controls, "fs_p9");
+                if (tmp) {
+                    *tmp->zone = fx->fp[10];
+                }
+            }
         }
 #endif
     }
@@ -302,6 +414,23 @@ void freeEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
     for (i = 0; i < frame_data_count; i += 1) {
         struct _synth_fx *fx = fxs[i];
 
+#ifdef WITH_FAUST
+        for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {
+            for (k = 0; k < fx->faust_effs_len; k += 1) {
+                struct _fas_faust_dsp *fdsp = fx->faust_effs[j][k];
+
+                freeFaustControls(fdsp->controls);
+                free(fdsp->ui);
+
+                deleteCDSPInstance(fdsp->dsp);
+
+                free(fdsp);
+            }
+
+            free(fx->faust_effs[j]);
+        }
+#endif
+
 #ifdef WITH_SOUNDPIPE
         sp_ftbl_destroy((sp_ftbl **)&fx->ft_void);
 
@@ -314,7 +443,6 @@ void freeEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
 
         for (j = 0; j < FAS_MAX_FX_SLOTS * 2; j += 2) {
             for (k = 0; k < 2; k += 1) {
-                sp_jcrev_destroy((sp_jcrev **)&fx->jcrev[j + k]);
                 sp_autowah_destroy((sp_autowah **)&fx->autowah[j + k]);
                 sp_conv_destroy((sp_conv **)&fx->conv[j + k]);
                 sp_vdelay_destroy((sp_vdelay **)&fx->vdelay[j + k]);

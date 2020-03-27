@@ -284,6 +284,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
             curr_synth.lerp_t = fminf(curr_synth.lerp_t, 1.0f);
         }
 
+        // flush
         if (curr_notes) {
             LFDS720_FREELIST_N_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
             lfds720_freelist_n_threadsafe_push(&freelist_frames, NULL, &curr_freelist_frames_data->fe);
@@ -829,7 +830,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         int chn_count = fas_input_channels / 2;
-                        int chn = fmod(fabsf(n->blue), chn_count);
+                        int chn = abs((int)n->blue) % chn_count;
 
                         output_l += audio_in[i * 2 * chn_count + chn * 2] * vl;
                         output_r += audio_in[i * 2 * chn_count + 1 + chn * 2] * vr;
@@ -845,7 +846,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        int chn = fmod(fabsf(n->blue), frame_data_count);
+                        int chn = abs((int)n->blue) % frame_data_count;
 
                         float sl = 0.0f;
                         float sr = 0.0f;
@@ -868,7 +869,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        int chn = fmod(fabsf(n->blue), frame_data_count);
+                        int chn = abs((int)n->blue) % frame_data_count;
 
                         float sl = 0.0f;
                         float sr = 0.0f;
@@ -891,7 +892,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        int chn = fmod(fabsf(n->blue), frame_data_count);
+                        int chn = abs((int)n->blue) % frame_data_count;
 
                         float sl = 0.0f;
                         float sr = 0.0f;
@@ -914,7 +915,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        int chn = fmod(fabsf(n->blue), frame_data_count);
+                        int chn = abs((int)n->blue) % frame_data_count;
 
                         float sl = 0.0f;
                         float sr = 0.0f;
@@ -937,7 +938,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        int chn = fmod(fabsf(n->blue), frame_data_count);
+                        int chn = abs((int)n->blue) % frame_data_count;
 
                         float sl = 0.0f;
                         float sr = 0.0f;
@@ -971,6 +972,16 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
 
                         struct _fas_faust_ui_control *tmp;
+                        tmp = getFaustControl(ctrl, "fs_pr");
+                        if (tmp) {
+                            *tmp->zone = n->previous_volume_l;
+                        }
+
+                        tmp = getFaustControl(ctrl, "fs_pg");
+                        if (tmp) {
+                            *tmp->zone = n->previous_volume_r;
+                        }
+
                         tmp = getFaustControl(ctrl, "fs_r");
                         if (tmp) {
                             *tmp->zone = n->volume_l;
@@ -994,13 +1005,13 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         int faust_dsp_input_count = getNumInputsCDSPInstance(fas_faust_dsp->dsp);
 
                         if (faust_dsp_input_count >= 1) {
-                            int chn = fmod(fabsf(n->blue), frame_data_count);
+                            int chn = abs((int)n->blue) % frame_data_count;
 
                             float sl = 0.0f;
                             float sr = 0.0f;
 
-                            float il = last_sample_l[chn] * vl;
-                            float ir = last_sample_r[chn] * vr;
+                            float il = last_sample_l[chn];
+                            float ir = last_sample_r[chn];
 
                             FAUSTFLOAT *faust_input[2] = { &il, &ir };
                             FAUSTFLOAT *faust_output[2] = { &sl, &sr };
@@ -1060,11 +1071,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                 } else if (fx_id == FX_ZITAREV) {
 #ifdef WITH_SOUNDPIPE
                     sp_zitarev_compute(sp, (sp_zitarev *)fx->zitarev[d], &output_l, &output_r, &output_l, &output_r);
-#endif
-                } else if (fx_id == FX_JCREV) {
-#ifdef WITH_SOUNDPIPE
-                    sp_jcrev_compute(sp, (sp_jcrev *)fx->jcrev[j], &output_l, &output_l);
-                    sp_jcrev_compute(sp, (sp_jcrev *)fx->jcrev[j + 1], &output_r, &output_r);
 #endif
                 } else if (fx_id == FX_SCREV) {
 #ifdef WITH_SOUNDPIPE
@@ -1179,6 +1185,20 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                     float insr = output_r;
                     sp_tbvcf_compute(sp, (sp_tbvcf *)fx->tbvcf[j], &insl, &output_l);
                     sp_tbvcf_compute(sp, (sp_tbvcf *)fx->tbvcf[j + 1], &insr, &output_r);
+#endif
+                } else if (fx_id == FX_FAUST) {
+#ifdef WITH_FAUST
+                    float insl = output_l;
+                    float insr = output_r;
+
+                    FAUSTFLOAT *faust_input[2] = { &insl, &insr };
+                    FAUSTFLOAT *faust_output[2] = { &output_l, &output_r };
+
+                    struct _synth_fx_settings *chn_fx_settings = &chn_settings->fx[j];
+
+                    struct _fas_faust_dsp *fas_faust_dsp = fx->faust_effs[j][(unsigned int)chn_fx_settings->fp[0]];
+
+                    computeCDSPInstance(fas_faust_dsp->dsp, 1, faust_input, faust_output);
 #endif
                 }
                 
@@ -1633,10 +1653,9 @@ void freeSynth(struct _synth **s) {
 
 void clearQueues() {
     void *key;
-    struct _freelist_frames_data *freelist_frames_data;
-    while (lfds720_ringbuffer_n_read(&rs, &key, NULL)) {
-        freelist_frames_data = (struct _freelist_frames_data *)key;
-
+    while (lfds720_ringbuffer_n_read(&rs, &key, NULL) == 1) {
+        struct _freelist_frames_data *freelist_frames_data = (struct _freelist_frames_data *)key;
+        
         LFDS720_FREELIST_N_SET_VALUE_IN_ELEMENT(freelist_frames_data->fe, freelist_frames_data);
         lfds720_freelist_n_threadsafe_push(&freelist_frames, NULL, &freelist_frames_data->fe);
     }
@@ -1990,7 +2009,10 @@ if (remaining_payload != 0) {
 #ifdef WITH_SOUNDPIPE
                         sp,
 #endif
-                        synth_fx, frame_data_count);
+#ifdef WITH_FAUST
+                        fas_faust_effs,
+#endif
+                        synth_fx, frame_data_count, fas_sample_rate);
 
                     usd->synth->grains = createGrains(&samples, samples_count, usd->synth_h, usd->synth->settings->base_frequency, usd->synth->settings->octave, fas_sample_rate, frame_data_count, fas_granular_max_density);
 
@@ -1998,15 +2020,6 @@ if (remaining_payload != 0) {
                     usd->synth->chn_settings = NULL;
 
                     render_init(usd->synth_h);
-/*
-                    usd->synth->chn_settings = (struct _synth_chn_settings*)malloc(sizeof(struct _synth_chn_settings) * frame_data_count);
-                    if (usd->synth->chn_settings == NULL) {
-                        printf("chn_settings alloc. error.");
-                        fflush(stdout);
-                    }
-                    memset(usd->synth->chn_settings, 0, sizeof(struct _synth_chn_settings) * frame_data_count);
-*/
-                    audioPlay();
                     
                     if (lfds720_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)usd->synth) == 0) {
                         printf("Skipping packet, the synth commands queue is full.\n");
@@ -2025,6 +2038,8 @@ if (remaining_payload != 0) {
                     }
 
                     usd->synth = NULL;
+
+                    audioPlay();
                 } else if (pid == FRAME_DATA) {
 #ifdef DEBUG_FRAME_DATA
     printf("FRAME_DATA\n");
@@ -2100,19 +2115,9 @@ if (remaining_payload != 0) {
                     freelist_frames_data = LFDS720_FREELIST_N_GET_VALUE_FROM_ELEMENT(*fe);
 
                     memset(freelist_frames_data->data, 0, sizeof(struct note) * (usd->synth_h + 1) * frame_data_count + sizeof(unsigned int));
-/*
-                    if (freelist_frames_data->data[0].mag == NULL) {
-                        freelist_frames_data->data[0].mag = (float *)malloc(sizeof(float) * hop_size);
-                        freelist_frames_data->data[0].pha = (float *)malloc(sizeof(float) * hop_size);
-                        freelist_frames_data->data[0].frq = (float *)malloc(sizeof(float) * hop_size);
 
-                        memset(freelist_frames_data->data[0].mag, 0, sizeof(float) * hop_size);
-                        memset(freelist_frames_data->data[0].pha, 0, sizeof(float) * hop_size);
-                        memset(freelist_frames_data->data[0].frq, 0, sizeof(float) * hop_size);
-                    }
-*/
                     fillNotesBuffer(samples_count_m1, waves_count_m1, fas_granular_max_density, (*channels), usd->frame_data_size,
-                                    freelist_frames_data->data, usd->synth_h/*, &usd->oscillators*/, usd->expected_frame_length,
+                                    freelist_frames_data->data, usd->synth_h, usd->expected_frame_length,
                                     usd->prev_frame_data, usd->frame_data);
 
 #ifdef WITH_OSC
@@ -2314,10 +2319,11 @@ printf("ACTION : type %i\n", action_type[0]);
 fflush(stdout);
 #endif
 
-                    if (action_type[0] == 0) { // RELOAD SAMPLES
+                    if (action_type[0] == FAS_ACTION_SAMPLES_RELOAD) { // RELOAD SAMPLES
                         audioPause();
 
-                        clearQueues();
+                        // this should always come with synth settings change after so safe to delete ? (same for audioPlay())
+                        //clearQueues();
 
                         prev_samples_count = samples_count;
 
@@ -2347,9 +2353,9 @@ fflush(stdout);
 
                         waves_count_m1 = waves_count - 1;
 
-                        audioPlay();
-                    } else if (action_type[0] == 1) { // RE-TRIGGER note
-                      unsigned int *data_uint = (unsigned int *)&usd->packet[PACKET_HEADER_LENGTH];
+                        //audioPlay();
+                    } else if (action_type[0] == FAS_ACTION_NOTE_RESET) { // RE-TRIGGER note
+                        unsigned int *data_uint = (unsigned int *)&usd->packet[PACKET_HEADER_LENGTH];
 #ifdef DEBUG
 printf("re-trigger chn : %i, note : %i\n", data_uint[0], data_uint[1]);
 fflush(stdout);
@@ -2384,6 +2390,26 @@ fflush(stdout);
                         }
 
                         usd->synth = NULL;
+                    } else if (action_type[0] == FAS_ACTION_FAUST_GENS) { // reload Faust generators
+#ifdef WITH_FAUST
+                            audioPause();
+                            //clearQueues();
+
+                            freeFaustFactories(fas_faust_gens);
+                            fas_faust_gens = createFaustFactories("./faust/generators");
+
+                            //audioPlay();
+#endif
+                    } else if (action_type[0] == FAS_ACTION_FAUST_EFFS) { // reload Faust effects
+#ifdef WITH_FAUST
+                            audioPause();
+                            //clearQueues();
+
+                            freeFaustFactories(fas_faust_effs);
+                            fas_faust_effs = createFaustFactories("./faust/effects");
+
+                            //audioPlay();
+#endif
                     }
                 }
 
@@ -2959,6 +2985,7 @@ int main(int argc, char **argv)
 
 #ifdef WITH_FAUST
         fas_faust_gens = createFaustFactories("./faust/generators");
+        fas_faust_effs = createFaustFactories("./faust/effects");
 #endif
 
         // fas setup
@@ -3282,7 +3309,10 @@ quit:
     free_samples(&waves, waves_count);
     free_samples(&samples, samples_count);
 
+#ifdef WITH_FAUST
     freeFaustFactories(fas_faust_gens);
+    freeFaustFactories(fas_faust_effs);
+#endif
 
     if (re) {
         lfds720_ringbuffer_n_cleanup(&rs, rb_element_cleanup_callback);
@@ -3345,7 +3375,10 @@ error:
     free_samples(&samples, samples_count);
     free_samples(&waves, waves_count);
 
+#ifdef WITH_FAUST
     freeFaustFactories(fas_faust_gens);
+    freeFaustFactories(fas_faust_effs);
+#endif
 
     free(last_sample_l);
     free(last_sample_r);

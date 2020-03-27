@@ -20,7 +20,6 @@
 #ifdef WITH_SOUNDPIPE
         sp_zitarev *zitarev[FAS_MAX_FX_SLOTS];
         sp_revsc *revsc[FAS_MAX_FX_SLOTS];
-        sp_jcrev *jcrev[FAS_MAX_FX_SLOTS * 2];
         sp_autowah *autowah[FAS_MAX_FX_SLOTS * 2];
         sp_phaser *phaser[FAS_MAX_FX_SLOTS];
         sp_conv *conv[FAS_MAX_FX_SLOTS * 2];
@@ -52,17 +51,24 @@
         float wet[FAS_MAX_FX_SLOTS];
 
 #ifdef WITH_FAUST
-        struct _fas_faust_dsp *fdsp[FAS_MAX_FX_SLOTS];
+        struct _fas_faust_dsp **faust_effs[FAS_MAX_FX_SLOTS];
+        size_t faust_effs_len;
 #endif
     };
-
+    void createEffects(
 #ifdef WITH_SOUNDPIPE
-    void createEffects(sp_data *spd, struct _synth_fx **fx, unsigned int frame_data_count);
-    void updateEffects(sp_data *spd, struct _synth_fx *fxs, struct _synth_chn_settings *chns, struct sample *impulses, unsigned int impulses_count);
-#else
-    void createEffects(struct _synth_fx **fx, unsigned int frame_data_count);
-    void updateEffects(struct _synth_fx *fxs, struct _synth_chn_settings *chns, struct sample *impulses, unsigned int impulses_count);
+        sp_data *spd,
 #endif
+#ifdef WITH_FAUST
+        struct _faust_factories *faust_factories,
+#endif
+        struct _synth_fx **fx, unsigned int frame_data_count, unsigned int sample_rate);
+    void updateEffects(
+#ifdef WITH_SOUNDPIPE
+        sp_data *spd,
+#endif
+        struct _synth_fx *fxs, struct _synth_chn_settings *chns, struct sample *impulses, unsigned int impulses_count);
+
     void freeEffects(struct _synth_fx **fx, unsigned int frame_data_count);
 
 #endif

@@ -26,6 +26,12 @@
     #define CHN_SETTINGS 3
     #define ACTION 4
 
+    // actions
+    #define FAS_ACTION_SAMPLES_RELOAD 0
+    #define FAS_ACTION_NOTE_RESET 1
+    #define FAS_ACTION_FAUST_GENS 2
+    #define FAS_ACTION_FAUST_EFFS 3
+
     #define FAS_STFT_HOP_SIZE 1024
 
     // program settings constants
@@ -137,28 +143,28 @@
     // sp effects id
     #define FX_CONV 0
     #define FX_ZITAREV 1
-    #define FX_JCREV 2
-    #define FX_SCREV 3
-    #define FX_AUTOWAH 4
-    #define FX_PHASER 5
-    #define FX_COMB 6
-    #define FX_VDELAY 7
-    #define FX_SMOOTH_DELAY 8
-    #define FX_BITCRUSH 9
-    #define FX_DISTORSION 10
-    #define FX_SATURATOR 11
-    #define FX_COMPRESSOR 12
-    #define FX_PEAK_LIMITER 13
-    #define FX_CLIP 14
-    #define FX_B_LOWPASS 15
-    #define FX_B_HIGHPASS 16
-    #define FX_B_BANDPASS 17
-    #define FX_B_BANDREJECT 18
-    #define FX_PAREQ 19
-    #define FX_MOOG_LPF 20
-    #define FX_DIODE_LPF 21
-    #define FX_KORG_LPF 22
-    #define FX_18_LPF 23
-    #define FX_TBVCF 24
+    #define FX_SCREV 2
+    #define FX_AUTOWAH 3
+    #define FX_PHASER 4
+    #define FX_COMB 5
+    #define FX_VDELAY 6
+    #define FX_SMOOTH_DELAY 7
+    #define FX_BITCRUSH 8
+    #define FX_DISTORSION 9
+    #define FX_SATURATOR 10
+    #define FX_COMPRESSOR 11
+    #define FX_PEAK_LIMITER 12
+    #define FX_CLIP 13
+    #define FX_B_LOWPASS 14
+    #define FX_B_HIGHPASS 15
+    #define FX_B_BANDPASS 16
+    #define FX_B_BANDREJECT 17
+    #define FX_PAREQ 18
+    #define FX_MOOG_LPF 19
+    #define FX_DIODE_LPF 20
+    #define FX_KORG_LPF 21
+    #define FX_18_LPF 22
+    #define FX_TBVCF 23
+    #define FX_FAUST 24
 
 #endif

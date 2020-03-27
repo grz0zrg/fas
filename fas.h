@@ -38,6 +38,7 @@
       #include "faust.h"
 
       struct _faust_factories *fas_faust_gens = NULL;
+      struct _faust_factories *fas_faust_effs = NULL;
     #endif
     #include "tools.h"
     #include "effects.h"

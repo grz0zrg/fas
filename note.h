@@ -43,14 +43,10 @@
 
         unsigned int wav_index;
         unsigned int pwav_index;
-
-        //float *mag;
-        //float *frq;
-        //float *pha;
     };
 
     extern void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsigned int max_density,
                                 unsigned int channels, unsigned int data_frame_size, struct note *note_buffer,
-                                unsigned int h/*, struct oscillator **o*/, size_t data_length, void *prev_data, void *data);
+                                unsigned int h, size_t data_length, void *prev_data, void *data);
 
 #endif

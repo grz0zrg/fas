@@ -479,7 +479,7 @@ Some generators and effects already exist and extend FAS with bandpass filters b
 
 FAS to Faust DSP parameters can be specified through [nentry](https://faust.grame.fr/doc/manual/#nentry-primitive) interface primitive and are used to transfer note / initial generator data.
 
-Here is a list of usable Faust generators `nentry` key :
+Here is a list of usable Faust **generators** `nentry` key :
 
 Generator data (when FAS oscillators bank is initialized; depend on canvas settings) :
 
@@ -492,6 +492,11 @@ Note data :
 * `fs_b` : BLUE
 * `fs_g` : GREEN
 * `fs_a` : ALPHA
+
+Those can be usefull to detect note-on events thus acting as trigger (when both equals to 0) :
+
+* `fs_pr` : PREVIOUS RED
+* `fs_pg` : PREVIOUS GREEN
 
 Channel data :
 
@@ -511,7 +516,18 @@ a = nentry("fs_a",0,0,1,0.01) : si.smoo;
 process = os.pulsetrain(freq, b),os.pulsetrain(freq, a);
 ```
 
-Faust effects : WIP
+Here is a list of usable Faust **effects** `nentry` key :
+
+* `fs_p0` : parameter 0
+* `fs_p1` : parameter 1
+* `fs_p2` : parameter 2
+* `fs_p3` : parameter 3
+* `fs_p4` : parameter 4
+* `fs_p5` : parameter 5
+* `fs_p6` : parameter 6
+* `fs_p7` : parameter 7
+* `fs_p8` : parameter 8
+* `fs_p9` : parameter 9
 
 All FAS pre-defined algorithms can be rewritten as Faust DSP code which mean that one could produce a light version of FAS with all the pre-defined algorithms removed and only make use of custom Faust DSP code.
 
@@ -682,6 +698,14 @@ struct _synth_chn_settings {
 *for every channels.*
 
 Server actions, packet identifier 4 :
+
+struct _synth_action {
+    // 0 : reload samples in the grains folder, should be followed by a synth settings change to pre-compute grains tables.
+    // 1 : note re-trigger (to reinitialize oscillators state on note-off, mostly used for Karplus-Strong)
+    // 2 : reload Faust generators, should be followed by a synth settings change
+    // 3 : reload Faust effects, should be followed by a synth settings change
+    unsigned char type;
+};
 
 - At the moment, this just reload samples in the grains folder, this should be followed by a synth settings change to pre-compute grains tables.
 

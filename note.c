@@ -8,9 +8,7 @@
 // data argument is the raw RGBA values received with the channels count indicated as the first entry
 void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsigned int max_density, 
                     unsigned int channels, unsigned int data_frame_size, struct note *note_buffer,
-                    unsigned int h, /*struct oscillator **o, */size_t data_length, void *prev_data, void *data) {
-    //struct oscillator *oscs = *o;
-
+                    unsigned int h, size_t data_length, void *prev_data, void *data) {
     double pvl = 0, pvr = 0, pl, pr, pb, pa, l, r;
     unsigned int i, j, frame_data_index = 8;
     unsigned int li = 0, ri = 1;
@@ -194,16 +192,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
 
             y -= 1;
         }
-/*
-        double a = 0.;
-        for (i = 0; i < osc_count; i += 1) {
-            a = fmax(note_buffer[i].volume_l, a);
-        }
 
-        for (i = 0; i < osc_count; i += 1) {
-          note_buffer[note_osc_index].mag[i] = 20. * log10(note_buffer[note_osc_index].mag[i] + 1);
-        }
-*/
         note_buffer[note_osc_index].osc_index = osc_count;
 
 #ifdef DEBUG_FRAME_DATA

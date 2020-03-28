@@ -338,48 +338,6 @@ struct oscillator *createOscillators(
     return oscillators;
 }
 
-// TODO : update ? (for now this function is unused and have to be updated to be used properly)
-struct oscillator *copyOscillators(struct oscillator **oscs, unsigned int n, unsigned int frame_data_count) {
-    struct oscillator *o = *oscs;
-
-    if (o == NULL) {
-        return NULL;
-    }
-
-    struct oscillator *new_oscillators = (struct oscillator*)malloc(n * sizeof(struct oscillator));
-
-    if (new_oscillators == NULL) {
-        printf("copyOscillators alloc. error.");
-        fflush(stdout);
-        return NULL;
-    }
-
-    int y = 0;
-    for (y = 0; y < n; y += 1) {
-        struct oscillator *new_osc = &new_oscillators[y];
-
-        new_osc->freq = o[y].freq;
-        new_osc->phase_step = o[y].phase_step;
-
-        #ifdef FIXED_WAVETABLE
-            new_osc->phase_index = malloc(sizeof(uint16_t) * frame_data_count);
-        #else
-            new_osc->phase_index = malloc(sizeof(unsigned int) * frame_data_count);
-        #endif
-
-        new_osc->noise_index = malloc(sizeof(uint16_t) * frame_data_count);
-        new_osc->pvalue = malloc(sizeof(float) * frame_data_count);
-
-        for (int i = 0; i < frame_data_count; i += 1) {
-            new_osc->phase_index[i] = o[y].phase_index[i];
-            new_osc->noise_index[i] = o[y].noise_index[i];
-            new_osc->pvalue[i] = o[y].pvalue[i];
-        }
-    }
-
-    return new_oscillators;
-}
-
 struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsigned int frame_data_count) {
     struct oscillator *oscs = *o;
 

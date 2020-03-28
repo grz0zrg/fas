@@ -7,18 +7,18 @@ cpp_source =
 obj = main.o tools.o samples.o grains.o effects.o oscillators.o wavetables.o filters.o note.o usage.o Yin.o lodepng.o faust.o afSTFTlib.o fft4g.o vecTools.o
 cpp_obj = 
 cpp_options = -std=c++11
-libs = liblfds720.a -lportaudio -lsamplerate -lwebsockets -lrt -lm -lasound -ljack -pthread -lsndfile
-static_libs = liblfds720.a libportaudio.a libsamplerate.a libwebsockets.a -lz -lrt -lm -lstdc++ -lasound -ljack -pthread -lsndfile
+libs = liblfds711.a -lportaudio -lsamplerate -lwebsockets -lrt -lm -lasound -ljack -pthread -lsndfile
+static_libs = liblfds711.a libportaudio.a libsamplerate.a libwebsockets.a -lz -lrt -lm -lstdc++ -lasound -ljack -pthread -lsndfile
 soundpipe_libs = libsoundpipe.a
 faust_libs = libfaust.a
 ssl_libs = -lssl -lcrypto
 osc_libs = liblo.so.7.3.0
 win_ssl_libs = -lssl -lcrypto -lws2_32 -lgdi32
-win_static_libs = liblfds720.a libwebsockets_static.a libportaudio.a -lm -lz -lws2_32
-win_cross_libs = cross/liblfds720.a cross/libwebsockets_static.a cross/libportaudio.a cross/libzlib_internal.a cross/liblo.a cross/libsamplerate.a cross/libsndfile.a -lm -ldsound -lwinmm -lws2_32 -lstdc++ -lole32 -liphlpapi
+win_static_libs = liblfds711.a libwebsockets_static.a libportaudio.a -lm -lz -lws2_32
+win_cross_libs = cross/liblfds711.a cross/libwebsockets_static.a cross/libportaudio.a cross/libzlib_internal.a cross/liblo.a cross/libsamplerate.a cross/libsndfile.a -lm -ldsound -lwinmm -lws2_32 -lstdc++ -lole32 -liphlpapi
 compat_options = -U__STRICT_ANSI__
 output = fas
-standard_options = -std=c11 -pedantic -D_POSIX_SOURCE -DALSA_RT
+standard_options = -std=c11 -pedantic -D_POSIX_SOURCE -DALSA_RT -DLFDS711
 win_static_options = -static -static-libgcc
 adv_optimization_options = -DFIXED_WAVETABLE
 debug_options = -g -DDEBUG

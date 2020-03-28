@@ -23,7 +23,40 @@
     // libraries
     #include "portaudio.h"
     #include "libwebsockets.h"
-    #include "inc/liblfds720.h"
+
+// compatibility layer to support liblfds 711 version (since default is liblfds720 which has ARM64 support but is not yet released)
+#ifdef LFDS711
+    #include "liblfds711.h"
+
+    #define lfds720_queue_bss_dequeue lfds711_queue_bss_dequeue
+    #define lfds720_queue_bss_enqueue lfds711_queue_bss_enqueue
+    #define lfds720_queue_bss_state lfds711_queue_bss_state
+    #define lfds720_queue_bss_element lfds711_queue_bss_element
+    #define lfds720_queue_bss_cleanup lfds711_queue_bss_cleanup
+    #define lfds720_queue_bss_init_valid_on_current_logical_core lfds711_queue_bss_init_valid_on_current_logical_core
+    #define lfds720_freelist_n_element lfds711_freelist_element
+    #define lfds720_ringbuffer_n_element lfds711_ringbuffer_element
+    #define lfds720_ringbuffer_n_state lfds711_ringbuffer_state
+    #define lfds720_freelist_n_state lfds711_freelist_state
+    #define LFDS720_PAL_ATOMIC_ISOLATION_LENGTH_IN_BYTES LFDS711_PAL_ATOMIC_ISOLATION_IN_BYTES
+    #define lfds720_ringbuffer_n_init_valid_on_current_logical_core lfds711_ringbuffer_init_valid_on_current_logical_core
+    #define lfds720_freelist_n_init_valid_on_current_logical_core(x, w) lfds711_freelist_init_valid_on_current_logical_core(x, NULL, 0, w)
+    #define LFDS720_FREELIST_N_SET_VALUE_IN_ELEMENT LFDS711_FREELIST_SET_VALUE_IN_ELEMENT
+    #define LFDS720_FREELIST_N_GET_VALUE_FROM_ELEMENT LFDS711_FREELIST_GET_VALUE_FROM_ELEMENT
+    #define lfds720_freelist_n_threadsafe_push(x, y, z) lfds711_freelist_push(x, z, y)
+    #define lfds720_freelist_n_threadsafe_pop(x, y, z) lfds711_freelist_pop(x, z, y)
+    #define lfds720_ringbuffer_n_cleanup lfds711_ringbuffer_cleanup
+    #define lfds720_freelist_n_cleanup lfds711_freelist_cleanup
+    #define lfds720_ringbuffer_n_read lfds711_ringbuffer_read
+    #define lfds720_ringbuffer_n_write lfds711_ringbuffer_write
+    #define lfds720_misc_flag lfds711_misc_flag
+    #define LFDS720_MISC_FLAG_RAISED LFDS711_MISC_FLAG_RAISED
+    #define LFDS720_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_PHYSICAL_CORE LFDS711_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_LOGICAL_CORE
+    #define lfds720_pal_uint_t lfds711_pal_uint_t
+#else
+    #include "liblfds720.h"
+#endif
+
     #include "lo/lo.h"
     #include "lib/lodepng.h"
 
@@ -139,6 +172,8 @@
     time_t stream_load_begin;
 
     PaStream *stream;
+    PaStreamParameters inputParameters;
+    PaStreamParameters outputParameters;
 
     struct lws_context *context;
 
@@ -161,7 +196,7 @@
 
     int clients = 0;
 
-    int keep_running = 1;
+    atomic_int keep_running = 1;
 
     struct _synth_chn_states *fas_chn_states = NULL;
 
@@ -187,6 +222,14 @@
         if (unread_flag == LFDS720_MISC_FLAG_RAISED) {
 
         }
+    }
+
+    // liblfds data structures cleanup callbacks
+    void flf_element_cleanup_callback(struct lfds720_freelist_n_state *fs, struct lfds720_freelist_n_element *fe) {
+        struct _freelist_frames_data *freelist_frames_data;
+        freelist_frames_data = LFDS720_FREELIST_N_GET_VALUE_FROM_ELEMENT(*fe);
+
+        free(freelist_frames_data->data);
     }
 
     #define _MAX(a,b) ((a) > (b) ? a : b)

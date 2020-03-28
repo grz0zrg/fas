@@ -45,14 +45,6 @@
 void createChannelState(struct _synth_chn_states *state, unsigned int hop_size);
 void freeSynth(struct _synth **s);
 
-// liblfds data structures cleanup callbacks
-void flf_element_cleanup_callback(struct lfds720_freelist_n_state *fs, struct lfds720_freelist_n_element *fe) {
-    struct _freelist_frames_data *freelist_frames_data;
-    freelist_frames_data = LFDS720_FREELIST_N_GET_VALUE_FROM_ELEMENT(*fe);
-
-    free(freelist_frames_data->data);
-}
-
 void reset_phys_modelling(unsigned int chn, struct oscillator *osc, struct note *n) {
     unsigned int d = 0;
 
@@ -89,19 +81,19 @@ void reset_phys_modelling(unsigned int chn, struct oscillator *osc, struct note 
     }
 }
 
-static int paCallback( const void *inputBuffer, void *outputBuffer,
-                            unsigned long framesPerBuffer,
-                            const PaStreamCallbackTimeInfo* timeInfo,
-                            PaStreamCallbackFlags statusFlags,
-                            void *data) {
-    LFDS720_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_PHYSICAL_CORE;
+/*
+    update audio callback synth settings
+    should be called in audio thread / when audio is paused
 
-    float *out = (float*)outputBuffer;
-    float *audio_in = (float*)inputBuffer;
+    NOTE : calling this function in the audio thread directly may be too heavy for full changes
+        and may force bad things like Jack 'xrun' under some conditions which will force the stream to stop
+        so on big changes (oscillators, grains) this function must be only called when audio is paused
 
-    unsigned int i, j, k, d, s, e, w;
-
-    struct _freelist_frames_data *freelist_frames_data;
+    TODO : oscillators, grains change should be handled directly on audio pause without queue
+        channels settings is the only change that should need to call that function
+*/
+int rtSynthSettingsUpdate () {
+    unsigned int i, j, k;
 
     void *queue_synth_void;
     if (lfds720_queue_bss_dequeue(&synth_commands_queue_state, NULL, &queue_synth_void) == 1) {
@@ -252,7 +244,28 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         curr_synth.samples_count = queue_synth->samples_count;
 
         free(queue_synth);
+
+        return 1;
     }
+    
+    return 0;
+}
+
+static int paCallback( const void *inputBuffer, void *outputBuffer,
+                            unsigned long framesPerBuffer,
+                            const PaStreamCallbackTimeInfo* timeInfo,
+                            PaStreamCallbackFlags statusFlags,
+                            void *data) {
+    LFDS720_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_PHYSICAL_CORE;
+
+    float *out = (float*)outputBuffer;
+    float *audio_in = (float*)inputBuffer;
+
+    unsigned int i, j, k, d, s, e, w;
+
+    struct _freelist_frames_data *freelist_frames_data;
+
+    rtSynthSettingsUpdate();
 
     int read_status = 0;
     void *key;
@@ -2039,6 +2052,9 @@ if (remaining_payload != 0) {
 
                     usd->synth = NULL;
 
+                    // update changes
+                    while (rtSynthSettingsUpdate()) {}
+
                     audioPlay();
                 } else if (pid == FRAME_DATA) {
 #ifdef DEBUG_FRAME_DATA
@@ -2593,6 +2609,22 @@ int start_server(void) {
     return 0;
 }
 
+void *streamWatcher(void *args) {
+    PaError err = paNoError;
+
+    while (keep_running) {
+        sleep(5);
+
+        // check if stream is still alive, if not this may need a restart...
+        if (Pa_IsStreamActive(stream) == 0 && Pa_IsStreamStopped(stream) == 0) {
+            fprintf(stderr, "Inactive stream... (time out ?)\n");
+            fflush(stdout);
+        }
+    }
+
+    return 0;
+}
+
 void int_handler(int dummy) {
     keep_running = 0;
 }
@@ -3035,8 +3067,6 @@ int main(int argc, char **argv)
     curr_synth.lerp_t = 0;
 
     // PortAudio related
-    PaStreamParameters inputParameters;
-    PaStreamParameters outputParameters;
     PaError err;
 
     memset(&inputParameters, 0, sizeof(PaStreamParameters));
@@ -3189,6 +3219,10 @@ int main(int argc, char **argv)
 #endif
 #endif
 
+    if (fas_frames_per_buffer == 0) {
+        fas_frames_per_buffer = paFramesPerBufferUnspecified;
+    }
+
     err = Pa_OpenStream(
               &stream,
               (fas_input_channels <= 0) ? NULL : &inputParameters,
@@ -3228,7 +3262,6 @@ int main(int argc, char **argv)
 
     if (synth_commands_queue_element == NULL) {
         fprintf(stderr, "lfds queue data structures alloc./align. error.\n");
-        free(re);
         goto quit;
     }
 
@@ -3239,13 +3272,19 @@ int main(int argc, char **argv)
     ffd = malloc(sizeof(struct _freelist_frames_data) * fas_frames_queue_size);
     if (ffd == NULL) {
         fprintf(stderr, "_freelist_frames_data data structure alloc. error.\n");
-        free(re);
-        free(synth_commands_queue_element);
         goto quit;
     }
 
     fflush(stdout);
     fflush(stderr);
+
+    // portaudio stream watcher
+    pthread_t tid;
+    int pret = pthread_create(&tid, NULL, &streamWatcher, NULL);
+    if (pret != 0) {
+        fprintf(stderr, "pthread_create streamWatcher error %i\n", pret);
+        goto quit;
+    }
 
     srand(time(NULL));
 
@@ -3334,6 +3373,8 @@ quit:
 
     free(last_sample_l);
     free(last_sample_r);
+
+    pthread_join(tid, NULL);
 
     printf("Bye.\n");
 

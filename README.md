@@ -550,7 +550,7 @@ Convolution effect use impulses response which are audio files loaded from the `
 
 This program is tailored for performances, it is memory intensive (about 512mb is needed without samples, about 1 Gb with few samples), most things are pre-allocated or pre-computed with near zero real-time allocations.
 
-FAS should be compiled with Soundpipe for best performance / more high quality algorithms; for example subtractive moog filter see 3x speed improvement compared to the standalone algorithm.
+FAS should be compiled with Soundpipe for best performance / high quality algorithms; for example subtractive moog filter see 3x speed improvement compared to the standalone algorithm.
 
 FAS should also be compiled with Faust which may provide high quality / performance algorithms however using a huge number of generators and effects may vastly affect memory requirements.
 
@@ -598,9 +598,9 @@ FAS support real-time rendering of the pixels data, the pixels data is compresse
 
 ### Future
 
-The ongoing development is to improve analysis / synthesis algorithms, implement new type of synthesis / effects and add support for offline rendering.
+The ongoing development is to improve analysis / synthesis algorithms, add support for offline rendering, add support for standalone usages and add more Faust DSP.
 
-There is also minor architectural work to do, especially some cleanup and better handling of channel settings.
+There is also minor architectural work to do, some cleanup, using free list for more data structures and better handling of channel settings.
 
 ### OSC
 
@@ -610,29 +610,29 @@ With OSC you can basically do whatever you want with the pixels data, feeding Su
 
 ## Technical implementation
 
-The audio callback contain its own synth. data structure, the data structure is filled from data coming from a lock-free ring buffer to ensure thread safety for the incoming notes data.
+The audio callback contain its own synth. data structure, the notes data structure is filled with data from a lock-free ring buffer which ensure thread safety and good performances.
 
-A free list data structure is used to handle data reuse, the program pre-allocate a pool of notes buffer that is reused.
+A free list data structure is used for efficient notes data reuse; the program pre-allocate a pool of notes buffer.
 
-Audio synthesis is processed with minimum computation / branching, values which depend on note parameter change are pre-computed per-channel / oscillator in a dedicated processing block outside synthesis block.
+Sound synthesis is processed with minimal computation / branching, values which depend on note parameters change are pre-computed per-channel / oscillator in a dedicated processing block outside synthesis block, notes change and associated parameters happen at sample accurate note time level defined by FPS parameter
 
-There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, etc.), unlike main notes data there is some call to free() in the audio callback and allocation in the network thread when changes happen, this has room for improvements but is usually ok since this data does not change once set, it was done that way to avoid locks / sync mechanisms and add code clutter.
+There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, etc.), unlike main notes data there is some call to free() in the audio callback and allocation in the network thread when updated, this has room for improvements but is usually ok since this data does not change once set, this may be enhanced with a memory pool in the future.
 
-The architecture is done so there is **no memory allocation** done in the audio callback and very few done in the network thread (mainly for packets construction) as long as there is no changes in synth. parameters (bank height) nor effects parameters that require new initialization (for example convolution impulse length)
+The architecture is done so there is **no memory allocation** done in the audio callback for all realtime critical parts and very few done in the network thread (mainly for packets construction) as long as there is no changes in synth. parameters (bank height)
 
 Additive synthesis is wavetable-based, a [magic circle](https://github.com/ccrma/chugins/blob/master/MagicSine/MagicSine.cpp) based sine generator is also available when `MAGIC_SINE` is enabled, this may be faster on some platforms.
 
 Spectral synthesis use [afSTFT](https://github.com/jvilkamo/afSTFT) library which is bundled
 
-Real-time resampling is done with a simple linear method, granular synthesis can also be resampled by using cubic interpolation method (uncomment the line in `constants.h`) which is slower than linear.
+Real-time resampling is done with a simple linear method, granular synthesis can also be resampled by using cubic interpolation method (uncomment the line in `constants.h`; slower than linear).
 
 All synthesis algorithms (minus [PolyBLEP](http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/) and Soundpipe provided) are customs.
 
-This program is checked with Valgrind and should be free of memory leaks.
+This program is regularly checked with Valgrind and should be free of memory leaks.
 
 ## Packets description
 
-To communicate with FAS with a custom client, there is only five type of packets to handle, the first byte of the packet is the packet identifier, below is the expected data for each packets
+To communicate with FAS with a custom client, there is only five type of packets to handle, the **first byte of the packet is the packet identifier**, below is the expected data for each packets
 
 **Note** : synth settings packet must be sent before sending any frames, otherwise the received frames are ignored.
 
@@ -700,14 +700,14 @@ struct _synth_chn_settings {
 Server actions, packet identifier 4 :
 
 struct _synth_action {
-    // 0 : reload samples in the grains folder, should be followed by a synth settings change to pre-compute grains tables.
+    // 0 : reload samples in the grains folder
     // 1 : note re-trigger (to reinitialize oscillators state on note-off, mostly used for Karplus-Strong)
-    // 2 : reload Faust generators, should be followed by a synth settings change
-    // 3 : reload Faust effects, should be followed by a synth settings change
+    // 2 : reload Faust generators
+    // 3 : reload Faust effects
     unsigned char type;
 };
 
-- At the moment, this just reload samples in the grains folder, this should be followed by a synth settings change to pre-compute grains tables.
+- Server `reload` actions should be followed by a synth settings change to pre-compute data.
 
 ## Build
 
@@ -773,7 +773,7 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build with Faust) 
 
 Copy include files of portaudio / soundpipe / libwebsocket into "inc" directory.
 
-FAS now use liblfds720 (for ARM64 support) which is not yet released thus you may have to use a wrapper to liblfds711 which can be found [here](https://github.com/grz0zrg/fas/issues/4#issuecomment-457007224)
+Note : liblfds711 does not support ARM64 yet (liblfds720 does but is not yet released)
 
 Copy the \*.a into "fas" root directory then compile by using one of the rule below (recommended rule for Linux and similar is `release-static-o` **without** Soundpipe, `release-static-sp-mc-o` **with** Soundpipe, `release-static-sp-faust-mc-o` **with** Soundpipe plus Faust).
 

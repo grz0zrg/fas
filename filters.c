@@ -1,16 +1,5 @@
 #include "filters.h"
 
-// https://www.kvraudio.com/forum/viewtopic.php?p=5447795
-inline double fast_tanh(const double x) {
-   const double ax = fabs(x);
-   const double x2 = x * x;
-
-   return ( x * ( 2.45550750702956 + 2.45550750702956 * ax +
-      ( 0.893229853513558 + 0.821226666969744 * ax ) * x2 ) /
-      ( 2.44506634652299 + ( 2.44506634652299 + x2 ) *
-      fabs( x + 0.814642734961073 * x * ax )));
-}
-
 /*
     Copyright 2012 Stefano D'Angelo <zanga.mail@gmail.com>
     Permission to use, copy, modify, and/or distribute this software for any

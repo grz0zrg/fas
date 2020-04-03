@@ -50,7 +50,7 @@
     #define FAS_INPUT_CHANNELS 0
     #define FAS_SSL 0
     #define FAS_NOISE_AMOUNT 0.1
-    #define FAS_ENVS_SIZE 65536 // do not change (due to optimizations)
+    #define FAS_ENVS_SIZE 65536 // do not change (due to optimizations; when FIXED_WAVETABLE is enabled wavetables will have a length of 16 bits)
     #define FAS_OSC_OUT 0
     #define FAS_AUDIO 1
     #define FAS_SMOOTH_FACTOR 8.0

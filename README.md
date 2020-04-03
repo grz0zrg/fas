@@ -134,7 +134,7 @@ When compiled with `PARTIAL_FX` defined there is a fx slot available **per parti
 
 * none
 * bitcrush (Bitdepth / Sampling rate : B component [0, 1] / A component [0, 1])
-* phase distorsion (Amount : A component [0, 1] / Bipolar : B component integer 0 or 1)
+* phase distorsion (Amount : A component [0, 1] where 0.5 is origin)
 * tanh waveshaping (Wave 1 / Wave 2 : B component [0, 1] / A component [0, 1))
 * signal foldover (A component [0, 3])
 * noise (B added white noise factor to sine wave phase, maximum defined by command-line parameter)
@@ -236,9 +236,13 @@ This type of synthesis may improve gradually with more waveforms and more filter
 
 Phase modulation (PM) is a mean to generate sounds by modulating the phase of an oscillator (carrier) from another oscillator (modulator), it is very similar to frequency modulation (FM).
 
-PM synthesis in Fragment use a simple algorithm with one carrier and one modulator (with feedback level), the modulator amplitude and frequency can be set with B or A channel.
+PM synthesis in Fragment use a simple algorithm with one carrier and one modulator with filtered feedback.
+
+Modulator amplitude and frequency can be set with B and A channel, modulator feedback amount can be set with integral part of B channel.
 
 PM synthesis is one of the fastest method to generate sounds and is able to do re-synthesis.
+
+The typical index of modulation of standard FM synths can be computed by doing : modulator frequency / carrier frequency
 
 #### RGBA interpretation
 
@@ -246,7 +250,7 @@ PM synthesis is one of the fastest method to generate sounds and is able to do r
 | ---------: | :------------------------------------- |
 |          R | Amplitude value of the LEFT channel    |
 |          G | Amplitude value of the RIGHT channel   |
-|          B | Fractionnal part : Modulator amplitude, Integer part : Modulator feedback level [0,1024) |
+|          B | Fractionnal part : Modulator amplitude, Integer part : Modulator feedback level [0,65536) |
 |          A | Modulator frequency                    |
 
 **Note** : Monophonic mode PM synthesis is not implemented.

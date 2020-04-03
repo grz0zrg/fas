@@ -348,7 +348,7 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #ifndef FIXED_WAVETABLE
                         float smp = fas_sine_wavetable[osc->phase_index[k]];
 #else
-                        float smp = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
+                        float smp = fas_sine_wavetable[osc->phase_index[k]];
 #endif
 #endif
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
@@ -367,7 +367,6 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         } else if (fx == SP_PD_MODS) {
                             sp_pdhalf *pdh = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
                             
-                            pdh->ibipolar = n->alpha;
                             pdh->amount = (0.5f - n->res) * 2.f;
 
                             sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &smp, &smp); 
@@ -557,14 +556,25 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        double phase_step = n->alpha / (double)fas_sample_rate * fas_wavetable_size;
+                        double mod_phase_step = n->alpha / (double)fas_sample_rate * fas_wavetable_size;
 
+                        float fbf = (osc->fp1[k][0] + osc->fp1[k][1]) / 2; // 'anti-hunting' filter (simple low-pass)
+                        float fb = fbf * ((float)floorf(n->blue) / 65536.0f);
+                        
 #ifndef FIXED_WAVETABLE
-                        float smp = fas_sine_wavetable[osc->phase_index[k]];
-                        float smp2 = fas_sine_wavetable[osc->phase_index2[k]];
+                        unsigned int ph1 = osc->phase_index[k];
+                        unsigned int ph2 = osc->phase_index2[k] + (int)(fb * fas_wavetable_size);
+
+                        float smp2 = fas_sine_wavetable[ph2 % fas_wavetable_size];
+                        ph1 += (int)((smp2 * n->blue_frac_part) * fas_wavetable_size); // phase modulation
+                        float smp = fas_sine_wavetable[ph1 % fas_wavetable_size];
 #else
-                        float smp = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
-                        float smp2 = fas_sine_wavetable[osc->phase_index2[k] & fas_wavetable_size_m1];
+                        uint16_t ph1 = osc->phase_index[k];
+                        uint16_t ph2 = osc->phase_index2[k] + (int)(fb * fas_wavetable_size);
+
+                        float smp2 = fas_sine_wavetable[ph2];
+                        ph1 += (int)((smp2 * n->blue_frac_part) * fas_wavetable_size); // phase modulation
+                        float smp = fas_sine_wavetable[ph1];
 #endif
 
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
@@ -573,20 +583,12 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         output_l += vl * smp;
                         output_r += vr * smp;
 
-                        osc->phase_index[k] += osc->phase_step + ((smp2 * n->blue_frac_part) * fas_wavetable_size);
-                        osc->phase_index2[k] += phase_step + ((osc->pvalue[k] * (n->density / 1024.0f)) * fas_wavetable_size);
+                        osc->phase_index[k] += osc->phase_step;
+                        osc->phase_index2[k] += mod_phase_step;
 
-                        osc->pvalue[k] = smp2; // for feedback
-
-#ifndef FIXED_WAVETABLE
-                        if (osc->phase_index[k] >= fas_wavetable_size) {
-                            osc->phase_index[k] -= fas_wavetable_size;
-                        }
-
-                        if (osc->phase_index2[k] >= fas_wavetable_size) {
-                            osc->phase_index2[k] -= fas_wavetable_size;
-                        }
-#endif
+                        // feedback
+                        osc->fp1[k][0] = osc->fp1[k][1];
+                        osc->fp1[k][1] = vl * smp2;
                     }
                 } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE) {
                     int filter_type = chn_settings->p0;
@@ -597,24 +599,17 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
 #ifndef POLYBLEP // Additive synthesis method to generate anti-aliased waveforms
                         // fundamental
- #ifndef FIXED_WAVETABLE
                         float smp = fas_sine_wavetable[osc->phase_index[k]];
-
+ #ifndef FIXED_WAVETABLE
                         uint16_t *hphase_index = (uint16_t *)osc->harmo_phase_index[k];
  #else
-                        float smp = fas_sine_wavetable[osc->phase_index[k] & fas_wavetable_size_m1];
-
                         unsigned int *hphase_index = (unsigned int *)osc->harmo_phase_index[k];
  #endif
 
                         // harmonics / waveform generation through additive synthesis
                         int odd = n->waveform; // sawtooth - square & triangle (pow wavetable below)
                         for (d = odd; d < osc->max_harmonics; d += (1 + odd)) {
- #ifndef FIXED_WAVETABLE
                             smp += fas_sine_wavetable[osc->harmo_phase_index[k][d]] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
- #else
-                            smp += fas_sine_wavetable[osc->harmo_phase_index[k][d] & fas_wavetable_size_m1] * osc->harmonics[d + osc->max_harmonics * ((int)n->exp)];
- #endif
 
                             osc->harmo_phase_index[k][d] += osc->harmo_phase_step[d];
 
@@ -651,11 +646,8 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #ifdef WITH_SOUNDPIPE
                                 sp_noise_compute(sp, (sp_noise *)osc->sp_gens[k][SP_WHITE_NOISE_GENERATOR], NULL, &smp);
 #else
-    #ifndef FIXED_WAVETABLE
                                 smp = fas_white_noise_table[osc->phase_index[k]];
-    #else
-                                smp = fas_white_noise_table[osc->phase_index[k] & fas_wavetable_size_m1];
-    #endif
+
                                 osc->phase_index[k] += osc->phase_step;
     #ifndef FIXED_WAVETABLE
                                 osc->phase_index[k] %= fas_wavetable_size;
@@ -1422,8 +1414,19 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                                 pdhalf->ibipolar = 1;
                                 pdhalf->amount = n->alpha;//fminf(fmaxf(n->alpha, -1.f), 1.f);
 #endif
-                            }  
-                        } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE || chn_settings->synthesis_method == FAS_FM) {
+                            } 
+                        } else if (chn_settings->synthesis_method == FAS_FM) {
+                            for (j = s; j < e; j += 1) {
+                                struct note *n = &curr_notes[j];
+
+                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+                                    osc->fp1[k][0] = 0.0f;
+                                    osc->fp1[k][1] = 0.0f;
+                                }
+                            }
+                        } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE) {
                             for (j = s; j < e; j += 1) {
                                 struct note *n = &curr_notes[j];
 

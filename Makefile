@@ -77,6 +77,9 @@ release-static-osc-o:
 release-static-sp-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) ${soundpipe_libs} -DPARTIAL_FX -DWITH_SOUNDPIPE -o $(output)
 
+release-static-sp-faust-o:
+	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} ${faust_libs}  `llvm-config --libs --ldflags` $(static_libs) ${soundpipe_libs} -DPARTIAL_FX -DWITH_SOUNDPIPE -DWITH_FAUST -o $(output)
+
 release-static-sp-mc-o:
 	$(compiler) $(source) $(include_path) ${release_options} ${adv_optimization_options} ${standard_options} $(static_libs) ${soundpipe_libs} -DMAGIC_CIRCLE -DPARTIAL_FX -DWITH_SOUNDPIPE -o $(output)
 

@@ -85,11 +85,6 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
                 _note->previous_volume_l = pvl;
                 _note->volume_l = volume_l;
                 _note->diff_volume_l = volume_l - pvl;
-
-//note_buffer[note_osc_index].mag[note_i] = abs(r * inv_full_brightness);//20. * log10();
-//                note_buffer[note_osc_index].frq[note_i] = oscs[y].freq;
-
-//                note_i++;
             } else {
                 if (pl > 0) {
                     pvl = pl * inv_full_brightness;
@@ -115,8 +110,6 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
                 _note->previous_volume_r = pvr;
                 _note->volume_r = volume_r;
                 _note->diff_volume_r = volume_r - pvr;
-
-                //note_buffer[note_osc_index].frq[osc_count] = oscs[y].freq;
             } else {
                 if (pr > 0) {
                     pvr = pr * inv_full_brightness;

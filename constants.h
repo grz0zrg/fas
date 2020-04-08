@@ -24,13 +24,18 @@
     #define FRAME_DATA 1
     #define GAIN_CHANGE 2
     #define CHN_SETTINGS 3
-    #define ACTION 4
+    #define CHN_FX_SETTINGS 4
+    #define ACTION 5
 
     // actions
     #define FAS_ACTION_SAMPLES_RELOAD 0
     #define FAS_ACTION_NOTE_RESET 1
     #define FAS_ACTION_FAUST_GENS 2
     #define FAS_ACTION_FAUST_EFFS 3
+    #define FAS_ACTION_PAUSE 4
+    #define FAS_ACTION_RESUME 5
+    #define FAS_ACTION_WAVES_RELOAD 6
+    #define FAS_ACTION_IMPULSES_RELOAD 7
 
     #define FAS_STFT_HOP_SIZE 1024
 
@@ -45,7 +50,7 @@
     #define FAS_RX_BUFFER_SIZE 8192
     #define FAS_REALTIME 0
     #define FAS_FRAMES_QUEUE_SIZE 7
-    #define FAS_COMMANDS_QUEUE_SIZE 16
+    #define FAS_COMMANDS_QUEUE_SIZE 512
     #define FAS_OUTPUT_CHANNELS 2
     #define FAS_INPUT_CHANNELS 0
     #define FAS_SSL 0
@@ -63,19 +68,25 @@
     #define FAS_FREQ_LIMIT_FACTOR 0.75 // ~36.0kHz for 96kHz sampling rate
 
     #define FAS_MAX_FX_SLOTS 24
-    #define FAS_MAX_FX_PARAMETERS 11
+    #define FAS_MAX_FX_PARAMETERS 13
 
     //#define FAS_USE_CUBIC_INTERP
     #define POLYBLEP
 
-    // audio thread state&commands
+    // synth commands
+    #define FAS_CMD_GAIN_CHANGE 0
+    #define FAS_CMD_CHN_SETTINGS 1
+    #define FAS_CMD_NOTE_RESET 2
+    #define FAS_CMD_CHN_FX_SETTINGS 3
+
+    // audio thread states
     #define FAS_AUDIO_PLAY 0
     #define FAS_AUDIO_PAUSE 1
 
     // audio thread commands
     #define FAS_AUDIO_DO_PAUSE 10
     #define FAS_AUDIO_DO_PLAY 11
-    #define FAS_AUDIO_DO_WAIT_SETTINGS 12
+    #define FAS_AUDIO_DO_FLUSH_THEN_PAUSE 12
 
     // synthesis method
     #define FAS_ADDITIVE 0

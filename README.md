@@ -45,7 +45,7 @@ Table of Contents
 
 ## About
 
-Fragment Audio Server (FAS) is a pixels-based graphical audio synthesizer implemented as a WebSocket server with the C language.
+Fragment Audio Server (FAS) is a high performance pixels-based graphical audio synthesizer implemented as a WebSocket server with the C language.
 
 One can see this as a limitless bank of generators / filters.
 
@@ -93,15 +93,15 @@ Unlike other synthesizers, the notes data format understood by FAS is entirely p
 
 The RGBA data collected is 1px wide with an user-defined height, the height is mapped to frequencies with an user-defined logarithmic frequency map.
 
-FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, wavetable synthesis, by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM) or physical modelling.
+FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, wavetable synthesis, by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM), physical modelling and many other means.
 
-It can be said that FAS/Fragment is a generic image-synth (also called graphical audio synthesizer): any RGBA images can be used to produce an infinite variety of sounds by streaming bitmap data to FAS.
+It can be said that FAS/Fragment is a generic image-synth (also called graphical audio synthesizer): any RGBA images may be used to produce an infinite variety of sounds by streaming bitmap data to FAS.
 
 Red and Green value generally map to amplitude envelope while Blue and Alpha value map to specific parameters of the chosen synthesis type.
 
 With a light wrapper its architecture can also be used as a generic synth right out of the box; just deal with RGBA notes.
 
-As a fun side note FAS can be considered as a basis to build a music workstation / DAW since its architecture is similar to thoses.
+As a fun side note FAS can be considered as a basis to build a [DAW](https://en.wikipedia.org/wiki/Digital_audio_workstation) due to architecture similarities. However it lack support for some concepts such as 'instruments'.
 
 ### Specifications
 
@@ -111,7 +111,7 @@ Here is some architectural specifications as if it were made by a synth. manufac
 * multitimbral; unlimited number of timbres / parts with **dedicated stereo output**
 * distributed architecture; more than one instance can run on same machine / a network with independent processing of voice / part, example : [FAS relay](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
 * driven by pixels data over the wire; this synth has about no limitations and is typically used with a client that implement higher order features like MIDI / OSC such as [Fragment client](https://github.com/grz0zrg/fsynth)
-* multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation, spectral, bank of filters, phase distorsion
+* multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation, spectral, filters bank, phase distorsion...
 * allow to extend the sound engine at runtime with user-defined generators and effects written with [Faust](https://faust.grame.fr/) DSP specification language  
 * high quality stereophonic audio with low latency
 * fully microtonal / spectral
@@ -136,7 +136,7 @@ When compiled with `PARTIAL_FX` defined there is a fx slot available **per parti
 * bitcrush (Bitdepth / Sampling rate : B component [0, 1] / A component [0, 1])
 * phase distorsion (Amount : A component [0, 1] where 0.5 is origin)
 * tanh waveshaping (Wave 1 / Wave 2 : B component [0, 1] / A component [0, 1))
-* signal foldover (A component [0, 3])
+* signal foldover (A component [0, ...))
 * noise (B added white noise factor to sine wave phase, maximum defined by command-line parameter)
 * convolver (A component integer part; Note : require huge amount of processing power with even low amount of partials / long impulse)
 
@@ -504,10 +504,10 @@ Those can be usefull to detect note-on events thus acting as trigger (when both 
 
 Channel data :
 
-* `fs_p0` : parameter 0
-* `fs_p1` : parameter 1
-* `fs_p2` : parameter 2
-* `fs_p3` : parameter 3
+* `fs_p0` : parameter 1
+* `fs_p1` : parameter 2
+* `fs_p2` : parameter 3
+* `fs_p3` : parameter 4
 
 Here is simple example of a stereo Faust generator which add a bandlimited pulse wave oscillator to the bank with controllable L/R duty cycle through BLUE and ALPHA channels :
 
@@ -602,9 +602,9 @@ FAS support real-time rendering of the pixels data, the pixels data is compresse
 
 ### Future
 
-The ongoing development is to improve analysis / synthesis algorithms, add support for offline rendering, add support for standalone usages and add more Faust DSP.
+The ongoing development is to improve analysis / synthesis algorithms, add support for offline rendering, add support for standalone usages and improve Faust integration / add more Faust *.dsp.
 
-There is also minor architectural work to do, some cleanup, using free list for more data structures and better handling of channel settings.
+There is also minor architectural / cleanup work to do.
 
 ### OSC
 
@@ -614,21 +614,40 @@ With OSC you can basically do whatever you want with the pixels data, feeding Su
 
 ## Technical implementation
 
-The audio callback contain its own synth. data structure, the notes data structure is filled with data from a lock-free ring buffer which ensure thread safety and good performances.
+The architecture is done so there is **zero memory allocation** done in the audio callback, there is also **zero locks mechanism**, all communications between main thread and audio callback is done using a mixture of lock-free algorithms with freelist to avoid memory allocations.
 
-A free list data structure is used for efficient notes data reuse; the program pre-allocate a pool of notes buffer.
+Only one memory allocation is done in real-time in the network thread to assemble fragmented packets, some non-realtime actions such as samples reload and global synth settings change like bank height / remap do memory allocation.
 
-Sound synthesis is processed with minimal computation / branching, values which depend on note parameters change are pre-computed per-channel / oscillator in a dedicated processing block outside synthesis block, notes change and associated parameters happen at sample accurate note time level defined by FPS parameter
+The audio thread has two state *pause* and *play* (with smooth transition) which are handled through an atomic type
+It also has a transitionary flush state which make sure no data is being used on the audio thread and pause it.
 
-There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, etc.), unlike main notes data there is some call to free() in the audio callback and allocation in the network thread when updated, this has room for improvements but is usually ok since this data does not change once set, this may be enhanced with a memory pool in the future.
+The audio thread contain its own synth. data structure defined globally as `curr_synth`, when the audio thread is paused `curr_synth` can be accessed anywhere otherwise the audio thread has an exclusive access.
 
-The architecture is done so there is **no memory allocation** done in the audio callback for all realtime critical parts and very few done in the network thread (mainly for packets construction) as long as there is no changes in synth. parameters (bank height)
+RGBA frames coming from the network are converted into a notes list (an array) which just tell which oscillator from the oscillator bank will be enabled during the *note time*.
+Once processed the notes list is made available to the audio thread by pushing it into a lock-free ring buffer which ensure thread safety / speed.
+
+A free list data structure is used for efficient notes data reuse; the program use a pre-allocated pool of notes buffer.
+
+The audio thread make the decision to consume notes data at audio sample level based on a computed *note time* which is defined by the FPS parameter, once a note is consumed it is pushed back to the notes pool.
+
+When notes data are not available the audio thread will continue with the latest one during the next *note time*, this ensure smooth audio but may introduce some delay.
+When notes data are not available from some amount of time defined by the max drop parameter the audio will simply stop abruptely, this may indicate performance issues.
+
+Most audio output critical changes use linear interpolation to ensure smooth audio in all conditions. A linear interpolation smooth factor can be applied to sharpen the transitions.
+
+Sound synthesis is processed with minimal computation / branching, values which depend on note parameters change are pre-computed per-channel / oscillator in a dedicated processing block outside synthesis block, notes change and associated parameters happen at sample accurate note time level defined by the FPS parameter.
+
+There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, etc.) which is used to pass data from the network thread to the audio callback.
+
+Some non-critical real-time change command relative to synthesis / effects parameters (like spectral window size) will trigger a short pause due to allocation being performed in the network thread while the audio thread is paused.
+
+There is a stream watcher thread which just check the audio callback state and inform whenever it is dropped. (due to xrun etc.)
 
 Additive synthesis is wavetable-based, a [magic circle](https://github.com/ccrma/chugins/blob/master/MagicSine/MagicSine.cpp) based sine generator is also available when `MAGIC_SINE` is enabled, this may be faster on some platforms.
 
 Spectral synthesis use [afSTFT](https://github.com/jvilkamo/afSTFT) library which is bundled
 
-Real-time resampling is done with a simple linear method, granular synthesis can also be resampled by using cubic interpolation method (uncomment the line in `constants.h`; slower than linear).
+Real-time resampling is done with a linear method, granular synthesis can also be resampled by using cubic interpolation method (uncomment the line in `constants.h`; slower than linear).
 
 All synthesis algorithms (minus [PolyBLEP](http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/) and Soundpipe provided) are customs.
 
@@ -640,7 +659,7 @@ To communicate with FAS with a custom client, there is only five type of packets
 
 **Note** : synth settings packet must be sent before sending any frames, otherwise the received frames are ignored.
 
-Synth settings, packet identifier 0 :
+Synth settings, packet identifier 0 (audio may be paused for a short amount of time):
 ```c
 struct _synth_settings {
     unsigned int h; // image/slice height
@@ -650,7 +669,7 @@ struct _synth_settings {
 };
 ```
 
-Frame data, packet identifier 1 :
+Frame data, packet identifier 1 (real-time) :
 ```c
 struct _frame_data {
     unsigned int channels; // channels count
@@ -661,57 +680,73 @@ struct _frame_data {
 };
 ```
 
-Synth gain, packet identifier 2 :
+Synth gain, packet identifier 2 (real-time) :
 ```c
 struct _synth_gain {
     double gain_lr;
 };
 ```
 
-Synth channels settings, packet identifier 3 :
-
-`unsigned int channels_count;` followed by
+Synth channels settings, packet identifier 3 (real-time) :
 
 ```c
-struct _synth_chn_settings {
-    unsigned int synthesis_method; // mapping can be found in constants.h
-    unsigned int muted; // wether this channel is muted or not, a muted channel will not output any sounds but is still available as an input, this is useful for methods that use an input channel as source
-    // generic integer parameter
-    // Granular : granular envelope type for this channel (there is 13 types of envelopes)
-    // Subtractive : filter type  (require Soundpipe)
-    // Physical modeling : Physical model type (require Soundpipe)
-    // Spectral : input channel
-    int p0; 
-    // generic floating-point parameters
-    // Granular : grain duration (min. bound)
-    // Spectral : window size
-    double p1;
-    // Granular
-    // grain duration (max. bound)
-    // Spectral : mode
-    double p2;
-    // Granular
-    // grain spread
-    double p3;
+struct _cmd_chn_settings {
+    unsigned int chn; // target channel
+    
+    // target parameter
+    //  0 : synthesis method, mapping can be found in constants.h (FAS_ADDITIVE etc.)
+    //  1 : wether this channel is muted or not, a muted channel will not output any sounds but is still available as an input, this is useful for methods that use an input channel as source
+    //  2 : parameter
+    //        Granular : granular envelope type for this channel (there is 13 types of envelopes)
+    //        Subtractive : filter type  (require Soundpipe)
+    //        Physical modeling : Physical model type (require Soundpipe)
+    //        Spectral : input channel
+    //        Faust : Generator ID
+    //  3 : parameter
+    //        Granular : grain duration (min. bound)
+    //        Spectral : window size
+    //        Faust : fs_p0
+    //  4 : parameter
+    //        Granular : grain spread (max. bound)
+    //        Spectral : mode
+    //        Faust : fs_p1
+    //  5 : parameter
+    //        Granular : grain spread
+    //        Faust : fs_p2
+    //  6 : parameter
+    //        Faust : fs_p3
+    unsigned int target;
 
-    // contain effects settings
-    struct _synth_fx_settings fx[FAS_MAX_FX_SLOTS];
+    double value; // target value
 };
 ```
 
-*for every channels.*
+Synth channels fx settings, packet identifier 4 (real-time) :
 
-Server actions, packet identifier 4 :
+```c
+struct _cmd_chn_fx_settings {
+    unsigned int chn; // target channel
+    unsigned int slot; // target fx slot
+    unsigned int target; // target parameter
+    double value; // target value
+};
+```
+
+Note : Some effect parameters may actually need an effect initialization which will pause audio for a short amount of time. Example : Convolution impulse index; delay max del; comb filter loop time
+
+Server actions, packet identifier 5 (audio may be paused for a short amount of time on any reload actions otherwise it is real-time):
 
 struct _synth_action {
     // 0 : reload samples in the grains folder
     // 1 : note re-trigger (to reinitialize oscillators state on note-off, mostly used for Karplus-Strong)
     // 2 : reload Faust generators
     // 3 : reload Faust effects
+    // 4 : pause audio
+    // 5 : resume audio
+    // 6 : reload waves
+    // 7 : reload impulses
     unsigned char type;
 };
-
-- Server `reload` actions should be followed by a synth settings change to pre-compute data.
 
 ## Build
 
@@ -879,11 +914,11 @@ A wxWidget user-friendly launcher is also available [here](https://github.com/gr
 Usage: fas [list_of_parameters]
  * --i **print audio device infos**
  * --sample_rate 44100
- * --noise_amount 0.1 **the maximum amount of band-limited noise**
+ * --noise_amount 0.1 **the maximum amount of sinewaves band-limited noise (wavetables only)**
  * --frames 512 **audio buffer size**
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
  * --fps 60 **data stream rate, client monitor Hz usually, you can experiment with this but this may have strange effects**
- * --smooth_factor 8.0 **this is the samples interpolation factor between frames**
+ * --smooth_factor 8.0 **this is the samples interpolation factor between frames, a high value will sharpen sounds attack / transitions (just like if the stream rate / FPS was higher), a low value will smooth it (audio will become muddy)**
  * --ssl 0
  * --deflate 0 **data compression (add additional processing)**
  * --max_drop 60 **this allow smooth audio in the case of frames drop, allow 60 frames drop by default which equal to approximately 1 sec.**
@@ -905,7 +940,7 @@ Usage: fas [list_of_parameters]
  * --input_channels 2 **stereo pair**
  * --alsa_realtime_scheduling 0 **Linux only**
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio might be delayed**
- * --commands_queue_size 16 **should be a positive integer power of 2**
+ * --commands_queue_size 512 **should be a positive integer power of 2**
  * --stream_load_send_delay 2 **FAS will send the stream CPU load every two seconds**
  * --samplerate_conv_type -1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time, this settings can be ignored most of the time since FAS do real-time resampling, -1 skip the resampling step**
 

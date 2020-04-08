@@ -89,6 +89,12 @@
         struct note *data;
     };
 
+    struct _freelist_synth_commands {
+        struct lfds720_freelist_n_element fe;
+
+        struct _synth_command *data;
+    };
+
     char* fas_default_grains_path = "./grains/";
     char* fas_install_default_grains_path = "/usr/local/share/fragment/grains/";
 
@@ -110,6 +116,7 @@
     unsigned int fas_wavetable_size = FAS_WAVETABLE_SIZE;
     unsigned int fas_wavetable_size_m1 = FAS_WAVETABLE_SIZE - 1;
     #endif
+    unsigned int fas_noise_wavetable_size = 65536; // noise wavetable size shouldn't change because its lookup wrap is optimized (using a 16-bit index)
     unsigned int fas_audio = FAS_AUDIO;
     unsigned int fas_fps = FAS_FPS;
     unsigned int fas_port = FAS_PORT;
@@ -164,10 +171,16 @@
     double note_time_samples;
     double lerp_t_step;
 
+    double last_gain_lr = 0.0;
+
     float *last_sample_l = NULL;
     float *last_sample_r = NULL;
 
-    atomic_int audio_thread_state = FAS_AUDIO_PLAY;
+    float *curr_chn_gain = NULL;
+    float *last_chn_gain = NULL;
+    int *chn_muted_state = NULL;
+
+    atomic_int audio_thread_state = FAS_AUDIO_PAUSE;
 
     time_t stream_load_begin;
 
@@ -180,7 +193,6 @@
     struct sample *samples = NULL;
     unsigned int samples_count = 0;
     unsigned int samples_count_m1 = 0;
-    unsigned int prev_samples_count = 0;
 
     struct sample *waves = NULL;
     unsigned int waves_count = 0;
@@ -205,9 +217,11 @@
 
     struct lfds720_ringbuffer_n_state rs; // frames related data structure
     struct lfds720_queue_bss_state synth_commands_queue_state;
+    struct lfds720_freelist_n_state freelist_commands;
     struct lfds720_freelist_n_state freelist_frames;
 
     struct _freelist_frames_data *ffd;
+    struct _freelist_synth_commands *fsc;
     //
 
     struct note *curr_notes = NULL;
@@ -230,6 +244,172 @@
         freelist_frames_data = LFDS720_FREELIST_N_GET_VALUE_FROM_ELEMENT(*fe);
 
         free(freelist_frames_data->data);
+    }
+
+    void flc_element_cleanup_callback(struct lfds720_freelist_n_state *fs, struct lfds720_freelist_n_element *fe) {
+        struct _freelist_synth_commands *freelist_synth_command;
+        freelist_synth_command = LFDS720_FREELIST_N_GET_VALUE_FROM_ELEMENT(*fe);
+
+        free(freelist_synth_command->data);
+    }
+
+    void karplusTrigger(unsigned int chn, struct oscillator *osc, struct note *n) {
+        unsigned int d = 0;
+
+        if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+            memset(osc->fp1[chn], 0, sizeof(double) * 4);
+            memset(osc->fp2[chn], 0, sizeof(double) * 4);
+            memset(osc->fp3[chn], 0, sizeof(double) * 4);
+            memset(osc->fp4[chn], 0, sizeof(double) * 4);
+        }
+
+        osc->pvalue[chn] = 0.0f;
+        osc->fphase[chn] = 0.0f;
+
+        // fill with noise & filter
+        for (d = 0; d < osc->buffer_len; d += 1) {
+            unsigned int bindex = chn * osc->buffer_len + d;
+#ifdef WITH_SOUNDPIPE
+            float si = 0.f;
+            float so = 0.f;
+            sp_noise_compute(sp, (sp_noise *)osc->sp_gens[chn][SP_WHITE_NOISE_GENERATOR], NULL, &si);
+
+            sp_streson *streson = (sp_streson *)osc->sp_filters[chn][SP_STRES_FILTER_L];
+            streson->freq = osc->freq * n->cutoff;
+            streson->fdbgain = (n->res > 1.f) ? 1.f : n->res;
+            sp_streson_compute(sp, streson, &si, &so);
+
+            osc->buffer[bindex] = so;
+#else
+            osc->buffer[bindex] = fas_white_noise_table[d % fas_noise_wavetable_size];
+            osc->buffer[bindex] = huovilainen_moog(osc->buffer[bindex], n->cutoff, n->res, osc->fp1[chn], osc->fp2[chn], osc->fp3[chn], 2);
+#endif
+        }
+    }
+
+    void freeChannelState(struct _synth_chn_states *state) {
+        afSTFTfree(state->afSTFT_handle);
+
+        for (int j = 0; j < 2; j += 1) {
+            free(state->in[j]);
+            free(state->out[j]);
+
+            free(state->stft_result[j].re);
+            free(state->stft_result[j].im);
+
+            free(state->stft_temp[j].re);
+            free(state->stft_temp[j].im);
+        }
+    }
+
+    void createChannelState(struct _synth_chn_states *state, unsigned int hop_size) {
+        if (hop_size > 1024) {
+            return;
+        }
+        
+        if (state->afSTFT_handle) {
+            freeChannelState(state);
+        }
+
+        afSTFTinit(&state->afSTFT_handle, hop_size, 2, 2, 0, 0);
+
+        for (int j = 0; j < 2; j += 1) {
+            state->in[j] = (float *)calloc(hop_size, sizeof(float));
+            state->out[j] = (float *)calloc(hop_size, sizeof(float));
+
+            state->stft_result[j].re = (float *)calloc((hop_size + 1), sizeof(float));
+            state->stft_result[j].im = (float *)calloc((hop_size + 1), sizeof(float));
+
+            state->stft_temp[j].re = (float *)calloc((hop_size + 1), sizeof(float));
+            state->stft_temp[j].im = (float *)calloc((hop_size + 1), sizeof(float));
+        }
+
+        state->hop_size = hop_size;
+    }
+
+    struct _synth_chn_states *createChannelsState(unsigned int channels) {
+        struct _synth_chn_states *chn_states = (struct _synth_chn_states*)calloc(channels, sizeof(struct _synth_chn_states));
+
+        for (int i = 0; i < channels; i += 1) {
+            struct _synth_chn_states *state = &chn_states[i];
+
+            createChannelState(state, FAS_STFT_HOP_SIZE);
+        }
+
+        return chn_states;
+    }
+
+    void freeChannelsState(struct _synth_chn_states *chn_states, unsigned int channels) {
+        if (!chn_states) {
+            return;
+        }
+
+        for (int i = 0; i < channels; i += 1) {
+            struct _synth_chn_states *state = &chn_states[i];
+
+            freeChannelState(state);
+        }
+
+        free(chn_states);
+    }
+
+    void freeSynth(struct _synth **s) {
+        struct _synth *synth = *s;
+        if (synth) {
+            if (synth->oscillators && synth->settings) {
+                synth->oscillators = freeOscillatorsBank(&synth->oscillators, synth->settings->h, frame_data_count);
+            }
+
+            if (synth->grains) {
+                freeGrains(&synth->grains, samples_count, frame_data_count, synth->settings->h, fas_granular_max_density);
+            }
+
+            if (synth->chn_settings) {
+                free(synth->chn_settings);
+            }
+
+            if (synth->settings) {
+                free(synth->settings);
+            }
+
+            if (synth->gain) {
+                free(synth->gain);
+            }
+
+            free(synth);
+        }
+    }
+
+    void clearQueues() {
+        void *key;
+        while (lfds720_ringbuffer_n_read(&rs, &key, NULL) == 1) {
+            struct _freelist_frames_data *freelist_frames_data = (struct _freelist_frames_data *)key;
+            
+            LFDS720_FREELIST_N_SET_VALUE_IN_ELEMENT(freelist_frames_data->fe, freelist_frames_data);
+            lfds720_freelist_n_threadsafe_push(&freelist_frames, NULL, &freelist_frames_data->fe);
+        }
+
+        void *queue_synth_void;
+        while(lfds720_queue_bss_dequeue(&synth_commands_queue_state, NULL, &queue_synth_void)) {
+            struct _freelist_synth_commands *freelist_synth_command = (struct _freelist_synth_commands *)queue_synth_void;
+
+            LFDS720_FREELIST_N_SET_VALUE_IN_ELEMENT(freelist_synth_command->fe, freelist_synth_command);
+            lfds720_freelist_n_threadsafe_push(&freelist_commands, NULL, &freelist_synth_command->fe);
+        }
+    }
+
+    // initialize chn settings (no fx, bypass off, void synthesis type)
+    void initializeSynthChnSettings() {
+        unsigned int i = 0, j = 0;
+        
+        for (i = 0; i < frame_data_count; i += 1) {   
+            for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {  
+                curr_synth.chn_settings[i].fx[j].fx_id = -1;
+                curr_synth.chn_settings[i].fx[j].bypass = 0;
+            }
+            curr_synth.chn_settings[i].synthesis_method = FAS_VOID;
+            curr_synth.chn_settings[i].muted = 0;
+        }
     }
 
     #define _MAX(a,b) ((a) > (b) ? a : b)

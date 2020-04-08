@@ -476,15 +476,15 @@ void free_samples(struct sample **s, unsigned int samples_count) {
 
     struct sample *samples = *s;
 
-    for (i = 0; i < samples_count; i++) {
+    for (i = 0; i < samples_count; i += 1) {
         struct sample *smp = &samples[i];
+
+        free(smp->data_l);
+        free(smp->data_r);
 
 #ifdef WITH_SOUNDPIPE
         sp_ftbl_destroy(&smp->ftbl);
 #endif
-
-        free(smp->data_l);
-        free(smp->data_r);
     }
     free(samples);
 }

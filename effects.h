@@ -44,7 +44,6 @@
         sp_tbvcf *tbvcf[FAS_MAX_FX_SLOTS * 2];
 
         sp_ftbl *ft_void;
-
 #endif
 
         float dry[FAS_MAX_FX_SLOTS];
@@ -59,16 +58,63 @@
 #ifdef WITH_SOUNDPIPE
         sp_data *spd,
 #endif
-#ifdef WITH_FAUST
-        struct _faust_factories *faust_factories,
-#endif
         struct _synth_fx **fx, unsigned int frame_data_count, unsigned int sample_rate);
-    void updateEffects(
+
+    void updateEffectParameter(
 #ifdef WITH_SOUNDPIPE
-        sp_data *spd,
+        sp_data *sp,
+#endif 
+        struct _synth_fx *fxs,
+        struct _synth_chn_settings *chns,
+        unsigned int slot,
+        unsigned int target,
+        double value);
+
+    void resetConvolutions(
+#ifdef WITH_SOUNDPIPE
+        sp_data *sp,
 #endif
-        struct _synth_fx *fxs, struct _synth_chn_settings *chns, struct sample *impulses, unsigned int impulses_count);
+        struct _synth_fx *fxs,
+        struct _synth_chn_settings *chns,
+        struct sample *impulses,
+        unsigned int impulses_count);
+
+#ifdef WITH_SOUNDPIPE
+    void resetConvolution(
+        sp_data *sp,
+        struct _synth_fx *fxs,
+        struct sample *impulses,
+        unsigned int impulses_count,
+        unsigned int slot,
+        double v1,
+        double v2
+    );
+
+    void resetDelays(
+        sp_data *sp,
+        struct _synth_fx *fxs,
+        unsigned int slot,
+        unsigned int type,
+        double v1,
+        double v2,
+        double v3,
+        double v4
+    );
+
+    void resetComb(
+        sp_data *sp,
+        struct _synth_fx *fxs,
+        unsigned int slot,
+        double v1,
+        double v2
+    );
+#endif
 
     void freeEffects(struct _synth_fx **fx, unsigned int frame_data_count);
+
+#ifdef WITH_FAUST
+    void createFaustEffects(struct _faust_factories *faust_factories, struct _synth_fx **fxs, unsigned int frame_data_count, unsigned int sample_rate);
+    void freeFaustEffects(struct _synth_fx **fxs, unsigned int frame_data_count);
+#endif
 
 #endif

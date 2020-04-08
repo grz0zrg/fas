@@ -1,24 +1,19 @@
 #include "effects.h"
 
-void createEffects(
-#ifdef WITH_SOUNDPIPE
-    sp_data *spd,
-#endif
 #ifdef WITH_FAUST
+void createFaustEffects(
     struct _faust_factories *faust_factories,
-#endif
     struct _synth_fx **fxs,
     unsigned int frame_data_count,
-    unsigned int sample_rate
-) {
+    unsigned int sample_rate) {
+    if (fxs == NULL) {
+        return;
+    }
+
     int i = 0, j = 0, k = 0;
-
     for (i = 0; i < frame_data_count; i += 1) {
-        fxs[i] = (struct _synth_fx *)malloc(sizeof(struct _synth_fx));
-
         struct _synth_fx *fx = fxs[i];
-
-#ifdef WITH_FAUST
+        
         fx->faust_effs_len = faust_factories->len;
 
         for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {
@@ -68,7 +63,24 @@ void createEffects(
                 fdsp->dsp = dsp;
             }
         }
+    }
+}
 #endif
+
+void createEffects(
+#ifdef WITH_SOUNDPIPE
+    sp_data *spd,
+#endif
+    struct _synth_fx **fxs,
+    unsigned int frame_data_count,
+    unsigned int sample_rate
+) {
+    int i = 0, j = 0, k = 0;
+
+    for (i = 0; i < frame_data_count; i += 1) {
+        fxs[i] = (struct _synth_fx *)calloc(1, sizeof(struct _synth_fx));
+
+        struct _synth_fx *fx = fxs[i];
 
 #ifdef WITH_SOUNDPIPE
         sp_ftbl_create(spd, (sp_ftbl **)&fx->ft_void, 1);
@@ -156,8 +168,461 @@ void createEffects(
     }
 }
 
-// initialize / update effects which depend on given parameters
-void updateEffects(
+void updateEffectParameter(
+#ifdef WITH_SOUNDPIPE
+    sp_data *sp,
+#endif 
+    struct _synth_fx *fxs,
+    struct _synth_chn_settings *chns,
+    unsigned int slot,
+    unsigned int target,
+    double value) {
+    unsigned int k = 0;
+
+    struct _synth_fx_settings *fx = &chns->fx[slot];
+
+#ifdef WITH_SOUNDPIPE
+    if (fx->fx_id == FX_CONV) {
+        if (target == 4) {
+            fxs->dry[slot] = value;
+        } else if (target == 5) {
+            fxs->wet[slot] = value;
+        }
+    } else if (fx->fx_id == FX_ZITAREV) {
+        sp_zitarev *zita = (sp_zitarev *)fxs->zitarev[slot];
+
+        if (target == 2) {
+            *zita->in_delay = value;
+
+            return;
+        } else if (target == 3) {
+            *zita->lf_x = value;
+
+            return;
+        } else if (target == 4) {
+            *zita->rt60_low = value;
+
+            return;
+        } else if (target == 5) {
+            *zita->rt60_mid = value;
+            
+            return;
+        } else if (target == 6) {
+            *zita->hf_damping = value;
+
+            return;
+        } else if (target == 7) {
+            *zita->eq1_freq = value;
+
+            return;
+        } else if (target == 8) {
+            *zita->eq1_level = value;
+            
+            return;
+        } else if (target == 9) {
+            *zita->eq2_freq = value;
+
+            return;
+        } else if (target == 10) {
+            *zita->eq2_level = value;
+
+            return;
+        } else if (target == 11) {
+            *zita->mix = value;
+            
+            return;
+        } else if (target == 12) {
+            *zita->level = value;
+
+            return;
+        }
+    } else if (fx->fx_id == FX_PHASER) {
+        sp_phaser *phaser = (sp_phaser *)fxs->phaser[slot];
+
+        if (target == 2) {
+            *phaser->MaxNotch1Freq = value;
+
+            return;
+        } else if (target == 3) {
+            *phaser->MinNotch1Freq = value;
+
+            return;
+        } else if (target == 4) {
+            *phaser->Notch_width = value;
+
+            return;
+        } else if (target == 5) {
+            *phaser->NotchFreq = value;
+
+            return;
+        } else if (target == 6) {
+            *phaser->VibratoMode = value;
+
+            return;
+        } else if (target == 7) {
+            *phaser->depth = value;
+            
+            return;
+        } else if (target == 8) {
+            *phaser->feedback_gain = value;
+
+            return;
+        } else if (target == 9) {
+            *phaser->invert = value;
+
+            return;
+        } else if (target == 10) {
+            *phaser->level = value;
+
+            return;
+        } else if (target == 11) {
+            *phaser->lfobpm = value;
+
+            return;
+        }
+    } else if (fx->fx_id == FX_SCREV) {
+        sp_revsc *revsc = (sp_revsc *)fxs->revsc[slot];
+
+        if (target == 2) {
+            revsc->feedback = value;
+
+            return;
+        } else if (target == 3) {
+            revsc->lpfreq = fmin(value, sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
+
+            return;
+        }
+    }
+#endif
+#ifdef WITH_FAUST
+    if (fx->fx_id == FX_FAUST) {
+        struct _fas_faust_dsp *fdsp = fxs->faust_effs[slot][(unsigned int)fx->fp[0]];
+
+        struct _fas_faust_ui_control *tmp;
+        if (target == 3) {
+            tmp = getFaustControl(fdsp->controls, "fs_p0");
+            if (tmp) { *tmp->zone = value; }
+
+            return;
+        } else if (target == 4) {
+            tmp = getFaustControl(fdsp->controls, "fs_p1");
+            if (tmp) { *tmp->zone = value; }
+
+            return;
+        } else if (target == 5) {
+            tmp = getFaustControl(fdsp->controls, "fs_p2");
+            if (tmp) { *tmp->zone = value; }
+
+            return;
+        } else if (target == 6) {
+            tmp = getFaustControl(fdsp->controls, "fs_p3");
+            if (tmp) { *tmp->zone = value; }
+
+            return;
+        } else if (target == 7) {
+            tmp = getFaustControl(fdsp->controls, "fs_p4");
+            if (tmp) { *tmp->zone = value; }
+
+            return;
+        } else if (target == 8) {
+            tmp = getFaustControl(fdsp->controls, "fs_p5");
+            if (tmp) { *tmp->zone = value; }
+
+            return;
+        } else if (target == 9) {
+            tmp = getFaustControl(fdsp->controls, "fs_p6");
+            if (tmp) { *tmp->zone = value; }
+
+            return;
+        } else if (target == 10) {
+            tmp = getFaustControl(fdsp->controls, "fs_p7");
+            if (tmp) { *tmp->zone = value; }
+
+            return;
+        } else if (target == 11) {
+            tmp = getFaustControl(fdsp->controls, "fs_p8");
+            if (tmp) { *tmp->zone = value; }
+
+            return;
+        } else if (target == 12) {
+            tmp = getFaustControl(fdsp->controls, "fs_p9");
+            if (tmp) { *tmp->zone = value; }
+
+            return;
+        }
+    }
+#endif
+
+    unsigned int slot2 = slot * 2;
+    // stereo parameters
+    for (k = 0; k < 2; k += 1) {
+        unsigned int slot_index = slot2 + k;
+#ifdef WITH_SOUNDPIPE
+        if (fx->fx_id == FX_VDELAY) {
+            sp_vdelay *vdelay = (sp_vdelay *)fxs->vdelay[slot_index];
+            
+            if (target == 3) {
+                vdelay->del = value;
+            }
+        } else if (fx->fx_id == FX_SMOOTH_DELAY) {
+            sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[slot_index];
+
+            if (target == 4) {
+                sdelay->feedback = value;
+            } else if (target == 5) {
+                sdelay->del = value;
+            }
+        } else if (fx->fx_id == FX_COMB) {
+            sp_comb *comb = (sp_comb *)fxs->comb[slot_index];
+
+            if (target == 3) {
+
+                comb->revtime = value;
+            }
+        } else if (fx->fx_id == FX_AUTOWAH) {
+            sp_autowah *autowah = (sp_autowah *)fxs->autowah[slot_index];
+
+            if (target == 2) {
+                *autowah->level = value;
+            } else if (target == 3) {
+                *autowah->wah = value;
+            } else if (target == 4) {
+                *autowah->mix = value;
+            }
+        } else if (fx->fx_id == FX_BITCRUSH) {
+            sp_bitcrush *bitcrush = (sp_bitcrush *)fxs->bitcrush[slot_index];
+
+            if (target == 2) {
+                bitcrush->bitdepth = value;
+            } else if (target == 3) {
+                bitcrush->srate = value;
+            }
+        } else if (fx->fx_id == FX_DISTORSION) {
+            sp_dist *dist = (sp_dist *)fxs->dist[slot_index];
+
+            if (target == 2) {
+                dist->pregain = value;
+            } else if (target == 3) {
+                dist->postgain = value;
+            } else if (target == 4) {
+                dist->shape1 = value;
+            } else if (target == 5) {
+                dist->shape2 = value;
+            }
+        } else if (fx->fx_id == FX_SATURATOR) {
+            sp_saturator *saturator = (sp_saturator *)fxs->saturator[slot_index];
+
+            if (target == 2) {
+                saturator->drive = value;
+            } else if (target == 3) {
+                saturator->dcoffset = value;
+            }
+        } else if (fx->fx_id == FX_COMPRESSOR) {
+            sp_compressor *compressor = (sp_compressor *)fxs->compressor[slot_index];
+
+            if (target == 2) {
+                *compressor->ratio = value;
+            } else if (target == 3) {
+                *compressor->thresh = value;
+            } else if (target == 4) {
+                *compressor->atk = value;
+            } else if (target == 5) {
+                *compressor->rel = value;
+            }
+        } else if (fx->fx_id == FX_PEAK_LIMITER) {
+            sp_peaklim *peaklimit = (sp_peaklim *)fxs->peaklimit[slot_index];
+
+            if (target == 2) {
+                peaklimit->atk = value;
+            } else if (target == 3) {
+                peaklimit->rel = value;
+            } else if (target == 4) {
+                peaklimit->thresh = value;
+            }
+        } else if (fx->fx_id == FX_CLIP) {
+            sp_clip *clip = (sp_clip *)fxs->clip[slot_index];
+
+            if (target == 2) {
+                clip->lim = value;
+            }
+        } else if (fx->fx_id == FX_B_LOWPASS) {
+            sp_butlp *blp = (sp_butlp *)fxs->butlp[slot_index];
+
+            if (target == 2) {
+                blp->freq = fmin(value, sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
+            }
+        } else if (fx->fx_id == FX_B_HIGHPASS) {
+            sp_buthp *bhp = (sp_buthp *)fxs->buthp[slot_index];
+
+            if (target == 2) {
+                bhp->freq = fmin(value, sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
+            }
+        } else if (fx->fx_id == FX_B_BANDPASS) {
+            sp_butbp *bbp = (sp_butbp *)fxs->butbp[slot_index];
+
+            if (target == 2) {
+                bbp->freq = fmin(value, sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
+            } else if (target == 3) {
+                bbp->bw = value;
+            }
+        } else if (fx->fx_id == FX_B_BANDREJECT) {
+            sp_butbr *bbr = (sp_butbr *)fxs->butbr[slot_index];
+            
+            if (target == 2) {
+                bbr->freq = fmin(value, sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
+            } else if (target == 3) {
+                bbr->bw = value;
+            }
+        } else if (fx->fx_id == FX_PAREQ) {
+            sp_pareq *peq = (sp_pareq *)fxs->pareq[slot_index];
+
+            if (target == 2) {
+                peq->fc = fmin(value, sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
+            } else if (target == 3) {
+                peq->v = value;
+            } else if (target == 4) {
+                peq->q = value;
+            } else if (target == 5) {
+                peq->mode = value;
+            }
+        } else if (fx->fx_id == FX_MOOG_LPF) {
+            sp_moogladder *mooglp = (sp_moogladder *)fxs->mooglp[slot_index];
+            
+            if (target == 2) {
+                mooglp->freq = fmin(value, sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
+            } else if (target == 3) {
+                mooglp->res = value;
+            }
+        } else if (fx->fx_id == FX_DIODE_LPF) {
+            sp_diode *diodelp = (sp_diode *)fxs->diodelp[slot_index];
+
+            if (target == 2) {
+                diodelp->freq = fmin(value, sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
+            } else if (target == 3) {
+                diodelp->res = value;
+            }
+        } else if (fx->fx_id == FX_KORG_LPF) {
+            sp_wpkorg35 *korglp = (sp_wpkorg35 *)fxs->korglp[slot_index];
+
+            if (target == 2) {
+                korglp->cutoff = fmin(value, sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
+            } else if (target == 3) {
+                korglp->res = value;
+            } else if (target == 4) {
+                korglp->saturation = value;
+            }
+        } else if (fx->fx_id == FX_18_LPF) {
+            sp_lpf18 *lpf18 = (sp_lpf18 *)fxs->lpf18[slot_index];
+
+            if (target == 2) {
+                lpf18->cutoff = fmin(value, sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
+            } else if (target == 3) {
+                lpf18->res = value;
+            } else if (target == 4) {
+                lpf18->dist = value;
+            }
+        } else if (fx->fx_id == FX_TBVCF) {
+            sp_tbvcf *tbvcf = (sp_tbvcf *)fxs->tbvcf[slot_index];
+            
+            if (target == 2) {
+                tbvcf->fco = fmin(value, sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
+            } else if (target == 3) {
+                tbvcf->res = value;
+            } else if (target == 4) {
+                tbvcf->dist = value;
+            } else if (target == 5) {
+                tbvcf->asym = value;
+            }
+        }
+#endif
+    }
+}
+
+#ifdef WITH_SOUNDPIPE
+void resetConvolution(
+    sp_data *sp,
+    struct _synth_fx *fxs,
+    struct sample *impulses,
+    unsigned int impulses_count,
+    unsigned int slot,
+    double v1,
+    double v2
+) {
+    sp_ftbl *imp_ftbl = fxs->ft_void;
+    if (v1 < impulses_count) {
+        struct sample *smp = &impulses[(unsigned int)v1];
+        imp_ftbl = smp->ftbl;
+    }
+
+    unsigned int k = 0;
+    for (k = 0; k < 2; k += 1) {
+        unsigned int slot_index = slot * 2 + k;
+
+        sp_conv_destroy((sp_conv **)&fxs->conv[slot_index]);
+        sp_conv_create((sp_conv **)&fxs->conv[slot_index]);
+
+        sp_conv_init(sp, (sp_conv *)fxs->conv[slot_index], imp_ftbl, v2);
+    }
+}
+
+void resetDelays(
+    sp_data *sp,
+    struct _synth_fx *fxs,
+    unsigned int slot,
+    unsigned int type,
+    double v1,
+    double v2,
+    double v3,
+    double v4
+) {
+    unsigned int k = 0;
+    for (k = 0; k < 2; k += 1) {
+        unsigned int slot_index = slot * 2 + k;
+
+        if (type == 0) {
+            sp_vdelay_destroy((sp_vdelay **)&fxs->vdelay[slot_index]);
+            sp_vdelay_create((sp_vdelay **)&fxs->vdelay[slot_index]);
+
+            sp_vdelay_init(sp, (sp_vdelay *)fxs->vdelay[slot_index], v1);
+
+            sp_vdelay *vdelay = (sp_vdelay *)fxs->vdelay[slot_index];
+            vdelay->del = v2;
+        } else if (type == 1) {
+            sp_smoothdelay_destroy((sp_smoothdelay **)&fxs->sdelay[slot_index]);
+            sp_smoothdelay_create((sp_smoothdelay **)&fxs->sdelay[slot_index]);
+
+            sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[slot_index], v1, v2);
+
+            sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[slot_index];
+            sdelay->feedback = v3;
+            sdelay->del = v4;
+        }
+    }
+}
+
+void resetComb(
+    sp_data *sp,
+    struct _synth_fx *fxs,
+    unsigned int slot,
+    double v1,
+    double v2
+) {
+    unsigned int k = 0;
+    for (k = 0; k < 2; k += 1) {
+        unsigned int slot_index = slot * 2 + k;
+
+        sp_comb_destroy((sp_comb **)&fxs->comb[slot_index]);
+        sp_comb_create((sp_comb **)&fxs->comb[slot_index]);
+
+        sp_comb_init(sp, (sp_comb *)fxs->comb[slot_index], v1);
+
+        sp_comb *comb = (sp_comb *)fxs->comb[slot_index];
+        comb->revtime = v2;
+    }
+}
+#endif
+
+void resetConvolutions(
 #ifdef WITH_SOUNDPIPE
     sp_data *sp,
 #endif
@@ -166,110 +631,7 @@ void updateEffects(
     struct sample *impulses,
     unsigned int impulses_count) {
     unsigned int j = 0, f = 0, k = 0;
-
-    for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {
-        struct _synth_fx_settings *fx = &chns->fx[j];
-
-        if (fx->fx_id == -1) {
-            break;
-        }
-
-#ifdef WITH_SOUNDPIPE
-        if (fx->fx_id == FX_CONV) {
-            fxs->dry[j] = fx->fp[2];
-            fxs->wet[j] = fx->fp[3];
-        } else if (fx->fx_id == FX_ZITAREV) {
-            sp_zitarev *zita = (sp_zitarev *)fxs->zitarev[j];
-            *zita->in_delay = fx->fp[0];
-            *zita->lf_x = fx->fp[1];
-            *zita->rt60_low = fx->fp[2];
-            *zita->rt60_mid = fx->fp[3];
-            *zita->hf_damping = fx->fp[4];
-            *zita->eq1_freq = fx->fp[5];
-            *zita->eq1_level = fx->fp[6];
-            *zita->eq2_freq = fx->fp[7];
-            *zita->eq2_level = fx->fp[8];
-            *zita->mix = fx->fp[9];
-            *zita->level = fx->fp[10];
-        } else if (fx->fx_id == FX_PHASER) {
-            sp_phaser *phaser = (sp_phaser *)fxs->phaser[j];
-            *phaser->MaxNotch1Freq = fx->fp[0];
-            *phaser->MinNotch1Freq = fx->fp[1];
-            *phaser->Notch_width = fx->fp[2];
-            *phaser->NotchFreq = fx->fp[3];
-            *phaser->VibratoMode = fx->fp[4];
-            *phaser->depth = fx->fp[5];
-            *phaser->feedback_gain = fx->fp[6];
-            *phaser->invert = fx->fp[7];
-            *phaser->level = fx->fp[8];
-            *phaser->lfobpm = fx->fp[9];
-        } else if (fx->fx_id == FX_SCREV) {
-            sp_revsc *revsc = (sp_revsc *)fxs->revsc[j];
-            revsc->feedback = fx->fp[0];
-            revsc->lpfreq = fmin(fx->fp[1], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
-        }
-#endif
-
-#ifdef WITH_FAUST
-        if (fx->fx_id == FX_FAUST) {
-            for (k = 0; k < fxs->faust_effs_len; k += 1) {
-                struct _fas_faust_dsp *fdsp = fxs->faust_effs[j][k];
-
-                struct _fas_faust_ui_control *tmp;
-                tmp = getFaustControl(fdsp->controls, "fs_p0");
-                if (tmp) {
-                    *tmp->zone = fx->fp[1];
-                }
-
-                tmp = getFaustControl(fdsp->controls, "fs_p1");
-                if (tmp) {
-                    *tmp->zone = fx->fp[2];
-                }
-
-                tmp = getFaustControl(fdsp->controls, "fs_p2");
-                if (tmp) {
-                    *tmp->zone = fx->fp[3];
-                }
-
-                tmp = getFaustControl(fdsp->controls, "fs_p3");
-                if (tmp) {
-                    *tmp->zone = fx->fp[4];
-                }
-
-                tmp = getFaustControl(fdsp->controls, "fs_p4");
-                if (tmp) {
-                    *tmp->zone = fx->fp[5];
-                }
-
-                tmp = getFaustControl(fdsp->controls, "fs_p5");
-                if (tmp) {
-                    *tmp->zone = fx->fp[6];
-                }
-
-                tmp = getFaustControl(fdsp->controls, "fs_p6");
-                if (tmp) {
-                    *tmp->zone = fx->fp[7];
-                }
-
-                tmp = getFaustControl(fdsp->controls, "fs_p7");
-                if (tmp) {
-                    *tmp->zone = fx->fp[8];
-                }
-
-                tmp = getFaustControl(fdsp->controls, "fs_p8");
-                if (tmp) {
-                    *tmp->zone = fx->fp[9];
-                }
-
-                tmp = getFaustControl(fdsp->controls, "fs_p9");
-                if (tmp) {
-                    *tmp->zone = fx->fp[10];
-                }
-            }
-        }
-#endif
-    }
-
+    
     for (j = 0; j < FAS_MAX_FX_SLOTS * 2; j += 2) {
         struct _synth_fx_settings *fx = &chns->fx[f];
 
@@ -277,144 +639,33 @@ void updateEffects(
             break;
         }
 
-        for (k = 0; k < 2; k += 1) {
 #ifdef WITH_SOUNDPIPE
-            if (fx->fx_id == FX_CONV) {
-                sp_ftbl *imp_ftbl = fxs->ft_void;
-                if (fx->fp[0] < impulses_count) {
-                    struct sample *smp = &impulses[(unsigned int)fx->fp[0]];
-                    imp_ftbl = smp->ftbl;
-                }
-
-                if (isPowerOfTwo(fx->fp[1]) == 0) {
-                    fx->fp[1] = 4096;
-                }
-
-                sp_conv_destroy((sp_conv **)&fxs->conv[j + k]);
-                sp_conv_create((sp_conv **)&fxs->conv[j + k]);
-
-                sp_conv_init(sp, (sp_conv *)fxs->conv[j + k], imp_ftbl, fx->fp[1]);
-            } else if (fx->fx_id == FX_VDELAY) {
-                sp_vdelay_destroy((sp_vdelay **)&fxs->vdelay[j + k]);
-                sp_vdelay_create((sp_vdelay **)&fxs->vdelay[j + k]);
-
-                sp_vdelay_init(sp, (sp_vdelay *)fxs->vdelay[j + k], fx->fp[0]);
-
-                sp_vdelay *vdelay = (sp_vdelay *)fxs->vdelay[j + k];
-                vdelay->del = fx->fp[1];
-            } else if (fx->fx_id == FX_SMOOTH_DELAY) {
-                sp_smoothdelay_destroy((sp_smoothdelay **)&fxs->sdelay[j + k]);
-                sp_smoothdelay_create((sp_smoothdelay **)&fxs->sdelay[j + k]);
-
-                sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[j + k], fx->fp[0], fx->fp[1]);
-
-                sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[j + k];
-                sdelay->feedback = fx->fp[2];
-                sdelay->del = fx->fp[3];
-            } else if (fx->fx_id == FX_COMB) {
-                sp_comb_destroy((sp_comb **)&fxs->comb[j + k]);
-                sp_comb_create((sp_comb **)&fxs->comb[j + k]);
-
-                sp_comb_init(sp, (sp_comb *)fxs->comb[j + k], fx->fp[0]);
-
-                sp_comb *comb = (sp_comb *)fxs->comb[j + k];
-                comb->revtime = fx->fp[1];
-            } else if (fx->fx_id == FX_AUTOWAH) {
-                sp_autowah *autowah = (sp_autowah *)fxs->autowah[j + k];
-                *autowah->level = fx->fp[0];
-                *autowah->wah = fx->fp[1];
-                *autowah->mix = fx->fp[2];
-            } else if (fx->fx_id == FX_BITCRUSH) {
-                sp_bitcrush *bitcrush = (sp_bitcrush *)fxs->bitcrush[j + k];
-                bitcrush->bitdepth = fx->fp[0];
-                bitcrush->srate = fx->fp[1];
-            } else if (fx->fx_id == FX_DISTORSION) {
-                sp_dist *dist = (sp_dist *)fxs->dist[j + k];
-                dist->pregain = fx->fp[0];
-                dist->postgain = fx->fp[1];
-                dist->shape1 = fx->fp[2];
-                dist->shape2 = fx->fp[3];
-            } else if (fx->fx_id == FX_SATURATOR) {
-                sp_saturator *saturator = (sp_saturator *)fxs->saturator[j + k];
-                saturator->drive = fx->fp[0];
-                saturator->dcoffset = fx->fp[1];
-            } else if (fx->fx_id == FX_COMPRESSOR) {
-                sp_compressor *compressor = (sp_compressor *)fxs->compressor[j + k];
-                *compressor->ratio = fx->fp[0];
-                *compressor->thresh = fx->fp[1];
-                *compressor->atk = fx->fp[2];
-                *compressor->rel = fx->fp[3];
-            } else if (fx->fx_id == FX_PEAK_LIMITER) {
-                sp_peaklim *peaklimit = (sp_peaklim *)fxs->peaklimit[j + k];
-                peaklimit->atk = fx->fp[0];
-                peaklimit->rel = fx->fp[1];
-                peaklimit->thresh = fx->fp[2];
-            } else if (fx->fx_id == FX_CLIP) {
-                sp_clip *clip = (sp_clip *)fxs->clip[j + k];
-                clip->lim = fx->fp[0];
-            } else if (fx->fx_id == FX_B_LOWPASS) {
-                sp_butlp *blp = (sp_butlp *)fxs->butlp[j + k];
-                blp->freq = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
-            } else if (fx->fx_id == FX_B_HIGHPASS) {
-                sp_buthp *bhp = (sp_buthp *)fxs->buthp[j + k];
-                bhp->freq = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
-            } else if (fx->fx_id == FX_B_BANDPASS) {
-                sp_butbp *bbp = (sp_butbp *)fxs->butbp[j + k];
-                bbp->freq = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
-                bbp->bw = fx->fp[1];
-            } else if (fx->fx_id == FX_B_BANDREJECT) {
-                sp_butbr *bbr = (sp_butbr *)fxs->butbr[j + k];
-                bbr->freq = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
-                bbr->bw = fx->fp[1];
-            } else if (fx->fx_id == FX_PAREQ) {
-                sp_pareq *peq = (sp_pareq *)fxs->pareq[j + k];
-                peq->fc = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
-                peq->v = fx->fp[1];
-                peq->q = fx->fp[2];
-                peq->mode = fx->fp[3];
-            } else if (fx->fx_id == FX_MOOG_LPF) {
-                sp_moogladder *mooglp = (sp_moogladder *)fxs->mooglp[j + k];
-                mooglp->freq = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
-                mooglp->res = fx->fp[1];
-            } else if (fx->fx_id == FX_DIODE_LPF) {
-                sp_diode *diodelp = (sp_diode *)fxs->diodelp[j + k];
-                diodelp->freq = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
-                diodelp->res = fx->fp[1];
-            } else if (fx->fx_id == FX_KORG_LPF) {
-                sp_wpkorg35 *korglp = (sp_wpkorg35 *)fxs->korglp[j + k];
-                korglp->cutoff = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
-                korglp->res = fx->fp[1];
-                korglp->saturation = fx->fp[2];
-            } else if (fx->fx_id == FX_18_LPF) {
-                sp_lpf18 *lpf18 = (sp_lpf18 *)fxs->lpf18[j + k];
-                lpf18->cutoff = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
-                lpf18->res = fx->fp[1];
-                lpf18->dist = fx->fp[2];
-            } else if (fx->fx_id == FX_TBVCF) {
-                sp_tbvcf *tbvcf = (sp_tbvcf *)fxs->tbvcf[j + k];
-                tbvcf->fco = fmin(fx->fp[0], sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
-                tbvcf->res = fx->fp[1];
-                tbvcf->dist = fx->fp[2];
-                tbvcf->asym = fx->fp[3];
-            }
-        #endif
+        if (fx->fx_id == FX_CONV) {
+            resetConvolution(sp, fxs, impulses, impulses_count, f, fx->fp[0], fx->fp[1]);
         }
+#endif
 
         f += 1;
     }
 }
 
-void freeEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
+int effectParameterNeedInitialization(
+    unsigned int slot,
+    unsigned int target,
+    double value) {
+
+}
+
+#ifdef WITH_FAUST
+void freeFaustEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
     if (fxs == NULL) {
         return;
     }
 
     int i = 0, j = 0, k = 0;
-
     for (i = 0; i < frame_data_count; i += 1) {
         struct _synth_fx *fx = fxs[i];
 
-#ifdef WITH_FAUST
         for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {
             for (k = 0; k < fx->faust_effs_len; k += 1) {
                 struct _fas_faust_dsp *fdsp = fx->faust_effs[j][k];
@@ -429,7 +680,22 @@ void freeEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
 
             free(fx->faust_effs[j]);
         }
+    }
+}
 #endif
+
+void freeEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
+    if (fxs == NULL) {
+        return;
+    }
+
+#ifdef WITH_FAUST
+    freeFaustEffects(fxs, frame_data_count);
+#endif
+
+    int i = 0, j = 0, k = 0;
+    for (i = 0; i < frame_data_count; i += 1) {
+        struct _synth_fx *fx = fxs[i];
 
 #ifdef WITH_SOUNDPIPE
         sp_ftbl_destroy((sp_ftbl **)&fx->ft_void);
@@ -471,4 +737,3 @@ void freeEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
         free(fxs[i]);
     }
 }
-

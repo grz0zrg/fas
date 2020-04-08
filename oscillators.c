@@ -4,13 +4,125 @@
 
 #include "oscillators.h"
 
-struct oscillator *createOscillators(
+#ifdef WITH_FAUST
+void createFaustGenerators(
+    struct _faust_factories *faust_factories,
+    struct oscillator *osc_bank,
+    unsigned int n,
+    unsigned int sample_rate,
+    unsigned int frame_data_count) {
+    if (!osc_bank) {
+        return;
+    }
+
+    int y = 0, i = 0, k = 0;
+
+    int nmo = n - 1;
+    for (y = 0; y < n; y += 1) {
+        int index = nmo - y;
+
+        struct oscillator *osc = &osc_bank[index];
+
+        osc->faust_gens_len = faust_factories->len;
+        osc->faust_gens = malloc(sizeof(struct _fas_faust_dsp **) * frame_data_count);
+
+        for (i = 0; i < frame_data_count; i += 1) {
+            osc->faust_gens[i] = malloc(sizeof(struct _fas_faust_dsp *) * (faust_factories->len));
+            for (k = 0; k < faust_factories->len; k += 1) {
+                osc->faust_gens[i][k] = malloc(sizeof(struct _fas_faust_dsp));
+
+                struct _fas_faust_ui_control *uiface = calloc(1, sizeof(struct _fas_faust_ui_control));
+                
+                UIGlue *ui = malloc(sizeof(UIGlue));
+                ui->openTabBox = ui_open_tab_box;
+                ui->openHorizontalBox = ui_open_horizontal_box;
+                ui->openVerticalBox = ui_open_vertical_box;
+                ui->closeBox = ui_close_box;
+                ui->addButton = ui_add_button;
+                ui->addCheckButton = ui_add_check_button;
+                ui->addVerticalSlider = ui_add_vertical_slider;
+                ui->addHorizontalSlider = ui_add_horizontal_slider;
+                ui->addNumEntry = ui_add_num_entry;
+                ui->addHorizontalBargraph = ui_add_horizontal_bargraph;
+                ui->addVerticalBargraph = ui_add_vertical_bargraph;
+                ui->addSoundfile = ui_add_sound_file;
+                ui->declare = ui_declare;
+                ui->uiInterface = uiface;
+                
+                llvm_dsp *dsp = createCDSPInstance(faust_factories->factories[k]);
+
+                buildUserInterfaceCDSPInstance(dsp, ui);
+
+                initCDSPInstance(dsp, sample_rate);
+
+                // initialize on known controls
+                struct _fas_faust_ui_control *tmp;
+                tmp = getFaustControl(uiface, "fs_freq");
+                if (tmp) {
+                    *tmp->zone = osc->freq;
+                }
+
+                tmp = getFaustControl(uiface, "fs_freq_prev");
+                if (tmp) {
+                    *tmp->zone = osc->prev_freq;
+                }
+
+                tmp = getFaustControl(uiface, "fs_freq_next");
+                if (tmp) {
+                    *tmp->zone = osc->next_freq;
+                }
+
+                tmp = getFaustControl(uiface, "fs_bw");
+                if (tmp) {
+                    *tmp->zone = osc->bw[i];
+                }
+                //
+
+                osc->faust_gens[i][k]->controls = uiface;
+                osc->faust_gens[i][k]->ui = ui;
+                osc->faust_gens[i][k]->dsp = dsp;
+            }
+        }
+    }
+}
+
+void freeFaustGenerators(
+        struct oscillator **o,
+        unsigned int n,
+        unsigned int frame_data_count
+    ) {
+    struct oscillator *oscs = *o;
+
+    if (oscs == NULL) {
+        return;
+    }
+
+    int y = 0, i = 0, k = 0;
+    for (y = 0; y < n; y += 1) {
+        for (i = 0; i < frame_data_count; i += 1) {
+            for (k = 0; k < oscs[y].faust_gens_len; k += 1) {
+                struct _fas_faust_dsp *fdsp = oscs[y].faust_gens[i][k];
+
+                deleteCDSPInstance(fdsp->dsp);
+
+                freeFaustControls(fdsp->controls);
+                free(fdsp->ui);
+
+                free(fdsp);
+            }
+
+            free(oscs[y].faust_gens[i]);
+        }
+        free(oscs[y].faust_gens);
+    }
+}
+#endif
+
+struct oscillator *createOscillatorsBank(
 #ifdef WITH_SOUNDPIPE
     sp_data *spd,
 #endif
-#ifdef WITH_FAUST
-    struct _faust_factories *faust_factories,
-#endif
+
     unsigned int n,
     double base_frequency,
     unsigned int octaves,
@@ -52,6 +164,8 @@ struct oscillator *createOscillators(
         struct oscillator *osc = &oscillators[index];
 
         osc->freq = frequency;
+        osc->prev_freq = frequency_prev;
+        osc->next_freq = frequency_next;
 
 #ifdef FIXED_WAVETABLE
         osc->phase_index = malloc(sizeof(uint16_t) * frame_data_count);
@@ -102,7 +216,7 @@ struct oscillator *createOscillators(
         osc->fp3 = malloc(sizeof(double *) * frame_data_count);
         osc->fp4 = malloc(sizeof(double *) * frame_data_count);
 
-        osc->triggered = 0;
+        osc->triggered = calloc(frame_data_count, sizeof(unsigned int));
 
         osc->buffer_len = (double)sample_rate / frequency;
         osc->buffer = malloc(sizeof(double) * osc->buffer_len * frame_data_count);
@@ -112,11 +226,6 @@ struct oscillator *createOscillators(
         osc->pvalue = malloc(sizeof(float) * frame_data_count);
 
         osc->bw = malloc(sizeof(double) * frame_data_count);
-
-#ifdef WITH_FAUST
-        osc->faust_gens_len = faust_factories->len;
-        osc->faust_gens = malloc(sizeof(struct _fas_faust_dsp **) * frame_data_count);
-#endif
 
 #ifdef WITH_SOUNDPIPE
         osc->sp_filters = malloc(sizeof(void **) * frame_data_count);
@@ -128,7 +237,7 @@ struct oscillator *createOscillators(
 
         for (i = 0; i < frame_data_count; i += 1) {
             osc->phase_index[i] = rand() / (double)RAND_MAX * wavetable_size;
-            osc->noise_index[i] = rand() / (double)RAND_MAX * wavetable_size;
+            osc->noise_index[i] = rand() / (double)RAND_MAX * 65536;
             osc->pvalue[i] = 0;
 
 #ifdef MAGIC_CIRCLE
@@ -248,64 +357,6 @@ struct oscillator *createOscillators(
             sp_conv_init(spd, osc->sp_mods[i][SP_CONV_MODS], osc->ft_void, 2048);  
 #endif
 
-#ifdef WITH_FAUST
-            osc->faust_gens[i] = malloc(sizeof(struct _fas_faust_dsp *) * (faust_factories->len));
-            for (k = 0; k < faust_factories->len; k += 1) {
-                osc->faust_gens[i][k] = malloc(sizeof(struct _fas_faust_dsp));
-
-                struct _fas_faust_ui_control *uiface = calloc(1, sizeof(struct _fas_faust_ui_control));
-                
-                UIGlue *ui = malloc(sizeof(UIGlue));
-                ui->openTabBox = ui_open_tab_box;
-                ui->openHorizontalBox = ui_open_horizontal_box;
-                ui->openVerticalBox = ui_open_vertical_box;
-                ui->closeBox = ui_close_box;
-                ui->addButton = ui_add_button;
-                ui->addCheckButton = ui_add_check_button;
-                ui->addVerticalSlider = ui_add_vertical_slider;
-                ui->addHorizontalSlider = ui_add_horizontal_slider;
-                ui->addNumEntry = ui_add_num_entry;
-                ui->addHorizontalBargraph = ui_add_horizontal_bargraph;
-                ui->addVerticalBargraph = ui_add_vertical_bargraph;
-                ui->addSoundfile = ui_add_sound_file;
-                ui->declare = ui_declare;
-                ui->uiInterface = uiface;
-                
-                llvm_dsp *dsp = createCDSPInstance(faust_factories->factories[k]);
-
-                buildUserInterfaceCDSPInstance(dsp, ui);
-
-                initCDSPInstance(dsp, sample_rate);
-
-                // initialize on known controls
-                struct _fas_faust_ui_control *tmp;
-                tmp = getFaustControl(uiface, "fs_freq");
-                if (tmp) {
-                    *tmp->zone = frequency;
-                }
-
-                tmp = getFaustControl(uiface, "fs_freq_prev");
-                if (tmp) {
-                    *tmp->zone = frequency_prev;
-                }
-
-                tmp = getFaustControl(uiface, "fs_freq_next");
-                if (tmp) {
-                    *tmp->zone = frequency_next;
-                }
-
-                tmp = getFaustControl(uiface, "fs_bw");
-                if (tmp) {
-                    *tmp->zone = osc->bw[i];
-                }
-                //
-
-                osc->faust_gens[i][k]->controls = uiface;
-                osc->faust_gens[i][k]->ui = ui;
-                osc->faust_gens[i][k]->dsp = dsp;
-            }
-#endif
-
             // == PM
             osc->phase_index2[i] = rand() / (double)RAND_MAX * wavetable_size;
 
@@ -338,12 +389,16 @@ struct oscillator *createOscillators(
     return oscillators;
 }
 
-struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsigned int frame_data_count) {
+struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, unsigned int frame_data_count) {
     struct oscillator *oscs = *o;
 
     if (oscs == NULL) {
         return NULL;
     }
+
+#ifdef WITH_FAUST
+    freeFaustGenerators(o, n, frame_data_count);
+#endif
 
     int y = 0, i = 0, k = 0, j = 0;
     for (y = 0; y < n; y += 1) {
@@ -352,6 +407,8 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
         free(oscs[y].noise_index);
         free(oscs[y].pvalue);
         free(oscs[y].buffer);
+
+        free(oscs[y].triggered);
 
         free(oscs[y].phase_index2);
 
@@ -408,31 +465,11 @@ struct oscillator *freeOscillators(struct oscillator **o, unsigned int n, unsign
 
             free(oscs[y].sp_mods[i]);
 #endif
-
-#ifdef WITH_FAUST
-            for (k = 0; k < oscs[y].faust_gens_len; k += 1) {
-                struct _fas_faust_dsp *fdsp = oscs[y].faust_gens[i][k];
-
-                freeFaustControls(fdsp->controls);
-                free(fdsp->ui);
-
-                deleteCDSPInstance(fdsp->dsp);
-
-                free(fdsp);
-            }
-
-            free(oscs[y].faust_gens[i]);
-#endif
         }
 
 #ifndef POLYBLEP
         free(oscs[y].harmo_phase_index);
 #endif
-
-#ifdef WITH_FAUST
-        free(oscs[y].faust_gens);
-#endif
-
         free(oscs[y].fp1);
         free(oscs[y].fp2);
         free(oscs[y].fp3);

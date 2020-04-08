@@ -32,6 +32,7 @@
         double p1;
         double p2;
         double p3;
+        double p4;
 
         // channel fx
         struct _synth_fx_settings fx[FAS_MAX_FX_SLOTS];
@@ -53,20 +54,33 @@
         unsigned int hop_size;
     };
 
+    // synth. command
+    struct _synth_command {
+        unsigned int type;
+
+        double value[4];
+    };
+
     // synth. data
     struct _synth {
+        // synth settings
         struct _synth_settings *settings;
+        // gain settings
         struct _synth_gain *gain;
+        // oscillators bank
         struct oscillator *oscillators;
+        // granular synthesis grains data
         struct grain *grains;
+        // channels settings
         struct _synth_chn_settings *chn_settings;
         
         int note;
         int chn;
 
-        unsigned int samples_count;
-
+        // pre-computed linear interpolation delta
         float lerp_t;
+
+        // track current note-level sample (boundary defined by FPS)
         unsigned long curr_sample;
     } curr_synth;
 
@@ -90,7 +104,8 @@
         unsigned int frame_data_size;
 
         // user session related synth. data
-        struct _synth *synth;
+        double **synth_chn_settings;
+        double ***synth_chn_fx_settings;
 
         struct oscillator *oscillators;
 

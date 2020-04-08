@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2017, 2018, Julien Verneuil
+    Copyright (c) 2017, 2018, 2019, 2020, Julien Verneuil
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without

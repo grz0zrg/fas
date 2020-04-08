@@ -736,6 +736,7 @@ Note : Some effect parameters may actually need an effect initialization which w
 
 Server actions, packet identifier 5 (audio may be paused for a short amount of time on any reload actions otherwise it is real-time):
 
+```c
 struct _synth_action {
     // 0 : reload samples in the grains folder
     // 1 : note re-trigger (to reinitialize oscillators state on note-off, mostly used for Karplus-Strong)
@@ -746,7 +747,10 @@ struct _synth_action {
     // 6 : reload waves
     // 7 : reload impulses
     unsigned char type;
+    unsigned int chn; // only for re-trigger action; target chn
+    unsigned int note; // only for re-trigger action; target note (height y index)
 };
+```
 
 ## Build
 

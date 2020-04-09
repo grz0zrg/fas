@@ -3099,7 +3099,6 @@ int main(int argc, char **argv)
         goto error;
     }
 
-
     err = Pa_OpenStream(
               &stream,
               (fas_input_channels <= 0) ? NULL : &inputParameters,
@@ -3110,13 +3109,6 @@ int main(int argc, char **argv)
               paCallback,
               NULL );
     if (err != paNoError) goto error;
-
-    err = Pa_StartStream(stream);
-    if (err != paNoError) goto error;
-
-    if (start_server() < 0) {
-        goto ws_error;
-    }
 
     curr_synth.chn_settings = (struct _synth_chn_settings*)calloc(frame_data_count, sizeof(struct _synth_chn_settings));
 
@@ -3191,6 +3183,14 @@ int main(int argc, char **argv)
     }
 
     srand(time(NULL));
+
+    // start audio stream
+    err = Pa_StartStream(stream);
+    if (err != paNoError) goto error;
+
+    if (start_server() < 0) {
+        goto ws_error;
+    }
 
     // websocket stuff
 #ifdef __unix__

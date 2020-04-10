@@ -821,6 +821,8 @@ Once all dependencies are installed one can run `cmake` followed by `make` in th
 
 `cd build && cmake -DCMAKE_BUILD_TYPE=Release && make`
 
+`fas` binary should then be available in the `bin` directory
+
 FAS can then be installed with `sudo make install` in the build directory
 
 Recommended launch parameters with HiFiBerry DAC+ :

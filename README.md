@@ -768,7 +768,7 @@ Requirements :
  * [liblo](http://liblo.sourceforge.net/) (Optional)
  * [Soundpipe](https://github.com/PaulBatchelor/Soundpipe) (Optional)
  * [Faust](https://github.com/grame-cncm/faust) (Optional)
-  * depend on LLVM as well
+ * Faust depend on LLVM as well
 
 FAS also make use of [tinydir](https://github.com/cxong/tinydir) [lodepng](https://github.com/lvandeve/lodepng) and [afSTFT](https://github.com/jvilkamo/afSTFT) (all of them bundled)
 

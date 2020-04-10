@@ -130,3 +130,15 @@ enable_testing()
 
 # does the application run
 add_test(NAME Runs COMMAND fas --i)
+
+############################################################
+# Packaging
+
+include(InstallRequiredSystemLibraries)
+set(CPACK_RESOURCE_FILE_LICENSE "${ROOT}/LICENSE")
+set(CPACK_PACKAGE_DIRECTORY "${ROOT}/packages")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://www.fsynth.com")
+set(CPACK_PACKAGE_VERSION_MAJOR "1")
+set(CPACK_PACKAGE_VERSION_MINOR "0")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
+include(CPack)

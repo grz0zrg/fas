@@ -1,0 +1,142 @@
+lib-y :=
+
+lib-y += ../../src/lfds720_btree_addonly_unbalanced/lfds720_btree_addonly_unbalanced_cleanup.o
+lib-y += ../../src/lfds720_btree_addonly_unbalanced/lfds720_btree_addonly_unbalanced_get.o
+lib-y += ../../src/lfds720_btree_addonly_unbalanced/lfds720_btree_addonly_unbalanced_init.o
+lib-y += ../../src/lfds720_btree_addonly_unbalanced/lfds720_btree_addonly_unbalanced_insert.o
+lib-y += ../../src/lfds720_btree_addonly_unbalanced/lfds720_btree_addonly_unbalanced_query.o
+
+lib-y += ../../src/lfds720_freelist/lfds720_freelist_cleanup.o
+lib-y += ../../src/lfds720_freelist/lfds720_freelist_init.o
+lib-y += ../../src/lfds720_freelist/lfds720_freelist_threadsafe_pop.o
+lib-y += ../../src/lfds720_freelist/lfds720_freelist_threadsafe_push.o
+lib-y += ../../src/lfds720_freelist/lfds720_freelist_query.o
+
+lib-y += ../../src/lfds720_freelist_safe_memory_reclamation_generational/lfds720_freelist_smrg_cleanup.o
+lib-y += ../../src/lfds720_freelist_safe_memory_reclamation_generational/lfds720_freelist_smrg_init.o
+lib-y += ../../src/lfds720_freelist_safe_memory_reclamation_generational/lfds720_freelist_smrg_pop.o
+lib-y += ../../src/lfds720_freelist_safe_memory_reclamation_generational/lfds720_freelist_smrg_push.o
+lib-y += ../../src/lfds720_freelist_safe_memory_reclamation_generational/lfds720_freelist_smrg_query.o
+lib-y += ../../src/lfds720_freelist_safe_memory_reclamation_generational/lfds720_freelist_smrg_smr.o
+
+lib-y += ../../src/lfds720_freelist_safe_memory_reclamation_hazard_pointers/lfds720_freelist_smrhp_cleanup.o
+lib-y += ../../src/lfds720_freelist_safe_memory_reclamation_hazard_pointers/lfds720_freelist_smrhp_init.o
+lib-y += ../../src/lfds720_freelist_safe_memory_reclamation_hazard_pointers/lfds720_freelist_smrhp_pop.o
+lib-y += ../../src/lfds720_freelist_safe_memory_reclamation_hazard_pointers/lfds720_freelist_smrhp_push.o
+lib-y += ../../src/lfds720_freelist_safe_memory_reclamation_hazard_pointers/lfds720_freelist_smrhp_query.o
+lib-y += ../../src/lfds720_freelist_safe_memory_reclamation_hazard_pointers/lfds720_freelist_smrhp_smr.o
+
+lib-y += ../../src/lfds720_hash_addonly/lfds720_hash_addonly_cleanup.o
+lib-y += ../../src/lfds720_hash_addonly/lfds720_hash_addonly_get.o
+lib-y += ../../src/lfds720_hash_addonly/lfds720_hash_addonly_init.o
+lib-y += ../../src/lfds720_hash_addonly/lfds720_hash_addonly_insert.o
+lib-y += ../../src/lfds720_hash_addonly/lfds720_hash_addonly_iterate.o
+lib-y += ../../src/lfds720_hash_addonly/lfds720_hash_addonly_query.o
+
+lib-y += ../../src/lfds720_list_addonly_singlylinked_ordered/lfds720_list_addonly_singlylinked_ordered_cleanup.o
+lib-y += ../../src/lfds720_list_addonly_singlylinked_ordered/lfds720_list_addonly_singlylinked_ordered_get.o
+lib-y += ../../src/lfds720_list_addonly_singlylinked_ordered/lfds720_list_addonly_singlylinked_ordered_init.o
+lib-y += ../../src/lfds720_list_addonly_singlylinked_ordered/lfds720_list_addonly_singlylinked_ordered_insert.o
+lib-y += ../../src/lfds720_list_addonly_singlylinked_ordered/lfds720_list_addonly_singlylinked_ordered_query.o
+
+lib-y += ../../src/lfds720_list_addonly_singlylinked_unordered/lfds720_list_addonly_singlylinked_unordered_cleanup.o
+lib-y += ../../src/lfds720_list_addonly_singlylinked_unordered/lfds720_list_addonly_singlylinked_unordered_get.o
+lib-y += ../../src/lfds720_list_addonly_singlylinked_unordered/lfds720_list_addonly_singlylinked_unordered_init.o
+lib-y += ../../src/lfds720_list_addonly_singlylinked_unordered/lfds720_list_addonly_singlylinked_unordered_insert.o
+lib-y += ../../src/lfds720_list_addonly_singlylinked_unordered/lfds720_list_addonly_singlylinked_unordered_query.o
+
+lib-y += ../../src/lfds720_misc/lfds720_misc_internal_backoff_init.o
+lib-y += ../../src/lfds720_misc/lfds720_misc_globals.o
+lib-y += ../../src/lfds720_misc/lfds720_misc_query.o
+
+lib-y += ../../src/lfds720_prng/lfds720_prng_init.o
+
+lib-y += ../../src/lfds720_queue_bounded_manyproducer_manyconsumer/lfds720_queue_bounded_manyproducer_manyconsumer_cleanup.o
+lib-y += ../../src/lfds720_queue_bounded_manyproducer_manyconsumer/lfds720_queue_bounded_manyproducer_manyconsumer_dequeue.o
+lib-y += ../../src/lfds720_queue_bounded_manyproducer_manyconsumer/lfds720_queue_bounded_manyproducer_manyconsumer_enqueue.o
+lib-y += ../../src/lfds720_queue_bounded_manyproducer_manyconsumer/lfds720_queue_bounded_manyproducer_manyconsumer_init.o
+lib-y += ../../src/lfds720_queue_bounded_manyproducer_manyconsumer/lfds720_queue_bounded_manyproducer_manyconsumer_query.o
+
+lib-y += ../../src/lfds720_queue_bounded_singleproducer_singleconsumer/lfds720_queue_bounded_singleproducer_singleconsumer_cleanup.o
+lib-y += ../../src/lfds720_queue_bounded_singleproducer_singleconsumer/lfds720_queue_bounded_singleproducer_singleconsumer_dequeue.o
+lib-y += ../../src/lfds720_queue_bounded_singleproducer_singleconsumer/lfds720_queue_bounded_singleproducer_singleconsumer_enqueue.o
+lib-y += ../../src/lfds720_queue_bounded_singleproducer_singleconsumer/lfds720_queue_bounded_singleproducer_singleconsumer_init.o
+lib-y += ../../src/lfds720_queue_bounded_singleproducer_singleconsumer/lfds720_queue_bounded_singleproducer_singleconsumer_query.o
+
+lib-y += ../../src/lfds720_queue_unbounded_manyproducer_manyconsumer/lfds720_queue_unbounded_manyproducer_manyconsumer_cleanup.o
+lib-y += ../../src/lfds720_queue_unbounded_manyproducer_manyconsumer/lfds720_queue_unbounded_manyproducer_manyconsumer_dequeue.o
+lib-y += ../../src/lfds720_queue_unbounded_manyproducer_manyconsumer/lfds720_queue_unbounded_manyproducer_manyconsumer_enqueue.o
+lib-y += ../../src/lfds720_queue_unbounded_manyproducer_manyconsumer/lfds720_queue_unbounded_manyproducer_manyconsumer_init.o
+lib-y += ../../src/lfds720_queue_unbounded_manyproducer_manyconsumer/lfds720_queue_unbounded_manyproducer_manyconsumer_query.o
+
+lib-y += ../../src/lfds720_queue_unbounded_manyproducer_manyconsumer_safe_memory_reclamation_hazard_pointers/lfds720_queue_umm_smrhp_cleanup.o
+lib-y += ../../src/lfds720_queue_unbounded_manyproducer_manyconsumer_safe_memory_reclamation_hazard_pointers/lfds720_queue_umm_smrhp_dequeue.o
+lib-y += ../../src/lfds720_queue_unbounded_manyproducer_manyconsumer_safe_memory_reclamation_hazard_pointers/lfds720_queue_umm_smrhp_enqueue.o
+lib-y += ../../src/lfds720_queue_unbounded_manyproducer_manyconsumer_safe_memory_reclamation_hazard_pointers/lfds720_queue_umm_smrhp_init.o
+lib-y += ../../src/lfds720_queue_unbounded_manyproducer_manyconsumer_safe_memory_reclamation_hazard_pointers/lfds720_queue_umm_smrhp_query.o
+lib-y += ../../src/lfds720_queue_unbounded_manyproducer_manyconsumer_safe_memory_reclamation_hazard_pointers/slfds720_queue_umm_smrhp_smr.o
+
+lib-y += ../../src/lfds720_queue_unbounded_singleproducer_singleconsumer/lfds720_queue_uss_cleanup.o
+lib-y += ../../src/lfds720_queue_unbounded_singleproducer_singleconsumer/lfds720_queue_uss_dequeue.o
+lib-y += ../../src/lfds720_queue_unbounded_singleproducer_singleconsumer/lfds720_queue_uss_enqueue.o
+lib-y += ../../src/lfds720_queue_unbounded_singleproducer_singleconsumer/lfds720_queue_uss_flush.o
+lib-y += ../../src/lfds720_queue_unbounded_singleproducer_singleconsumer/lfds720_queue_uss_init.o
+lib-y += ../../src/lfds720_queue_unbounded_singleproducer_singleconsumer/lfds720_queue_uss_query.o
+
+lib-y += ../../src/lfds720_ringbuffer/lfds720_ringbuffer_cleanup.o
+lib-y += ../../src/lfds720_ringbuffer/lfds720_ringbuffer_init.o
+lib-y += ../../src/lfds720_ringbuffer/lfds720_ringbuffer_query.o
+lib-y += ../../src/lfds720_ringbuffer/lfds720_ringbuffer_read.o
+lib-y += ../../src/lfds720_ringbuffer/lfds720_ringbuffer_write.o
+
+lib-y += ../../src/lfds720_safe_memory_reclamation_generational/lfds720_smrg_clean.o
+lib-y += ../../src/lfds720_safe_memory_reclamation_generational/lfds720_smrg_flush.o
+lib-y += ../../src/lfds720_safe_memory_reclamation_generational/lfds720_smrg_init_and_cleanup.o
+lib-y += ../../src/lfds720_safe_memory_reclamation_generational/lfds720_smrg_query.o
+lib-y += ../../src/lfds720_safe_memory_reclamation_generational/lfds720_smrg_register.o
+lib-y += ../../src/lfds720_safe_memory_reclamation_generational/lfds720_smrg_release.o
+lib-y += ../../src/lfds720_safe_memory_reclamation_generational/lfds720_smrg_submit.o
+
+lib-y += ../../src/lfds720_safe_memory_reclamation_hazard_pointers/lfds720_smrhp_clean.o
+lib-y += ../../src/lfds720_safe_memory_reclamation_hazard_pointers/lfds720_smrhp_init_and_cleanup.o
+lib-y += ../../src/lfds720_safe_memory_reclamation_hazard_pointers/lfds720_smrhp_register.o
+lib-y += ../../src/lfds720_safe_memory_reclamation_hazard_pointers/lfds720_smrhp_submit.o
+
+lib-y += ../../src/lfds720_stack/lfds720_stack_cleanup.o
+lib-y += ../../src/lfds720_stack/lfds720_stack_init.o
+lib-y += ../../src/lfds720_stack/lfds720_stack_threadsafe_pop.o
+lib-y += ../../src/lfds720_stack/lfds720_stack_threadsafe_push.o
+lib-y += ../../src/lfds720_stack/lfds720_stack_query.o
+
+lib-y += ../../src/lfds720_stack_safe_memory_reclamation_generational/lfds720_stack_smrg_cleanup.o
+lib-y += ../../src/lfds720_stack_safe_memory_reclamation_generational/lfds720_stack_smrg_init.o
+lib-y += ../../src/lfds720_stack_safe_memory_reclamation_generational/lfds720_stack_smrg_pop.o
+lib-y += ../../src/lfds720_stack_safe_memory_reclamation_generational/lfds720_stack_smrg_push.o
+lib-y += ../../src/lfds720_stack_safe_memory_reclamation_generational/lfds720_stack_smrg_query.o
+lib-y += ../../src/lfds720_stack_safe_memory_reclamation_generational/lfds720_stack_smrg_smr.o
+
+lib-y += ../../src/singlethreaded_data_structures_for_liblfds_internal_use/libstds/src/stds_freelist/stds_freelist_cleanup.o
+lib-y += ../../src/singlethreaded_data_structures_for_liblfds_internal_use/libstds/src/stds_freelist/stds_freelist_init.o
+lib-y += ../../src/singlethreaded_data_structures_for_liblfds_internal_use/libstds/src/stds_freelist/stds_freelist_push.o
+lib-y += ../../src/singlethreaded_data_structures_for_liblfds_internal_use/libstds/src/stds_freelist/stds_freelist_query.o
+
+lib-y += ../../src/singlethreaded_data_structures_for_liblfds_internal_use/libstds/src/stds_list_du/stds_list_du_cleanup.o
+lib-y += ../../src/singlethreaded_data_structures_for_liblfds_internal_use/libstds/src/stds_list_du/stds_list_du_init.o
+lib-y += ../../src/singlethreaded_data_structures_for_liblfds_internal_use/libstds/src/stds_list_du/stds_list_du_insert.o
+lib-y += ../../src/singlethreaded_data_structures_for_liblfds_internal_use/libstds/src/stds_list_du/stds_list_du_query.o
+lib-y += ../../src/singlethreaded_data_structures_for_liblfds_internal_use/libstds/src/stds_list_du/stds_list_du_remove.o
+
+libs-y := ../../bin/
+
+ccflags-y := -I$(src)/../../inc
+ccflags-y += -I$(src)/../../inc/liblfds720
+ccflags-y += -DKERNEL_MODE
+ccflags-y += -DNDEBUG
+ccflags-y += -fno-strict-aliasing
+ccflags-y += -std=gnu89
+ccflags-y += -Wall
+ccflags-y += -Werror
+ccflags-y += -Wno-unknown-pragmas
+ccflags-y += -Wno-unused-but-set-variable
+ccflags-y += -Wno-uninitialized
+

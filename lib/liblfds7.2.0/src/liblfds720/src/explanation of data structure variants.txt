@@ -1,0 +1,24 @@
+nodelete     : elements once added can never be removed from the data structure
+nodeallocate : elements can be added and removed from the data structure, but never deallocated (store removed elements on a freelist)
+
+(if no "nodelete" and no "nodeallocate", then elements can be removed and deallocated)
+
+bounded   : a fixed number of elements, specfied at init time, are available in the data structure
+unbounded : any number of elements can be added at any time to the data structure
+
+positionindependent : the data structure internally uses offsets, not pointers, and so can be used
+                      with shared memory which has different base addresses in each process, can be
+                      used with virtual or physical addresses (e.g. passed into the kernel and used
+                      there); so a single instance of a data structure can be used simultanously
+                      on any number of logical cores both in the kernel and in user-mode across
+                      multiple thread across multiple processes with different virtual address mappings
+
+Notes
+======
+Remember that not all data structures are available on all platforms.
+
+In particular, the nodeallocate data structures tend to be arm, aarch64, x86 and x86_64 only.
+
+In general, the more constrained a data structure is, the higher the performance.
+
+Please see the API docs for each data structure for information.

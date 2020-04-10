@@ -1,0 +1,20 @@
+There is one directory per set of build files.
+
+There is one set of build files per toolchain - i.e. GCC, or MSVC, etc.
+
+The directory name indicates what the toolchain is composed of.
+
+gcc_gnumake : GCC 4.1.2 or later and Gnumake 3.8.1 and later.  Targets a bare C89 implementation and as such
+              only compiles the libraries, not the benchmark and test command line veneers.
+
+gcc_gnumake_hosted : GCC 4.1.2 or later, Gnumake 3.8.1 and later and a hosted C implementation (e.g. Windows
+                     or Linux).  Compiles everything (i.e. including the command line veneers).
+
+gcc_gnumake_hosted_libnuma : GCC 4.1.2 or later, Gnumake 3.8.1 and later, a hosted C implementation (e.g. Windows
+                             or Linux) and libnuma, for NUMA functionality, must be installed.  Compiles everything 
+                             (i.e. including the command line veneers).
+
+gcc_gnumake_kbuild : GCC 4.1.2 or later, Gnumake 3.8.1 and later and kbuild.  Targets the Linux kernel and a
+                     bare C89 implementation and as such only compiles the libraries, not the benchmark and test
+                     command line veneers.
+

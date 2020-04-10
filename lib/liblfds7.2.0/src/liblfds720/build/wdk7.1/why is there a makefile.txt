@@ -1,0 +1,10 @@
+The WDK 7.1 build system is based around the command line tool "build",
+provided by MS.  This uses a couple of files, such as sources and dirs,
+but it does not use a makefile.
+
+The makefile is here simply to operate "build" indirectly, via gnumake,
+so that the WDK 7.1 build can be operated much more easily by the
+top-level makefile which builds all the libraries and binaries.
+
+
+

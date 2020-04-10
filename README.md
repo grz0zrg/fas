@@ -624,7 +624,7 @@ It also has a transitionary flush state which make sure no data is being used on
 The audio thread contain its own synth. data structure defined globally as `curr_synth`, when the audio thread is paused `curr_synth` can be accessed anywhere otherwise the audio thread has an exclusive access.
 
 RGBA frames coming from the network are converted into a notes list (an array) which just tell which oscillator from the oscillator bank will be enabled during the *note time*.
-Once processed the notes list is made available to the audio thread by pushing it into a lock-free ring buffer which ensure thread safety / speed.
+Once processed the notes list is made available to the audio thread by pushing it into a lock-free ring buffer which ensure thread safety.
 
 A free list data structure is used for efficient notes data reuse; the program use a pre-allocated pool of notes buffer.
 
@@ -637,7 +637,7 @@ Most audio output critical changes use linear interpolation to ensure smooth aud
 
 Sound synthesis is processed with minimal computation / branching, values which depend on note parameters change are pre-computed per-channel / oscillator in a dedicated processing block outside synthesis block, notes change and associated parameters happen at sample accurate note time level defined by the FPS parameter.
 
-There is a generic lock-free thread-safe commands queue for synth. parameters change (gain, etc.) which is used to pass data from the network thread to the audio callback.
+There is a generic thread-safe (altough not really lock-free) commands queue for synth. parameters change (gain, etc.) which is used to pass data from the network thread to the audio callback.
 
 Some non-critical real-time change command relative to synthesis / effects parameters (like spectral window size) will trigger a short pause due to allocation being performed in the network thread while the audio thread is paused.
 
@@ -754,21 +754,25 @@ struct _synth_action {
 
 ## Build
 
-Under Windows, [MSYS2](https://msys2.github.io/) with mingw32 is used and well tested.
+FAS make use of the [CMake](https://cmake.org/) build system.
+
+Under Windows, [MSYS2](https://msys2.github.io/) with mingw32 is used and well tested. Since the build system now use cmake and Windows build is not yet tested there may be minor issues.
 
 Requirements :
 
  * [PortAudio](http://www.portaudio.com/download.html)
  * [liblfds](http://liblfds.org/)
  * [libwebsockets](https://libwebsockets.org/)
- * [liblo](http://liblo.sourceforge.net/) (Optional)
+ * [libsndfile](https://github.com/erikd/libsndfile)
  * [libsamplerate](https://github.com/erikd/libsamplerate)
+ * [liblo](http://liblo.sourceforge.net/) (Optional)
  * [Soundpipe](https://github.com/PaulBatchelor/Soundpipe) (Optional)
  * [Faust](https://github.com/grame-cncm/faust) (Optional)
+  * depend on LLVM as well
 
-The granular synthesis part make use of [libsndfile](https://github.com/erikd/libsndfile) and [tinydir](https://github.com/cxong/tinydir) (bundled)
+FAS also make use of [tinydir](https://github.com/cxong/tinydir) [lodepng](https://github.com/lvandeve/lodepng) and [afSTFT](https://github.com/jvilkamo/afSTFT) (all of them bundled)
 
-Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build with Faust) :
+Compiling requirements for Ubuntu/Raspberry Pi/Linux :
 
  * Get latest [PortAudio v19 package](http://www.portaudio.com/download.html)
    * sudo apt-get install libasound-dev jackd qjackctl libjack-jackd2-dev
@@ -777,12 +781,10 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build with Faust) 
    * make clean
    * make
    * sudo make install
-   * the static library can now be found at "lib/.libs/libportaudio.a"
  * Get latest [liblfds 7.1.1 package](http://liblfds.org/)
-   * uncompress, go into the directory "liblfds711"
+   * uncompress into **lib** directory, go into the directory "liblfds711"
    * go into the directory "build/gcc_gnumake"
    * make
-   * "liblfds711.a" can now be found in the "bin" directory
  * Get latest [libwebsockets 2.2.x package](https://libwebsockets.org/) from github
    * sudo apt-get install cmake zlib1g-dev
    * go into the libwebsockets directory
@@ -791,12 +793,10 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build with Faust) 
    * cmake .. -DLWS_WITH_SSL=0 -DLWS_WITHOUT_CLIENT=1
    * make
    * sudo make install
-   * "libwebsockets.a" can now be found in the "build/lib" directory
  * Get latest [liblo package](http://liblo.sourceforge.net/) (only needed if WITH_OSC is defined / use OSC makefile rule)
    * uncompress, go into the directory "liblo-0.29"
    * ./configure
    * make
-   * copy all libraries found in "src/.libs/" to FAS root folder
    * sudo make install
 * Get latest [libsamplerate](http://www.mega-nerd.com/SRC/download.html)
   * you may need to specify the build type on configure (example for NanoPi NEO2 : ./configure --build=arm-linux-gnueabihf)
@@ -804,110 +804,43 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux (default build with Faust) 
   * uncompress, go into the directory "libsamplerate-0.1.9"
   * ./configure
   * make
-  * copy the library found in "src/.libs/libsamplerate.a" to FAS root folder
+  * sudo make install
 * Get latest [Soundpipe](https://github.com/PaulBatchelor/Soundpipe)
   * make
-  * "libsoundpipe.a" can now be found in the Soundpipe directory
+  * sudo make install
 * Get latest [Faust](https://github.com/grame-cncm/faust)
   * sudo apt-get install cmake llvm libmicrohttpd-dev
   * make all
   * sudo make install
-  * copy the library found in "build/lib/libfaust.a" to FAS root folder
 
-Copy include files of portaudio / soundpipe / libwebsocket into "inc" directory.
+Some dependencies can also be installed through the operating system packages manager.
 
-Note : liblfds711 does not support ARM64 yet (liblfds720 does but is not yet released)
+On ARM64 you must use liblfds 7.2.0 (by passing `-DLIBLFDS720` to cmake) which is provided in the lib folder, this is a not yet released version and potentially unstable for anything else, it is only provided to provide FAS under ARM64 platforms and is not guaranteed to work for anything else.
 
-Copy the \*.a into "fas" root directory then compile by using one of the rule below (recommended rule for Linux and similar is `release-static-o` **without** Soundpipe, `release-static-sp-mc-o` **with** Soundpipe, `release-static-sp-faust-mc-o` **with** Soundpipe plus Faust).
+Once all dependencies are installed one can run `cmake` followed by `make` in the build directory :
+
+`cd build && cmake -DCMAKE_BUILD_TYPE=Release && make`
+
+FAS can then be installed with `sudo make install` in the build directory
 
 Recommended launch parameters with HiFiBerry DAC+ :
-    ./fas --alsa_realtime_scheduling 1 --frames_queue_size 63 --sample_rate 48000 --device 2
+    ./fas --frames_queue_size 63 --sample_rate 48000 --device 2
 Bit depth is fixed to 32 bits float at the moment.
 
-**Note** : Advanced optimizations can be enabled when compiling (only -DFIXED_WAVETABLE at the moment, which will use a fixed wavetable length of 2^16 for fast phase index warping), bandwidth enhanced sines can also be disabled for lightning fast additive synthesis.
+## CMake options
 
-## Cross-compiling under Linux for Windows
+There is some cmake build options available to customize features :
 
-The audio server was successfully cross-compiled under Windows (x86_64) with the Ubuntu package **mingw-w64** and the **win-cross-x86-64** makefile rule.
+ * `-DLIBLFDS720` : Use the provided liblfds 7.2.0 library (for ARM64 support)
+ * `-DWITH_OSC` : Use OSC output features
+ * `-DWITH_FAUST` : Use Faust
+ * `-DWITH_SOUNDPIPE` : Use Soundpipe 
+ * `-DFIXED_WAVETABLE` : Use a fixed wavetable length of 2^16 for fast phase index warping, this will disable wavetable_size option.
+ * `-DMAGIC_CIRCLE` : Use additive synthesis magic circle oscillator (may be faster than wavetable on some platforms; not compatible with wavetable option)
+ * `-DPARTIAL_FX`: Use additive synthesis per partial effects
+ * `-DBANDLIMITED_NOISE` : Use additive synthesis with bandlimited noise (not compatible with -DMAGIC_CIRCLE and -DFIXED_WAVETABLE)
 
-Most libraries will compile easily, some may take some workaround which are noted below, notably those which are using **cmake** (liblo, libwebsockets) and also libsndfile/libsamplerate.
-
-The makefile rules get the libraries from a "cross" folder in the FAS root directory.
-
-For those which are using cmake, a custom cmake toolchain file must be used
-
-##### Custom cmake toolchain for x86_64
-
-`set(CMAKE_SYSTEM_NAME Windows)`
-`set(TOOLCHAIN_PREFIX x86_64-w64-mingw32)`
-
-`set(CMAKE_C_COMPILER ${TOOLCHAIN_PREFIX}-gcc)`
-`set(CMAKE_CXX_COMPILER ${TOOLCHAIN_PREFIX}-g++)`
-`set(CMAKE_RC_COMPILER ${TOOLCHAIN_PREFIX}-windres)`
-
-`set(CMAKE_FIND_ROOT_PATH /usr/${TOOLCHAIN_PREFIX})`
-
-`set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)`
-`set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)`
-`set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)`
-
-##### PortAudio with ASIO etc.
-
-`./configure --build=x86_64 --host=x86_64-w64-mingw32 --with-jack --with-alsa -with-winapi=asio,directx,wdmks,wmme --with-asiodir=~/crosscompile/ASIOSDK2.3`
-
-`make clean`
-
-`make`
-
-##### With liblo (WITH_OSC only)
-
-`cmake -DCMAKE_TOOLCHAIN_FILE=~/toolchain.cmake ../cmake`
-
-##### With libwebsockets
-
-`cmake -DLWS_WITH_SSL=0 -DCMAKE_TOOLCHAIN_FILE=~/toolchain.cmake ..`
-
-##### For libsndfile & libsamplerate
-
-`./configure --build=x86_64 --host=x86_64-w64-mingw32`
-
-## Makefile rules
-
-Debug : **make**
-
-Debug (with Soundpipe + Faust) : **make debug-soundpipe-faust**
-
-Profile (benchmark) : **make profile**
-
-Release : **make release**
-
-Release with OSC : **make release-osc**
-
-Statically linked : **make release-static**
-
-Statically linked, with OSC and advanced optimizations : **make release-static-osc-o**
-
-Statically linked and advanced optimizations : **make release-static-o**
-
-Statically linked, advanced optimizations, netjack without ALSA : **release-static-netjack-o**
-
-Statically linked + Soundpipe and advanced optimizations : **make release-static-sp-o**
-
-Statically linked + Soundpipe + magic circle and advanced optimizations : **make release-static-sp-mc-o**
-
-Statically linked + Soundpipe + Faust + magic circle and advanced optimizations (default build) : **make release-static-sp-faust-mc-o**
-
-Statically linked with bandlimited-noise, advanced optimizations : **make release-bln-static-o**
-
-Statically linked + Soundpipe with bandlimited-noise, advanced optimizations : **make release-bln-static-sp-o**
-
-Statically linked, advanced optimizations and profiling: **make release-static-o-profile**
-
-With MinGW (Statically linked) :  **make win-release-static**
-
-With MinGW (Statically linked + advanced optimizations, default build) :  **make win-release-static-o**
-
-With mingw-w64 package (Ubuntu) cross-compilation for Windows : **make win-cross-x86-64**
+By default FAS build with `-DWITH_FAUST -DWITH_SOUNDPIPE -DMAGIC_CIRCLE -DPARTIAL_FX`
 
 ## Usage
 
@@ -942,13 +875,12 @@ Usage: fas [list_of_parameters]
  * --input_device -1 **PortAudio audio input device index or full name (informations about audio devices are displayed when the app. start)**
  * --output_channels 2 **stereo pair**
  * --input_channels 2 **stereo pair**
- * --alsa_realtime_scheduling 0 **Linux only**
  * --frames_queue_size 7 **important parameter, if you increase this too much the audio might be delayed**
  * --commands_queue_size 512 **should be a positive integer power of 2**
  * --stream_load_send_delay 2 **FAS will send the stream CPU load every two seconds**
  * --samplerate_conv_type -1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time, this settings can be ignored most of the time since FAS do real-time resampling, -1 skip the resampling step**
 
-Self-signed certificates are provided in case you compile/run it with SSL. (Note: This is useless for many reasons and HTTP should _**ALWAYS**_ be the prefered protocol for online Fragment application, this is explained in [this issue](https://github.com/grz0zrg/fas/issues/1).)
+Self-signed certificates are provided in `misc` folder in case you compile/run it with SSL. (Note: This is useless for many reasons and HTTP should _**ALWAYS**_ be the prefered protocol for online Fragment application, this is explained in [this issue](https://github.com/grz0zrg/fas/issues/1).)
 
 **You can stop the application by pressing any keys while it is running on Windows or by sending SIGINT (Ctrl+C etc.) under Unix systems.**
 

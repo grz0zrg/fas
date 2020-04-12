@@ -268,3 +268,16 @@ char *create_filepath(char *directory, char *filename) {
 
     return filepath;
 }
+
+// from PortAudio
+double get_time(void) {
+#ifdef __unix__
+    struct timespec tp;
+    clock_gettime(CLOCK_REALTIME, &tp);
+    return (double)(tp.tv_sec + tp.tv_nsec * 1e-9);
+#else
+    struct timeval tv;
+    gettimeofday( &tv, NULL );
+    return (double) tv.tv_usec * 1e-6 + tv.tv_sec;
+#endif
+}

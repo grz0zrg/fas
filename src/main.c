@@ -929,36 +929,6 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
 
                         struct _fas_faust_ui_control *tmp;
-                        tmp = getFaustControl(ctrl, "fs_pr");
-                        if (tmp) {
-                            *tmp->zone = n->previous_volume_l;
-                        }
-
-                        tmp = getFaustControl(ctrl, "fs_pg");
-                        if (tmp) {
-                            *tmp->zone = n->previous_volume_r;
-                        }
-
-                        tmp = getFaustControl(ctrl, "fs_r");
-                        if (tmp) {
-                            *tmp->zone = n->volume_l;
-                        }
-
-                        tmp = getFaustControl(ctrl, "fs_g");
-                        if (tmp) {
-                            *tmp->zone = n->volume_r;
-                        }
-
-                        tmp = getFaustControl(ctrl, "fs_b");
-                        if (tmp) {
-                            *tmp->zone = n->blue;
-                        }
-
-                        tmp = getFaustControl(ctrl, "fs_a");
-                        if (tmp) {
-                            *tmp->zone = n->alpha;
-                        }
-
                         // note : p0 is used as the Faust generator index
                         tmp = getFaustControl(ctrl, "fs_p0");
                         if (tmp) {
@@ -981,7 +951,6 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         }
 
                         int faust_dsp_input_count = getNumInputsCDSPInstance(fas_faust_dsp->dsp);
-
                         if (faust_dsp_input_count >= 1) {
                             int chn = abs((int)n->blue) % frame_data_count;
 
@@ -1523,6 +1492,51 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                     osc->fp4[k][4] = psmp_index;
                                 }
                             }
+                        } else if (chn_settings->synthesis_method == FAS_FAUST) {
+                            for (j = s; j < e; j += 1) {
+                                // update notes related parameters
+                                struct note *n = &curr_notes[j];
+
+                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                                int faust_dsp_index = chn_settings->p0 % osc->faust_gens_len;
+
+                                struct _fas_faust_dsp *fas_faust_dsp = osc->faust_gens[k][faust_dsp_index];
+
+                                // update Faust DSP params
+                                struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
+
+                                struct _fas_faust_ui_control *tmp;
+                                tmp = getFaustControl(ctrl, "fs_pr");
+                                if (tmp) {
+                                    *tmp->zone = n->previous_volume_l;
+                                }
+
+                                tmp = getFaustControl(ctrl, "fs_pg");
+                                if (tmp) {
+                                    *tmp->zone = n->previous_volume_r;
+                                }
+
+                                tmp = getFaustControl(ctrl, "fs_r");
+                                if (tmp) {
+                                    *tmp->zone = n->volume_l;
+                                }
+
+                                tmp = getFaustControl(ctrl, "fs_g");
+                                if (tmp) {
+                                    *tmp->zone = n->volume_r;
+                                }
+
+                                tmp = getFaustControl(ctrl, "fs_b");
+                                if (tmp) {
+                                    *tmp->zone = n->blue;
+                                }
+
+                                tmp = getFaustControl(ctrl, "fs_a");
+                                if (tmp) {
+                                    *tmp->zone = n->alpha;
+                                }
+                            }
                         }
                     }
                 }
@@ -1566,6 +1580,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
 #ifdef WITH_JACK
 int jackCallback (jack_nframes_t nframes, void *arg) {
+    cpu_load_measurer.measurementStartTime = get_time();
+
     int i = 0;
     for (i = 0; i < fas_input_channels; i += 1) {
         jack_in[i] = jack_port_get_buffer (input_ports[i], nframes);
@@ -1575,7 +1591,26 @@ int jackCallback (jack_nframes_t nframes, void *arg) {
         jack_out[i] = jack_port_get_buffer (output_ports[i], nframes);
     }
 
-    return audioCallback((float **)jack_in, (float **)jack_out, nframes);
+    int r = audioCallback((float **)jack_in, (float **)jack_out, nframes);
+
+    // compute CPU load (come from PortAudio)
+    double measurementEndTime = get_time();
+
+    double secondsFor100Percent = (nframes * fas_output_channels) * cpu_load_measurer.samplingPeriod;
+
+    if (secondsFor100Percent > 0) {
+        double measuredLoad = (measurementEndTime - cpu_load_measurer.measurementStartTime) / secondsFor100Percent;
+
+#define LOWPASS_COEFFICIENT_0   (0.9)
+#define LOWPASS_COEFFICIENT_1   (0.99999 - LOWPASS_COEFFICIENT_0)
+
+        cpu_load_measurer.averageLoad = (LOWPASS_COEFFICIENT_0 * cpu_load_measurer.averageLoad) +
+                                (LOWPASS_COEFFICIENT_1 * measuredLoad);
+
+        cpu_load = (int)(cpu_load_measurer.averageLoad * 100);
+    }
+
+    return r;
 }
 #else
 static int paCallback(const void *inputBuffer, void *outputBuffer,
@@ -2100,21 +2135,23 @@ if (remaining_payload != 0) {
                         lfds720_freelist_n_threadsafe_push(&freelist_frames, NULL, &overwritten_notes->fe);
                     }
 
-#ifndef WITH_FAUST
                     // check & send stream load
                     time_t stream_load_end;
                     time(&stream_load_end);
                     double stream_load_time = difftime(stream_load_end,stream_load_begin);
                     if (stream_load_time > fas_stream_load_send_delay) {
-                        static unsigned char p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(double) + LWS_SEND_BUFFER_POST_PADDING];
+                        static unsigned char p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int) + LWS_SEND_BUFFER_POST_PADDING];
                         p_load[LWS_SEND_BUFFER_PRE_PADDING] = 0;
-                        double stream_load = Pa_GetStreamCpuLoad(stream);
-                        memcpy(&p_load[LWS_SEND_BUFFER_PRE_PADDING], &stream_load, sizeof(double));
-                        lws_write(wsi, &p_load[LWS_SEND_BUFFER_PRE_PADDING], sizeof(double), LWS_WRITE_BINARY);
+#ifdef WITH_JACK
+                        int stream_load = cpu_load;
+#else
+                        int stream_load = (int)(Pa_GetStreamCpuLoad(stream) * 100);
+#endif
+                        memcpy(&p_load[LWS_SEND_BUFFER_PRE_PADDING], &stream_load, sizeof(int));
+                        lws_write(wsi, &p_load[LWS_SEND_BUFFER_PRE_PADDING], sizeof(int), LWS_WRITE_BINARY);
 
                         time(&stream_load_begin);
                     }
-#endif
                 } else if (pid == GAIN_CHANGE) {
                     struct _freelist_synth_commands *freelist_synth_command = getSynthCommandFreelist();
                     if (freelist_synth_command == NULL) {
@@ -3048,6 +3085,9 @@ int main(int argc, char **argv)
 
     printf("\nJack: Using Jack (%u) with %u output ports", fas_sample_rate, fas_output_channels);
     printf("\nJack: Using Jack (%u) with %u input ports\n", fas_sample_rate, fas_input_channels);
+
+    cpu_load_measurer.samplingPeriod = 1. / fas_sample_rate;
+    cpu_load_measurer.averageLoad = 0.;
 #else
     // PortAudio related
     PaError err;

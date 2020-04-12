@@ -8,6 +8,9 @@
 
     #include "constants.h"
 
+    #include <time.h>
+    #include <sys/time.h>
+
     #define FAS_ENVS_COUNT 13
 
     extern double poly_blep(double phase_increment, double t);
@@ -20,5 +23,7 @@
     extern char *create_filepath(char *directory, char *filename);
 
     int isPowerOfTwo(unsigned int x);
+
+    double get_time(void);
 
 #endif

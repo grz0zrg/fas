@@ -198,6 +198,17 @@
     jack_client_t *client;
     jack_default_audio_sample_t **jack_in = NULL;
     jack_default_audio_sample_t **jack_out = NULL;
+
+    // from PortAudio
+    typedef struct {
+        double samplingPeriod;
+        double measurementStartTime;
+        double averageLoad;
+    } CpuLoadMeasurer;
+
+    CpuLoadMeasurer cpu_load_measurer;
+
+    atomic_int cpu_load;
 #else
     PaStream *stream;
     PaStreamParameters inputParameters;

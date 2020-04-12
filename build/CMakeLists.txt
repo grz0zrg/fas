@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(fas)
+project(fas VERSION 1.0)
 
 ############################################################
 # source and headers files
@@ -26,11 +26,13 @@ add_compile_options(-Wextra -pedantic -Werror)
 option (LIBLFDS720 "Use liblfds720 (arm64 support)" off)
 option (WITH_OSC "Use OSC output" off)
 option (WITH_FAUST "Use Faust (custom generators / effects support)" on)
+option (WITH_JACK "Use Jack instead of PortAudio" off)
 option (WITH_SOUNDPIPE "Use Soundpipe (extended generators / effects)" on)
 option (FIXED_WAVETABLE "Use additive synthesis fixed wavetable length oscillator" off)
 option (MAGIC_CIRCLE "Use additive synthesis magic circle oscillator" on)
 option (PARTIAL_FX "Use additive synthesis per partial effects" on)
 option (BANDLIMITED_NOISE "Use additive synthesis + bandlimited noise" off)
+option (INTERLEAVED_SAMPLE_FORMAT "PortAudio use interleaved buffers (not used when WITH_JACK is set)" on)
 
 ############################################################
 
@@ -71,10 +73,34 @@ if (WITH_FAUST)
     include_directories(${LLVM_INCLUDE_DIRS})
     add_definitions(${LLVM_DEFINITIONS})
 
-    llvm_map_components_to_libnames(llvm_libs all)
-    list(REMOVE_ITEM llvm_libs lto)
+    # ${llvm_libs} does not seem to work
+    #llvm_map_components_to_libnames(llvm_libs all)
+    #list(REMOVE_ITEM llvm_libs lto)
 
-    target_link_libraries(fas ${llvm_libs})
+    target_link_libraries(fas LLVM)
+
+    # for some reasons cmake will link with cc but LLVM need to be linked with C++ linker
+    set_target_properties(fas PROPERTIES LINKER_LANGUAGE CXX)
+endif()
+
+if (WITH_JACK)
+    find_package(LibJack MODULE REQUIRED)
+    include_directories(${JACK_INCLUDE_DIRS})
+
+    add_definitions(-DWITH_JACK)
+    add_definitions(${JACK_DEFINITIONS})
+    target_link_libraries(fas ${JACK_LIBRARIES})
+else()
+    # PortAudio
+    find_package(LibPortAudio MODULE REQUIRED)
+
+    include_directories(${PORTAUDIO_INCLUDE_DIRS})
+
+    target_link_libraries(fas ${PORTAUDIO_LIBRARIES})
+
+    if (INTERLEAVED_SAMPLE_FORMAT)
+        add_definitions(-DINTERLEAVED_SAMPLE_FORMAT)
+    endif()
 endif()
 
 if (WITH_SOUNDPIPE)
@@ -111,12 +137,11 @@ endif()
 
 find_package(Libsamplerate MODULE REQUIRED)
 find_package(LibSndFile MODULE REQUIRED)
-find_package(LibPortAudio MODULE REQUIRED)
 find_package(LibWebSockets MODULE REQUIRED)
 find_package(Threads REQUIRED)
 
-include_directories(${LIBSNDFILE_INCLUDE_DIR} ${PORTAUDIO_INCLUDE_DIRS} ${LIBSAMPLERATE_INCLUDE_DIR} ${LIBWEBSOCKETS_INCLUDE_DIR})
-target_link_libraries(fas m Threads::Threads ${LIBSNDFILE_LIBRARY} ${PORTAUDIO_LIBRARIES} ${LIBSAMPLERATE_LIBRARIES} ${LIBWEBSOCKETS_LIBRARIES})
+include_directories(${LIBSNDFILE_INCLUDE_DIR} ${LIBSAMPLERATE_INCLUDE_DIR} ${LIBWEBSOCKETS_INCLUDE_DIR})
+target_link_libraries(fas m Threads::Threads ${LIBSNDFILE_LIBRARY} ${LIBSAMPLERATE_LIBRARIES} ${LIBWEBSOCKETS_LIBRARIES})
 
 ############################################################
 # Install

@@ -36,6 +36,7 @@ Table of Contents
       * [What is sent](#what-is-sent)
       * [Offline rendering (planned)](#offline-rendering-(planned))
       * [OSC](#osc)
+      * [Jack](#jack)
    * [Technical Implementation](#technical-implementation)
    * [Packets description](#packets-description)
    * [Building FAS](#build)
@@ -552,11 +553,11 @@ Convolution effect use impulses response which are audio files loaded from the `
 
 ### Performances
 
-This program is tailored for performances, it is memory intensive (about 512mb is needed without samples, about 1 Gb with few samples), most things are pre-allocated or pre-computed with near zero real-time allocations.
+This program is tailored for performances, it is memory intensive (about 512mb is needed without samples, about 1 Gb with few samples), all real-time things are pre-allocated or pre-computed with zero real-time allocations.
 
 FAS should be compiled with Soundpipe for best performance / high quality algorithms; for example subtractive moog filter see 3x speed improvement compared to the standalone algorithm.
 
-FAS should also be compiled with Faust which may provide high quality / performance algorithms however using a huge number of generators and effects may vastly affect memory requirements.
+FAS should also be compiled with Faust which may provide high quality / performance algorithms, using a huge number of generators and effects may vastly affect memory requirements however.
 
 A fast and reliable Gigabit connection is recommended in order to process frames data from the network correctly.
 
@@ -578,7 +579,7 @@ This need a relay program which will link each server instances with the client 
 
 A directly usable implementation with NodeJS of a distributed synthesis relay can be found [here](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
 
-Note : Synthesis methods that require another channel as input may not work correctly, this require a minor 'group' update to the relay program. (WIP)
+Note : Synthesis methods that require another channel as input may not work correctly yet, this require a minor 'group' update to the relay program which will group related data. (WIP)
 
 This feature was successfully used with cheap small boards clusters of [NapoPI NEO 2](https://www.friendlyarm.com/index.php?route=product/product&product_id=180) and [NetJack](https://github.com/jackaudio/jackaudio.github.com/wiki/WalkThrough_User_NetJack2) in a setup with 10 quad-core ARM boards + i7 (48 cores) running, linked to the NetJack driver, it is important that the relay program run on a powerfull board with (most importantly) a good Gigabit Ethernet controller to reduce latency issues.
 
@@ -611,6 +612,16 @@ There is also minor architectural / cleanup work to do.
 FAS support OSC output of pixels data if the flag "WITH_OSC" is defined at compile time, OSC data is sent on the channel "/fragment" with data type "idff" and data (in order) "osc index", "osc frequency", "osc amplitude L value", "osc amplitude R value"
 
 With OSC you can basically do whatever you want with the pixels data, feeding SuperCollider synths for example, sending the data as an OSC bundle is WIP.
+
+### Jack
+
+FAS can use Jack instead of PortAudio (see [Build](#build)), this is recommended under Linux / embedded projets for maximum audio efficiency / reliability.
+
+Using Jack allow unlimited output / input channels so get rid of the PortAudio device channels limitation.
+
+Use `--output_channels` and `--input_channels` command-line arguments to configure Jack input / output ports.
+
+Note : FAS ports are not connected automatically. (`qjackctl` program can be used to connect ports)
 
 ## Technical implementation
 
@@ -760,7 +771,7 @@ Under Windows, [MSYS2](https://msys2.github.io/) with mingw32 is used and well t
 
 Requirements :
 
- * [PortAudio](http://www.portaudio.com/download.html)
+ * [PortAudio](http://www.portaudio.com/download.html) or [Jack](https://jackaudio.org/)
  * [liblfds](http://liblfds.org/)
  * [libwebsockets](https://libwebsockets.org/)
  * [libsndfile](https://github.com/erikd/libsndfile)
@@ -772,7 +783,7 @@ Requirements :
 
 FAS also make use of [tinydir](https://github.com/cxong/tinydir) [lodepng](https://github.com/lvandeve/lodepng) and [afSTFT](https://github.com/jvilkamo/afSTFT) (all of them bundled)
 
-Compiling requirements for Ubuntu/Raspberry Pi/Linux :
+Compiling requirements for Ubuntu/Raspberry Pi/Linux with PortAudio :
 
  * Get latest [PortAudio v19 package](http://www.portaudio.com/download.html)
    * sudo apt-get install libasound-dev jackd qjackctl libjack-jackd2-dev
@@ -835,14 +846,16 @@ There is some cmake build options available to customize features :
 
  * `-DLIBLFDS720` : Use the provided liblfds 7.2.0 library (for ARM64 support)
  * `-DWITH_OSC` : Use OSC output features
+ * `-DWITH_JACK` : Use Jack driver instead of PortAudio (may be faster)
  * `-DWITH_FAUST` : Use Faust
  * `-DWITH_SOUNDPIPE` : Use Soundpipe 
  * `-DFIXED_WAVETABLE` : Use a fixed wavetable length of 2^16 for fast phase index warping, this will disable wavetable_size option.
  * `-DMAGIC_CIRCLE` : Use additive synthesis magic circle oscillator (may be faster than wavetable on some platforms; not compatible with wavetable option)
  * `-DPARTIAL_FX`: Use additive synthesis per partial effects
  * `-DBANDLIMITED_NOISE` : Use additive synthesis with bandlimited noise (not compatible with -DMAGIC_CIRCLE and -DFIXED_WAVETABLE)
+ * `-DINTERLEAVED_SAMPLE_FORMAT` : Use interleaved sample format
 
-By default FAS build with `-DWITH_FAUST -DWITH_SOUNDPIPE -DMAGIC_CIRCLE -DPARTIAL_FX`
+By default FAS build with `-DWITH_FAUST -DWITH_SOUNDPIPE -DMAGIC_CIRCLE -DPARTIAL_FX -DINTERLEAVED_SAMPLE_FORMAT`
 
 ## Usage
 

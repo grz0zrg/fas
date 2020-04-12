@@ -21,7 +21,11 @@
     #endif
 
     // libraries
+#ifdef WITH_JACK
+    #include <jack/jack.h>
+#else
     #include "portaudio.h"
+#endif
     #include "libwebsockets.h"
 
 // compatibility layer to support liblfds 711 version (since default is liblfds720 which has ARM64 support but is not yet released)
@@ -112,13 +116,13 @@
     int fas_frames_per_buffer = FAS_FRAMES_PER_BUFFER;
     unsigned int fas_deflate = FAS_DEFLATE;
     unsigned int fas_wavetable = FAS_WAVETABLE;
-    #ifdef FIXED_WAVETABLE
+#ifdef FIXED_WAVETABLE
     unsigned int fas_wavetable_size = 65536;
     unsigned int fas_wavetable_size_m1 = 65535;
-    #else
+#else
     unsigned int fas_wavetable_size = FAS_WAVETABLE_SIZE;
     unsigned int fas_wavetable_size_m1 = FAS_WAVETABLE_SIZE - 1;
-    #endif
+#endif
     unsigned int fas_noise_wavetable_size = 65536; // noise wavetable size shouldn't change because its lookup wrap is optimized (using a 16-bit index)
     unsigned int fas_audio = FAS_AUDIO;
     unsigned int fas_fps = FAS_FPS;
@@ -153,7 +157,9 @@
 
     unsigned int fas_drop_counter = 0;
 
+#ifdef WITH_OSC
     lo_address fas_lo_addr;
+#endif
 
     unsigned long int fas_render_counter = 0;
     unsigned long int fas_render_frame_counter = 0;
@@ -186,9 +192,17 @@
 
     time_t stream_load_begin;
 
+#ifdef WITH_JACK
+    jack_port_t **input_ports = NULL;
+    jack_port_t **output_ports = NULL;
+    jack_client_t *client;
+    jack_default_audio_sample_t **jack_in = NULL;
+    jack_default_audio_sample_t **jack_out = NULL;
+#else
     PaStream *stream;
     PaStreamParameters inputParameters;
     PaStreamParameters outputParameters;
+#endif
 
     struct lws_context *context;
 

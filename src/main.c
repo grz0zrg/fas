@@ -192,16 +192,17 @@ void doSynthCommands() {
     }
 }
 
-static int paCallback( const void *inputBuffer, void *outputBuffer,
-                            unsigned long framesPerBuffer,
-                            const PaStreamCallbackTimeInfo* timeInfo,
-                            PaStreamCallbackFlags statusFlags,
-                            void *data) {
+#ifdef INTERLEAVED_SAMPLE_FORMAT
+static int audioCallback(float *inputBuffer, float *outputBuffer, unsigned long nframes) {
+#else
+static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned long nframes) {
+#endif
     LFDS720_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_PHYSICAL_CORE;
 
-    float *out = (float*)outputBuffer;
-    float *audio_in = (float*)inputBuffer;
-
+#ifdef INTERLEAVED_SAMPLE_FORMAT
+    float *audio_out = outputBuffer;
+    float *audio_in = inputBuffer;
+#endif
     unsigned int i, j, k, d, s, e, w;
 
     struct _freelist_frames_data *freelist_frames_data;
@@ -234,13 +235,19 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
     if (audio_thread_state == FAS_AUDIO_PAUSE) {
         // paused audio
-        for (i = 0; i < framesPerBuffer; i += 1) {
+        for (i = 0; i < nframes; i += 1) {
+#ifdef INTERLEAVED_SAMPLE_FORMAT
             for (j = 0; j < frame_data_count; j += 1) {
-                *out++ = last_sample_l[j] * (1.0f - curr_synth.lerp_t) * last_gain_lr;
-                *out++ = last_sample_r[j] * (1.0f - curr_synth.lerp_t) * last_gain_lr;
+                *audio_out++ = last_sample_l[j] * (1.0f - curr_synth.lerp_t) * last_gain_lr;
+                *audio_out++ = last_sample_r[j] * (1.0f - curr_synth.lerp_t) * last_gain_lr;
             }
-
-            curr_synth.lerp_t += (1.0f / (float)framesPerBuffer);
+#else
+            for (j = 0; j < frame_data_count * 2; j += 2) {
+                *outputBuffer[j]++ = last_sample_l[j] * (1.0f - curr_synth.lerp_t) * last_gain_lr;
+                *outputBuffer[j + 1]++ = last_sample_r[j] * (1.0f - curr_synth.lerp_t) * last_gain_lr;
+            }
+#endif
+            curr_synth.lerp_t += (1.0f / (float)nframes);
             curr_synth.lerp_t = fminf(curr_synth.lerp_t, 1.0f);
         }
 
@@ -249,14 +256,14 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
         lerp_t_step = 1 / note_time_samples;
 
-        return paContinue;
+        return 0;
     }
 
     // synth core - critical part :)
     struct note *_notes;
     unsigned int note_buffer_len = 0, pv_note_buffer_len = 0;
 
-    for (i = 0; i < framesPerBuffer; i += 1) {
+    for (i = 0; i < nframes; i += 1) {
         note_buffer_len = 0;
         pv_note_buffer_len = 0;
 
@@ -777,8 +784,13 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
                         int chn_count = fas_input_channels / 2;
                         int chn = abs((int)n->blue) % chn_count;
 
+#ifdef INTERLEAVED_SAMPLE_FORMAT
                         output_l += audio_in[i * 2 * chn_count + chn * 2] * vl;
                         output_r += audio_in[i * 2 * chn_count + 1 + chn * 2] * vr;
+#else
+                        output_l += inputBuffer[chn][i] * vl;
+                        output_r += inputBuffer[chn][i] * vr;
+#endif
                     }
                 }
 #ifdef WITH_SOUNDPIPE
@@ -1177,8 +1189,13 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 
             float chn_gain = last_chn_gain[k] + (curr_chn_gain[k] - last_chn_gain[k]) * curr_synth.lerp_t;
 
-            *out++ = output_l * chn_gain * curr_synth.gain->gain_lr;
-            *out++ = output_r * chn_gain * curr_synth.gain->gain_lr;
+#ifdef INTERLEAVED_SAMPLE_FORMAT
+            *audio_out++ = output_l * chn_gain * curr_synth.gain->gain_lr;
+            *audio_out++ = output_r * chn_gain * curr_synth.gain->gain_lr;
+#else
+            *outputBuffer[k >> 1]++ = output_l * chn_gain * curr_synth.gain->gain_lr;
+            *outputBuffer[(k >> 1) + 1]++ = output_r * chn_gain * curr_synth.gain->gain_lr;
+#endif
         }
 
         curr_synth.lerp_t += lerp_t_step * fas_smooth_factor;
@@ -1519,8 +1536,10 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
 #endif
 
 #ifdef PROFILE
+#ifndef WITH_JACK
     printf("PortAudio stream CPU load : %f\n", Pa_GetStreamCpuLoad(stream));
     fflush(stdout);
+#endif
 #endif
             } else {
                 // allow some frame drop, hold the current note events to FAS_MAX_DROP if that happen
@@ -1542,8 +1561,36 @@ static int paCallback( const void *inputBuffer, void *outputBuffer,
         }
     }
 
-    return paContinue;
+    return 0;
 }
+
+#ifdef WITH_JACK
+int jackCallback (jack_nframes_t nframes, void *arg) {
+    int i = 0;
+    for (i = 0; i < fas_input_channels; i += 1) {
+        jack_in[i] = jack_port_get_buffer (input_ports[i], nframes);
+    }
+
+    for (i = 0; i < fas_output_channels; i += 1) {
+        jack_out[i] = jack_port_get_buffer (output_ports[i], nframes);
+    }
+
+    return audioCallback((float **)jack_in, (float **)jack_out, nframes);
+}
+#else
+static int paCallback(const void *inputBuffer, void *outputBuffer,
+                            unsigned long nframes,
+                            const PaStreamCallbackTimeInfo* timeInfo,
+                            PaStreamCallbackFlags statusFlags,
+                            void *data) {
+#ifdef INTERLEAVED_SAMPLE_FORMAT
+    void *input_buffer = (void *)inputBuffer;
+    return audioCallback((float *)input_buffer, (float *)outputBuffer, nframes);
+#else
+    return audioCallback((float **)inputBuffer, (float **)outputBuffer, nframes);
+#endif
+}
+#endif
 
 void audioFlushThenPause() {
     audio_thread_state = FAS_AUDIO_DO_FLUSH_THEN_PAUSE;
@@ -2053,6 +2100,7 @@ if (remaining_payload != 0) {
                         lfds720_freelist_n_threadsafe_push(&freelist_frames, NULL, &overwritten_notes->fe);
                     }
 
+#ifndef WITH_FAUST
                     // check & send stream load
                     time_t stream_load_end;
                     time(&stream_load_end);
@@ -2066,6 +2114,7 @@ if (remaining_payload != 0) {
 
                         time(&stream_load_begin);
                     }
+#endif
                 } else if (pid == GAIN_CHANGE) {
                     struct _freelist_synth_commands *freelist_synth_command = getSynthCommandFreelist();
                     if (freelist_synth_command == NULL) {
@@ -2356,7 +2405,9 @@ free_packet:
             }
 
             if (clients > 0) {
-                audioFlushThenPause();
+                if (reason == LWS_CALLBACK_WS_PEER_INITIATED_CLOSE) {
+                    audioFlushThenPause();
+                }
 
                 clearQueues();
 
@@ -2469,6 +2520,7 @@ int start_server(void) {
     return 0;
 }
 
+#ifndef WITH_JACK
 void *streamWatcher(void *args) {
     PaError err = paNoError;
 
@@ -2484,6 +2536,7 @@ void *streamWatcher(void *args) {
 
     return 0;
 }
+#endif
 
 void int_handler(int dummy) {
     keep_running = 0;
@@ -2924,6 +2977,78 @@ int main(int argc, char **argv)
     curr_synth.chn_settings = NULL;
     curr_synth.lerp_t = 0;
 
+#ifdef WITH_JACK
+    // Jack related
+    int err = 0;
+
+    const char *client_name = NULL;
+	jack_options_t options = JackNullOption;
+	jack_status_t status;
+	client = jack_client_open ("Fragment Audio Server", options, &status, NULL);
+	if (client == NULL) {
+		fprintf (stderr, "jack_client_open() failed, status = 0x%2.0x\n", status);
+		if (status & JackServerFailed) {
+			fprintf (stderr, "Unable to connect to JACK server\n");
+		}
+		
+        goto error;
+	}
+
+	if (status & JackServerStarted) {
+		fprintf (stderr, "JACK server started\n");
+	}
+
+	if (status & JackNameNotUnique) {
+		client_name = jack_get_client_name(client);
+		fprintf (stderr, "unique name `%s' assigned\n", client_name);
+	}
+
+    jack_set_process_callback (client, jackCallback, 0);
+
+    fas_sample_rate = jack_get_sample_rate (client);
+
+    jack_in = calloc(fas_input_channels, sizeof(jack_default_audio_sample_t **));
+    jack_out = calloc(fas_output_channels, sizeof(jack_default_audio_sample_t **));
+
+    output_ports = calloc(fas_output_channels, sizeof(jack_port_t **));
+    input_ports = calloc(fas_input_channels, sizeof(jack_port_t **));
+
+    char portName[255];
+    for (i = 0; i < fas_output_channels; i += 2) {
+        snprintf(portName, 255, "output_%03d", i);
+        output_ports[i] = jack_port_register (client, portName, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+
+        if (output_ports[i] == NULL) {
+            fprintf(stderr, "jack_port_register() failed for '%s' port\n", portName);
+        }
+
+        snprintf(portName, 255, "output_%03d", i + 1);
+        output_ports[i + 1] = jack_port_register (client, portName, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+
+        if (output_ports[i + 1] == NULL) {
+            fprintf(stderr, "jack_port_register() failed for '%s' port\n", portName);
+        }
+    }
+
+    for (i = 0; i < fas_input_channels; i += 1) {
+        snprintf(portName, 255, "input_%03d", i);
+        input_ports[i] = jack_port_register (client, portName, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
+
+        if (input_ports[i] == NULL) {
+            fprintf(stderr, "jack_port_register() failed for '%s' port\n", portName);
+        }
+
+        snprintf(portName, 255, "input_%03d", i + 1);
+        input_ports[i + 1] = jack_port_register (client, portName, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
+
+        if (input_ports[i + 1] == NULL) {
+            fprintf(stderr, "jack_port_register() failed for '%s' port\n", portName);
+        }
+    }
+
+    printf("\nJack: Using Jack (%u) with %u output ports", fas_sample_rate, fas_output_channels);
+    printf("\nJack: Using Jack (%u) with %u input ports\n", fas_sample_rate, fas_input_channels);
+#else
     // PortAudio related
     PaError err;
 
@@ -2990,6 +3115,9 @@ int main(int argc, char **argv)
 
         outputParameters.channelCount = fas_output_channels;
         outputParameters.sampleFormat = paFloat32;
+#ifndef INTERLEAVED_SAMPLE_FORMAT
+        outputParameters.sampleFormat |= paNonInterleaved;
+#endif
         outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
         outputParameters.hostApiSpecificStreamInfo = NULL;
     } else {
@@ -3008,6 +3136,9 @@ int main(int argc, char **argv)
         outputParameters.device = fas_audio_device;
         outputParameters.channelCount = fas_output_channels;
         outputParameters.sampleFormat = paFloat32;
+#ifndef INTERLEAVED_SAMPLE_FORMAT
+        outputParameters.sampleFormat |= paNonInterleaved;
+#endif
         outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
         outputParameters.hostApiSpecificStreamInfo = NULL;
     }
@@ -3028,6 +3159,9 @@ int main(int argc, char **argv)
 
         inputParameters.channelCount = fas_input_channels;
         inputParameters.sampleFormat = paFloat32;
+#ifndef INTERLEAVED_SAMPLE_FORMAT
+        inputParameters.sampleFormat |= paNonInterleaved;
+#endif
         inputParameters.suggestedLatency = Pa_GetDeviceInfo(inputParameters.device)->defaultLowInputLatency;
         inputParameters.hostApiSpecificStreamInfo = NULL;
     } else {
@@ -3046,9 +3180,13 @@ int main(int argc, char **argv)
         inputParameters.device = fas_input_audio_device;
         inputParameters.channelCount = fas_input_channels;
         inputParameters.sampleFormat = paFloat32;
+#ifndef INTERLEAVED_SAMPLE_FORMAT
+        inputParameters.sampleFormat |= paNonInterleaved;
+#endif
         inputParameters.suggestedLatency = Pa_GetDeviceInfo(inputParameters.device)->defaultLowInputLatency;
         inputParameters.hostApiSpecificStreamInfo = NULL;
     }
+#endif
 
     frame_data_count = fas_output_channels / 2;
 
@@ -3062,6 +3200,7 @@ int main(int argc, char **argv)
 
     fas_chn_states = createChannelsState(frame_data_count);
 
+#ifndef WITH_JACK
     printf("\nPortAudio: Using device '%s' (%i) with %u output channels", Pa_GetDeviceInfo(outputParameters.device)->name, fas_sample_rate, fas_output_channels);
     printf("\nPortAudio: Using device '%s' (%i) with %u input channels\n", Pa_GetDeviceInfo(inputParameters.device)->name, fas_sample_rate, fas_input_channels);
 
@@ -3073,6 +3212,7 @@ int main(int argc, char **argv)
     if (fas_frames_per_buffer == 0) {
         fas_frames_per_buffer = paFramesPerBufferUnspecified;
     }
+#endif
 
     curr_synth.gain = (struct _synth_gain*)calloc(1, sizeof(struct _synth_gain));
     if (!curr_synth.gain) {
@@ -3090,6 +3230,7 @@ int main(int argc, char **argv)
         goto error;
     }
 
+#ifndef WITH_JACK
     err = Pa_OpenStream(
               &stream,
               (fas_input_channels <= 0) ? NULL : &inputParameters,
@@ -3100,6 +3241,7 @@ int main(int argc, char **argv)
               paCallback,
               NULL );
     if (err != paNoError) goto error;
+#endif
 
     curr_synth.chn_settings = (struct _synth_chn_settings*)calloc(frame_data_count, sizeof(struct _synth_chn_settings));
 
@@ -3165,22 +3307,33 @@ int main(int argc, char **argv)
     fflush(stdout);
     fflush(stderr);
 
+#ifdef WITH_JACK
+	if (jack_activate (client)) {
+		fprintf (stderr, "jack_activate() failed\n");
+    
+        goto quit;
+	}
+#else
     // portaudio stream watcher
     pthread_t tid;
-    int pret = pthread_create(&tid, NULL, &streamWatcher, NULL);
-    if (pret != 0) {
-        fprintf(stderr, "pthread_create streamWatcher error %i\n", pret);
+    int watcherState = pthread_create(&tid, NULL, &streamWatcher, NULL);
+    if (watcherState != 0) {
+        fprintf(stderr, "pthread_create streamWatcher error %i\n", watcherState);
         goto quit;
     }
+#endif
 
     srand(time(NULL));
 
     // start audio stream
+#ifndef WITH_JACK
     err = Pa_StartStream(stream);
     if (err != paNoError) goto error;
+#endif
 
     if (start_server() < 0) {
-        goto ws_error;
+        fprintf(stderr, "lws related error occured.\n");
+        goto quit;
     }
 
     // websocket stuff
@@ -3201,16 +3354,30 @@ int main(int argc, char **argv)
 
 quit:
 
-    // thank you for your attention, bye.
+    // thank you for your attention, bye. 
+#ifdef WITH_JACK
+    jack_client_close (client);
+
+    free(output_ports);
+    free(input_ports);
+
+    free(jack_in);
+    free(jack_out);
+#else
     err = Pa_StopStream(stream);
     if (err != paNoError) goto error;
 
     err = Pa_CloseStream(stream);
     if (err != paNoError) goto error;
+#endif
+
+    audio_thread_state = FAS_AUDIO_PAUSE;
 
     lws_context_destroy(context);
 
+#ifndef WITH_JACK
     Pa_Terminate();
+#endif
 
     freeChannelsState(fas_chn_states, frame_data_count);
 
@@ -3285,16 +3452,13 @@ quit:
     free(last_sample_l);
     free(last_sample_r);
 
+#ifndef WITH_JACK
     pthread_join(tid, NULL);
+#endif
 
     printf("Bye.\n");
 
     return err;
-
-ws_error:
-    fprintf(stderr, "lws related error occured.\n");
-
-    lws_context_destroy(context);
 
 error:
 #ifdef WITH_SOUNDPIPE
@@ -3309,12 +3473,14 @@ error:
     }
 #endif
 
+#ifndef WITH_JACK
     Pa_Terminate();
 
     if (err != paNoError) {
         fprintf(stderr, "Error number: %d\n", err);
         fprintf(stderr, "Error message: %s\n", Pa_GetErrorText(err));
     }
+#endif
 
     freeChannelsState(fas_chn_states, frame_data_count);
 

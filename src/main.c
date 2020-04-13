@@ -75,6 +75,9 @@ void doSynthCommands() {
                     if (value == FAS_GRANULAR && samples_count == 0) {
                         // do not allow synthesis based on samples when there is no samples
                         chn_settings->synthesis_method = FAS_VOID;
+                    } else if (value == FAS_WAVETABLE && waves_count == 0) {
+                        // do not allow synthesis based on waves when there is no waves
+                        chn_settings->synthesis_method = FAS_VOID;
                     } else if (value == FAS_INPUT && fas_input_channels == 0) {
                         // do not allow input mode when there is no inputs
                         chn_settings->synthesis_method = FAS_VOID;
@@ -719,6 +722,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #endif
                     }
                 } else if (chn_settings->synthesis_method == FAS_WAVETABLE_SYNTH) {
+                    int filter_type = chn_settings->p0;
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
 
@@ -754,7 +758,15 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 #ifdef WITH_SOUNDPIPE
-                        sp_moogladder_compute(sp, (sp_moogladder *)osc->sp_filters[k][0], &ssmp, &ssmp); 
+                        if (filter_type == 0) {
+                            sp_moogladder_compute(sp, (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER], &ssmp, &ssmp); 
+                        } else if (filter_type == 1) {
+                            sp_diode_compute(sp, (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER], &ssmp, &ssmp);
+                        } else if (filter_type == 2) {
+                            sp_wpkorg35_compute(sp, (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER], &ssmp, &ssmp);
+                        } else if (filter_type == 3) {
+                            sp_lpf18_compute(sp, (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER], &ssmp, &ssmp);
+                        }
 #else
                         ssmp = huovilainen_moog(ssmp, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
 #endif
@@ -1461,12 +1473,38 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                                 struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 #ifndef WITH_SOUNDPIPE
-                                huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (double)fas_sample_rate);
+                                
 #endif
                                 unsigned int psmp_index = osc->fp4[k][4];//n->pwav_index;
                                 unsigned int smp_index = n->wav_index;
                                 struct sample *psmp = &waves[psmp_index];
                                 struct sample *smp = &waves[smp_index];
+
+#ifdef WITH_SOUNDPIPE
+                                SPFLOAT freq = osc->freq * n->cutoff;
+                                SPFLOAT res = fabs(n->res * 2.); // allow > 1 resonance
+
+                                // clamp to nyquist limit / filter limit
+                                freq = fminf(freq, fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
+
+                                sp_moogladder *spmf = (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER];
+                                spmf->freq = freq;
+                                spmf->res = fabsf(res);
+
+                                sp_diode *spdf = (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER];
+                                spdf->freq = freq;
+                                spdf->res = fabsf(res);
+
+                                sp_wpkorg35 *spkf = (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER];
+                                spkf->cutoff = freq;
+                                spkf->res = fabsf(res);
+
+                                sp_lpf18 *splf = (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER];
+                                splf->cutoff = freq;
+                                splf->res = fabsf(n->res);
+#else
+                                huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (double)fas_sample_rate);
+#endif
 
                                 // reset filter on note-off
                                 if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {

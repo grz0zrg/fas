@@ -8,8 +8,8 @@ get_filename_component(ROOT ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)
 set (SRCDIR ${ROOT}/src)
 set (BINDIR ${ROOT}/bin)
 
-file (GLOB SRC ${SRCDIR}/*.c ${SRCDIR}/afSTFT/*.c ${SRCDIR}/lodepng/*.c ${SRCDIR}/yin/*.c)
-file (GLOB HEADERS  ${SRCDIR}/*.h ${SRCDIR}/afSTFT/*.h ${SRCDIR}/lodepng/*.h ${SRCDIR}/yin/*.h ${SRCDIR}/tinydir/*.h)
+file (GLOB SRC ${SRCDIR}/*.c ${SRCDIR}/afSTFT/*.c ${SRCDIR}/lodepng/*.c ${SRCDIR}/yin/*.c ${SRCDIR}/ccwt/*.c)
+file (GLOB HEADERS  ${SRCDIR}/*.h ${SRCDIR}/afSTFT/*.h ${SRCDIR}/lodepng/*.h ${SRCDIR}/yin/*.h ${SRCDIR}/tinydir/*.h ${SRCDIR}/ccwt/*.h)
 
 ############################################################
 # compiler options
@@ -17,8 +17,8 @@ file (GLOB HEADERS  ${SRCDIR}/*.h ${SRCDIR}/afSTFT/*.h ${SRCDIR}/lodepng/*.h ${S
 set (CMAKE_C_STANDARD 11)
 set (CMAKE_C_STANDARD_REQUIRED TRUE)
 
-# -Wall
-add_compile_options(-Wextra -pedantic -Werror)
+# -Wall -Werror
+add_compile_options(-Wextra -pedantic)
 
 ############################################################
 # Output options
@@ -27,6 +27,7 @@ option (LIBLFDS720 "Use liblfds720 (arm64 support)" off)
 option (WITH_OSC "Use OSC output" off)
 option (WITH_FAUST "Use Faust (custom generators / effects support)" on)
 option (WITH_JACK "Use Jack instead of PortAudio" off)
+option (WITH_AUBIO "Use Aubio to automatically detect samples fundamental frequencies" on)
 option (WITH_SOUNDPIPE "Use Soundpipe (extended generators / effects)" on)
 option (FIXED_WAVETABLE "Use additive synthesis fixed wavetable length oscillator" off)
 option (MAGIC_CIRCLE "Use additive synthesis magic circle oscillator" on)
@@ -101,6 +102,14 @@ else()
     if (INTERLEAVED_SAMPLE_FORMAT)
         add_definitions(-DINTERLEAVED_SAMPLE_FORMAT)
     endif()
+endif()
+
+if (WITH_AUBIO)
+    find_package(LibAubio MODULE REQUIRED)
+    include_directories(${LIBAUBIO_INCLUDE_DIR})
+
+    add_definitions(-DWITH_AUBIO)
+    target_link_libraries(fas ${LIBAUBIO_LIBRARIES})
 endif()
 
 if (WITH_SOUNDPIPE)

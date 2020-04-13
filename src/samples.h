@@ -8,7 +8,9 @@
 #endif
 
   #include "samplerate.h"
-  #include "yin/Yin.h"
+#ifdef WITH_AUBIO
+  #include "aubio/aubio.h"
+#endif
 
     struct sample {
         float *data; // unused after load

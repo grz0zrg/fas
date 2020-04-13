@@ -98,7 +98,7 @@ inline void computeGrains(unsigned int channel, struct grain *g, unsigned int gr
 
         double pos = gr->frame[channel];
 
-        unsigned int sample_index = pos;
+        unsigned int sample_index = ((unsigned int)pos) % smp->frames;
         unsigned int sample_index2 = sample_index + 1;
 
         float smp_l = smp->data_l[sample_index];

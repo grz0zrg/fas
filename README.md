@@ -542,8 +542,10 @@ Note : Faust DSP code cannot be used to extend available synthesis methods which
 
 Each samples loaded from the `grains` or `waves` folder are processed, one of the most important process is the sample pitch mapping, this process try to gather informations or guess the sample pitch to map it correctly onto the user-defined image height, the guessing algorithm is in order :
 
-1. from the filename, the filename should contain a specific pattern which indicate the sample pitch such as `A#4` or a frequency between "#" character such as `flute_#440#.wav`
-2. with Yin pitch detection algorithm, this method can be heavily inaccurate and depend on the sample content
+1. from the filename, the filename should contain a specific pattern which indicate the sample pitch such as `A#4` or an exact frequency between "#" character such as `flute_#440#.wav`
+2. with Yin pitch detection algorithm, this method work ok most of the time but can be inaccurate, depend on the sample content and yin parameters which are actually fixed right now, only awailable when compiled with `WITH_AUBIO`
+
+Grains are smoothed in / out automatically to avoid crackles.
 
 ### Effects
 
@@ -774,6 +776,7 @@ Requirements :
  * [PortAudio](http://www.portaudio.com/download.html) or [Jack](https://jackaudio.org/)
  * [liblfds](http://liblfds.org/)
  * [libwebsockets](https://libwebsockets.org/)
+ * [aubio](https://www.aubio.org/)
  * [libsndfile](https://github.com/erikd/libsndfile)
  * [libsamplerate](https://github.com/erikd/libsamplerate)
  * [liblo](http://liblo.sourceforge.net/) (Optional)
@@ -823,6 +826,7 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux with PortAudio :
   * sudo apt-get install cmake llvm libmicrohttpd-dev
   * make all
   * sudo make install
+* For automatic pitch detection of sample files get aubio from your package manager (can also be installed from sources but instructions have yet to be written)
 
 Some dependencies can also be installed through the operating system packages manager.
 
@@ -848,14 +852,15 @@ There is some cmake build options available to customize features :
  * `-DWITH_OSC` : Use OSC output features
  * `-DWITH_JACK` : Use Jack driver instead of PortAudio (may be faster)
  * `-DWITH_FAUST` : Use Faust
- * `-DWITH_SOUNDPIPE` : Use Soundpipe 
+ * `-DWITH_SOUNDPIPE` : Use Soundpipe
+ * `-DWITH_AUBIO` : Use automatic pitch detection
  * `-DFIXED_WAVETABLE` : Use a fixed wavetable length of 2^16 for fast phase index warping, this will disable wavetable_size option.
  * `-DMAGIC_CIRCLE` : Use additive synthesis magic circle oscillator (may be faster than wavetable on some platforms; not compatible with wavetable option)
  * `-DPARTIAL_FX`: Use additive synthesis per partial effects
  * `-DBANDLIMITED_NOISE` : Use additive synthesis with bandlimited noise (not compatible with -DMAGIC_CIRCLE and -DFIXED_WAVETABLE)
  * `-DINTERLEAVED_SAMPLE_FORMAT` : Use interleaved sample format
 
-By default FAS build with `-DWITH_FAUST -DWITH_SOUNDPIPE -DMAGIC_CIRCLE -DPARTIAL_FX -DINTERLEAVED_SAMPLE_FORMAT`
+By default FAS build with `-DWITH_FAUST -DWITH_AUBIO -DWITH_SOUNDPIPE -DMAGIC_CIRCLE -DPARTIAL_FX -DINTERLEAVED_SAMPLE_FORMAT`
 
 ## Usage
 

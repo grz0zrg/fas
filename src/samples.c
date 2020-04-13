@@ -79,6 +79,18 @@ void fix_samplerate (struct sample *sample, unsigned int samplerate, int convert
     }
 }
 
+#ifdef WITH_AUBIO
+int aubioNotesSort(const void *e1, const void *e2) {
+    fvec_t *n1 = *(fvec_t * const *)e1;
+    fvec_t *n2 = *(fvec_t * const *)e2;
+
+    if (n1->data[0] > n2->data[0]) return 1;
+    if (n1->data[0] < n2->data[0]) return -1;
+
+    return 0;
+}
+#endif
+
 unsigned int load_samples(
 #ifdef WITH_SOUNDPIPE
         sp_data *sp,
@@ -380,67 +392,81 @@ unsigned int load_samples(
 
             // try to guess it
             if (smp->pitch == 0) {
-                int16_t *st_samples = (int16_t *)calloc(smp->len, sizeof(int16_t));
-                sf_read_short(audio_file, st_samples, smp->len);
-
-                int16_t *yin_samples = (int16_t *)calloc(smp->frames, sizeof(int16_t));
-
-                // convert to mono for pitch detection
-                for(i = 0; i < smp->frames; i++) {
-                    yin_samples[i] = 0;
-                    for(j = 0; j < sfinfo.channels; j++) {
-                        index = i * sfinfo.channels + j;
-
-                        yin_samples[i] += st_samples[index];
-                    }
-                    yin_samples[i] /= sfinfo.channels;
+#ifdef WITH_AUBIO
+                uint_t buffer_size = 2048;
+                uint_t hop_size = 2048;
+                aubio_notes_t *notes = new_aubio_notes("default", buffer_size, hop_size, smp->samplerate);
+                if (notes == NULL) {
+                    goto next;
                 }
 
-                double uncertainty = 0.05;
+                aubio_notes_set_minioi_ms(notes, 0.012);
 
-                Yin *yin = (Yin *)malloc(sizeof(struct _Yin));
-                while (uncertainty <= 0.75) { // max uncertainty before giving up is 75%
-                    int p = 2;
-                    unsigned int buffer_length = pow(2, p);
+                fvec_t *input_buffer = new_fvec(hop_size);
+                
+                unsigned int hop_count = floor((double)smp->frames / hop_size);
+                fvec_t **output_buffer = calloc(hop_count, sizeof(fvec_t *));
+                for (i = 0; i < hop_count; i += 1) {
+                    output_buffer[i] = new_fvec(3);
+                }
 
-                    while (smp->pitch < 8) {
-                        int yin_status = Yin_init(yin, buffer_length, uncertainty);
-
-                        p++;
-                        buffer_length = pow(2, p);
-
-                        if (buffer_length > (smp->frames / 8 / 2)) {
-                            Yin_free(yin);
-                            break;
-                        }
-
-                        if (!yin_status) {
-                            continue;
-                        }
-
-                        smp->pitch = Yin_getPitch(yin, yin_samples);
-                        Yin_free(yin);
-
-                        if (smp->pitch > 8) {
-                            goto next; // ;)
-                        }
+                unsigned real_notes_count = 0;
+                unsigned int hop = 0;
+                while (hop != hop_count) {
+                    for (i = 0; i < hop_size; i += 1) {
+                        input_buffer->data[i] = smp->data_l[hop * hop_size + i];
                     }
 
-                    uncertainty += 0.05; // increase uncertainty by 5%
+                    aubio_notes_do(notes, input_buffer, output_buffer[hop]);
+
+                    if (output_buffer[hop]->data[0] != 0) {
+                        real_notes_count += 1;
+                    }
+
+                    hop += 1;
                 }
+
+                fvec_t **notes_buffer = NULL;
+
+                if (real_notes_count == 0) {
+                    goto cannot_guess;
+                }
+                
+                notes_buffer = calloc(real_notes_count, sizeof(fvec_t *));
+
+                unsigned int count = 0;
+                for (i = 0; i < hop_count; i += 1) {
+                    if (output_buffer[i]->data[0] != 0) {
+                        notes_buffer[count] = output_buffer[i];
+                        count += 1;
+                    }
+                }
+
+                qsort(output_buffer, hop_count, sizeof(output_buffer[0]), aubioNotesSort);
+
+                fvec_t *median_note = notes_buffer[real_notes_count / 2];
+
+                smp->pitch = aubio_miditofreq(median_note->data[0]);
+
+        cannot_guess:
+
+                del_fvec(input_buffer);
+
+                for (i = 0; i < hop_count; i += 1) {
+                    del_fvec(output_buffer[i]);
+                }
+                free(output_buffer);
+                free(notes_buffer);
+
+                del_aubio_notes(notes);
+#endif
         next:
-
-                free(yin);
-
-                if (smp->pitch < 8) {
-                    smp->pitch = 440. * 4.;
+                if (smp->pitch == 0) {
+                    smp->pitch = 440.;
                     printf("Fundamental pitch was not detected, 440hz as default.\n");
                 } else {
-                    printf("Fundamental pitch is %fhz with %i%% uncertainty\n", smp->pitch / 4, (int)(100 * uncertainty));
+                    printf("Fundamental frequency %fhz was detected. (automatic)\n", smp->pitch);
                 }
-
-                free(yin_samples);
-                free(st_samples);
             } else {
                 printf("Pitch %fhz was detected.\n", smp->pitch);
             }

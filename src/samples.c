@@ -60,10 +60,10 @@ void fix_samplerate (struct sample *sample, unsigned int samplerate, int convert
         const char *conv_error_str = src_strerror(conv_result);
 
         if (conv_error_str == NULL) {
-            printf("fix_samplerate: Unknown conversion error.");
+            printf("fix_samplerate: Unknown conversion error.\n");
             fflush(stdout);
         } else {
-            printf("fix_samplerate: %s", conv_error_str);
+            printf("fix_samplerate: %s\n", conv_error_str);
             fflush(stdout);
         }
 
@@ -300,6 +300,7 @@ unsigned int load_samples(
             }
 
             // apply small amount of fade out/in (eliminate crackles)
+/*
             unsigned int smooth_samples = 32;
             float factor_step = 1.0f / (float)smooth_samples;
             float factor = 0.0f;
@@ -315,7 +316,7 @@ unsigned int load_samples(
                     factor += factor_step;
                 }
             }
-
+*/
             for (j = 0; j < pad_length; j += 1) {
                 smp->data_l[smp->frames - j] = 0;
                 smp->data_r[smp->frames - j] = 0;
@@ -431,7 +432,7 @@ unsigned int load_samples(
                 if (real_notes_count == 0) {
                     goto cannot_guess;
                 }
-                
+
                 notes_buffer = calloc(real_notes_count, sizeof(fvec_t *));
 
                 unsigned int count = 0;

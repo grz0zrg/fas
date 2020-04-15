@@ -530,8 +530,13 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        output_l += vl * smp;
-                        output_r += vr * smp;
+                        // dc filter (due to feedback there is a 0Hz component)
+                        float dc_filtered_smp = smp - osc->pvalue[k] + (0.99 * osc->fp1[k][2]);
+                        osc->pvalue[k] = smp;
+                        osc->fp1[k][2] = dc_filtered_smp;
+
+                        output_l += vl * dc_filtered_smp;
+                        output_r += vr * dc_filtered_smp;
 
                         osc->phase_index[k] += osc->phase_step;
                         osc->phase_index2[k] += mod_phase_step;

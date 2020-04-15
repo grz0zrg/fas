@@ -545,8 +545,6 @@ Each samples loaded from the `grains` or `waves` folder are processed, one of th
 1. from the filename, the filename should contain a specific pattern which indicate the sample pitch such as `A#4` or an exact frequency between "#" character such as `flute_#440#.wav`
 2. with Yin pitch detection algorithm, this method work ok most of the time but can be inaccurate, depend on the sample content and yin parameters which are actually fixed right now, only awailable when compiled with `WITH_AUBIO`
 
-Grains are smoothed in / out automatically to avoid crackles.
-
 ### Effects
 
 This synthesizer support unlimited (user-defined maximum at compile time) number of effects chain per channels with bypass support, all effects (phaser, comb, reverb, delay...) come from the Soundpipe library which is thus required for effects usage.
@@ -597,7 +595,7 @@ Only one client is supported at the moment, the server will refuse any more conn
 
 ### What is sent
 
-The server send the CPU load of the stream at regular interval (adjustable) to the client (double type).
+The server send the CPU load of the stream at regular interval (adjustable) to the client (unsigned 32 bits integer type).
 
 ### Offline rendering (WIP)
 
@@ -867,7 +865,7 @@ By default FAS build with `-DWITH_FAUST -DWITH_AUBIO -DWITH_SOUNDPIPE -DMAGIC_CI
 You can tweak this program by passing parameters to its arguments, for command-line help : **fas --h**
 
 A wxWidget user-friendly launcher is also available [here](https://github.com/grz0zrg/fas_launcher)
-
+ 
 Usage: fas [list_of_parameters]
  * --i **print audio device infos**
  * --sample_rate 44100
@@ -875,7 +873,7 @@ Usage: fas [list_of_parameters]
  * --frames 512 **audio buffer size**
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
  * --fps 60 **data stream rate, client monitor Hz usually, you can experiment with this but this may have strange effects**
- * --smooth_factor 8.0 **this is the samples interpolation factor between frames, a high value will sharpen sounds attack / transitions (just like if the stream rate / FPS was higher), a low value will smooth it (audio will become muddy)**
+ * --smooth_factor 1.0 **this is the samples interpolation factor between frames, a high value will sharpen sounds attack / transitions (just like if the stream rate / FPS was higher), a low value will smooth it (audio will become muddy)**
  * --ssl 0
  * --deflate 0 **data compression (add additional processing)**
  * --max_drop 60 **this allow smooth audio in the case of frames drop, allow 60 frames drop by default which equal to approximately 1 sec.**

@@ -25,6 +25,7 @@ Table of Contents
       * [String resonator synthesis](#string-resonator-synthesis)
       * [Modal synthesis](#modal-synthesis)
       * [Input](#input)
+      * [Modulation](#modulation)
       * [Faust](#faust)
       * [Samples map](#samples-map)
       * [Effects](#effects)
@@ -43,6 +44,7 @@ Table of Contents
    * [Cross-compiling under Linux for Windows](#cross-compiling-under-linux-for-windows)
    * [Makefile rules](#makefile-rules)
    * [Usage](#usage)
+   * [Credits](#credits)
 
 ## About
 
@@ -52,12 +54,12 @@ One can see this as a limitless bank of generators / filters.
 
 The versatility of its sound engine allow a wide variety of synthesis methods to produce sounds:
 
-* additive / spectral synthesis with per partial effects (bitcrush, phase distorsion, waveshaping, fold, convolve)
+* additive / spectral with per partial effects (bitcrush, phase distorsion, waveshaping, fold, convolve)
 * phase modulation (PM/FM)
-* granular
+* granular (asynchronous / synchronous)
 * subtractive synthesis
 * physical modelling (Karplus-strong, droplet)
-* wavetable
+* wavetable synthesis
 
 There is a second type of synthesis methods (or modifiers) which use any synthesis methods from above as input:
 
@@ -67,15 +69,17 @@ There is a second type of synthesis methods (or modifiers) which use any synthes
 * modal synthesis (resonant filter bank)
 * phase distorsion
 
-And there is also a third method which can do both; modify or synthesize sounds :
+There is also a third method which can do both; modify or synthesize sounds :
 
 * spectral (via STFT)
 
 There is also the [Faust](https://faust.grame.fr/) option which allow to import / write custom generators and effects built out of Faust DSP specification language and load them at runtime to extend FAS dynamically with custom DSP code.
 
-Other type of synthesis (Linear Arithmetic Synthesis, Vector synthesis etc.) may be supported out of the box by a combination of the methods above.
+Other type of synthesis (Linear Arithmetic Synthesis, Vector synthesis, Walsh, stacked waves etc.) may be supported out of the box easily by a combination of the methods above.
 
 There is also input channels which just play input audio so amplitude envelope, effects or second synthesis type can be applied.
+
+There is also a modulation channel which can be used to modulate fx, channel settings or produce wavetables from pixels data.
 
 All the synthesis methods can be used at the same time by using different output channels, there is no limit on the number of output channels.
 
@@ -118,7 +122,7 @@ Here is some architectural specifications as if it were made by a synth. manufac
 * fully microtonal / spectral
 * unlimited effects slot per part (24 by default but adaptable); reverb, convolution, comb, delay, chorus, flanger... 25 high quality effects type provided by Soundpipe are available, you can also choose to add your own effects chain since every part have dedicated stereo output
 * per partial slot effect for additive synthesis
-* per voice filtering for subtractive / wavetable synthesis with one multi mode filter
+* per voice filtering for subtractive synthesis with one multi mode filter
  * per voice effects is limited by RGBA note data (so it is quite low actually with only one multi mode filter per voice), this is one serious limitation but there is no reason this limitation can't go over with slight adjustements (dropping bitmap data / allowing layers), allowing more layers would provide unlimited effects slot per voice / unlimited modulation options but would stress data rate limit and thus increase demands on network speed / processing... maybe in the future!
 * envelopes ? has it all due to stream based architecture, you can build any types (ADSR etc.) with any interpolation scheme (linear / exp etc.)
 * highly optimized real-time architecture; run on low-power embedded hardware such as Raspberry
@@ -143,7 +147,7 @@ When compiled with `PARTIAL_FX` defined there is a fx slot available **per parti
 
 Any combination of these can be applied to each partials with real-time parameters change. This feature may allow to easily add character to the additive sound.
 
-Partials effects can be disabled to speed up additive synthesis (or if FAS doesn't make use of Soundpipe), phase noise is then available when `BANDLIMITED_NOISE` is defined and can also be turned off.
+Partials effects can be disabled to speed up additive synthesis (or if FAS doesn't make use of Soundpipe).
 
 Additive synthesis use either magic circle algorithm or a wavetable, speed depend on architecture, magic circle algorithm is recommended. (note : noise is not available with magic circle)
 
@@ -206,21 +210,19 @@ Granular synthesis with grain start index of 0 and min/max duration of 1/1 can b
 
 Subtractive synthesis start from harmonically rich waveforms which are then filtered.
 
-The default implementation is fast and use PolyBLEP anti-aliased waveforms, an alternative, much slower which use additive synthesis is also available by commenting `POLYBLEP` in `constants.h`.
+Fast and use PolyBLEP anti-aliased waveforms.
 
 Without Soundpipe there is one high quality low-pass filter (Moog type) implemented.
 
 With Soundpipe there is many filters type to chose from (see channel settings): moog, diode, korg 35, lpf18...
 
-Be careful as some filters may have unstability issues with some parameters!
+Be careful as some filters may have unstability issues with some parameters! (note : they are all checked against safety but there could bugs...)
 
 There is three type of band-limited waveforms : sawtooth, square, triangle
 
-There is also a noise waveform with PolyBLEP and additional brownian / pink noise with Soundpipe.
+There is also a noise waveform and additional brownian / pink noise with Soundpipe.
 
 This type of synthesis may improve gradually with more waveforms and more filters.
-
-**Note** : Additive synthesis waveforms are constitued of a maximum of 128 partials
 
 #### RGBA interpretation
 
@@ -239,6 +241,8 @@ Phase modulation (PM) is a mean to generate sounds by modulating the phase of an
 
 PM synthesis in Fragment use a simple algorithm with one carrier and one modulator with filtered feedback.
 
+Carrier and modulator oscillator can be a sine wave or an arbitrary wavetable (from `waves` folder) set by p0 and p1 channel settings parameter. (with -1 indicating the bundled sine wavetable)
+
 Modulator amplitude and frequency can be set with B and A channel, modulator feedback amount can be set with integral part of B channel.
 
 PM synthesis is one of the fastest method to generate sounds and is able to do re-synthesis.
@@ -256,19 +260,25 @@ The typical index of modulation of standard FM synths can be computed by doing :
 
 **Note** : Monophonic mode PM synthesis is not implemented.
 
-### Wavetable synthesis (WIP)
+### Wavetable synthesis
 
 Wavetable synthesis is a sound synthesis technique that employs arbitrary periodic waveforms in the production of musical tones or notes.
 
-Wavetable synthesis use single cycle waveforms / samples loaded from the `waves` folder.
+Wavetable synthesis use single cycle waveforms / samples loaded from the `waves` folder. Wave lookup is monophonic.
 
-The wavetable can be switched with the alpha channel (integral part), a linear interpolation will happen between current & next wavetable upon switch.
+The implementation is similar to PPG synths with linear interpolation (sampling & wave change) but no oversampling. (may alias)
 
-The wavetable cycle can be controlled through the integral part of the blue channel, which represent the whole samples map.
+Interpolation between waves can be enabled / disabled (PPG like) at note time though A fractional part. ( > 0 enabled interpolation)
 
-Wavetable synthesis is fast.
+Specific wave can be read by having similar start & end value (which will thus act as an offset) with a wavetable speed set to 0.
 
-There is only one high quality low-pass filter (Moog type) implemented.
+The speed at which the table is read can be set with the fractional part of the blue channel, the table will be read in reverse order if the value is negative.
+
+Wavetable synthesis is fast and provide rich sounds.
+
+Implementation is recent and may change.
+
+Note : FAS does not really have multiple 'wavetables' as it load every waves into a big continuous wavetable but the different wavetables are ordered (by folder then by filename) when loaded so that each loaded waves are contiguous.
 
 #### RGBA interpretation
 
@@ -276,8 +286,8 @@ There is only one high quality low-pass filter (Moog type) implemented.
 | ---------: | :----------------------------------------------------------- |
 |          R | Amplitude value of the LEFT channel                          |
 |          G | Amplitude value of the RIGHT channel                         |
-|          B | Filter cutoff parameter                                      |
-|          A | Filter resonance [0, 1] & wavetable selection on integral part (0.x, 1.x, 2.x etc) |
+|          B | Start wave selection on integral part & wavetable speed on fractional |
+|          A | End wave selection on integral part & wave interpolation on / off on fractional |
 
 **Note** : Monophonic mode Wavetable synthesis is not implemented.
 
@@ -466,6 +476,42 @@ This just play an input channel. Typically used in conjunction with formant / mo
 
 **Note** : Monophonic mode is not implemented.
 
+### Modulation
+
+This is a special type of synthesis which does not output any sounds.
+
+It is instead used to provide fx / channels settings modulation or to inject wavetables in real-time.
+
+Channel settings :
+
+* p0 : modulation mode
+ * 0 : Effects
+ * 1 : Channel settings
+ * 2 : Wavetable
+* p1 : Target channel
+* p2 : Target fx slot or channel parameter
+* p3 : Target fx parameter (effects mode only)
+* p4 : Easing method (interpolation between values)
+
+This is provided as a shortcut solution to provide some more standalone modulation options (modulation can also be done flexibly through chn / fx synth commands), disadvantage is the usage of an output channel...
+
+Simple use case would be to modulate filters cutoff / resonance parameter or wavetable selection for FM/PM.
+
+WIP : More useful is the Wavetable mode which allow to write the alpha value in real-time to a small wavetable (256 samples) which can then be used in FM/PM or wavetable synthesis.
+
+Note : Parameters which require re-allocation (eg. convolution file, delay comb time) cannot be modulated.
+
+#### RGBA interpretation
+
+| Components | Interpretations                        |
+| ---------: | :------------------------------------- |
+|          R | > 0 to modulate    |
+|          G | > 0 to modulate   |
+|          B | unused       |
+|          A | Modulation value / wave data        |
+
+**Note** : Monophonic mode is not implemented.
+
 ### Faust
 
 [Faust](https://faust.grame.fr/) is embedded (when compiled with `WITH_FAUST`) and allow to dynamically extend FAS bank generators and effects with custom one written with the Faust DSP specification language.
@@ -540,10 +586,13 @@ Note : Faust DSP code cannot be used to extend available synthesis methods which
 
 ### Samples map
 
-Each samples loaded from the `grains` or `waves` folder are processed, one of the most important process is the sample pitch mapping, this process try to gather informations or guess the sample pitch to map it correctly onto the user-defined image height, the guessing algorithm is in order :
+Each samples loaded from the `grains` folder are processed, one of the most important process is the sample pitch mapping, this process try to gather informations or guess the sample pitch to map it correctly onto the user-defined image height, the guessing algorithm is in order :
 
 1. from the filename, the filename should contain a specific pattern which indicate the sample pitch such as `A#4` or an exact frequency between "#" character such as `flute_#440#.wav`
-2. with Yin pitch detection algorithm, this method work ok most of the time but can be inaccurate, depend on the sample content and yin parameters which are actually fixed right now, only awailable when compiled with `WITH_AUBIO`
+2. same as above but with file path (note : may take the first pattern found on nested folders with multiple patterns)
+3. with Yin pitch detection algorithm, this method work ok most of the time but can be inaccurate, depend on the sample content and yin parameters which are actually fixed right now, only awailable when compiled with `WITH_AUBIO`
+
+The `waves` folder should only contain single cycle waveforms, the pitch is automatically detected from the sample length / samplerate informations.
 
 ### Effects
 
@@ -560,6 +609,8 @@ FAS should be compiled with Soundpipe for best performance / high quality algori
 FAS should also be compiled with Faust which may provide high quality / performance algorithms, using a huge number of generators and effects may vastly affect memory requirements however.
 
 A fast and reliable Gigabit connection is recommended in order to process frames data from the network correctly.
+
+Whole bank height RGBA data is sent as-is by clients and this data is transformed when received so there may be lots of data to transfer, this is by design to not add additional processing on the client side, if needed data size can be reduced by using gzip compression. (command-line parameter) This is ok actually because data is bound to channels but in the future it may be better to transform the data on the client especially when instruments (aka synthesis methods) are no more bounds to physical channels.
 
 Poor network transfer rate limit the number of channels / the frequency resolution (frame height) / number of events to process per seconds, a Gigabit connection is good enough for most usage, for example with a theorical data rate limit of 125MB/s and without packets compression (`deflate` argument) it would allow a configuration of 8 stereo channels with 1000px height slices float data at 60 fps without issues and beyond that (2000px / 240fps or 16 stereo channels / 1000 / 240fps), 8-bit data could also be used to go beyond that limit through Gigabit. This can go further with packets compression at the price of processing time.
 
@@ -603,9 +654,11 @@ FAS support real-time rendering of the pixels data, the pixels data is compresse
 
 ### Future
 
-The ongoing development is to improve analysis / synthesis algorithms, add support for offline rendering, add support for standalone usages and improve Faust integration / add more Faust *.dsp.
+The ongoing development is to add support for offline rendering, improve Faust integration / add more Faust *.dsp.
 
-There is also minor architectural / cleanup work to do.
+There is also minor architectural / cleanup work to do. Instrument / channel separation may be a major feature in the future as it would be a more flexible / efficient approach, this require minor work but may need major work on clients.
+
+There is also continuous work to do on improving analysis / synthesis algorithms.
 
 ### OSC
 
@@ -629,7 +682,7 @@ The architecture is done so there is **zero memory allocation** done in the audi
 
 Only one memory allocation is done in real-time in the network thread to assemble fragmented packets, some non-realtime actions such as samples reload and global synth settings change like bank height / remap do memory allocation.
 
-The audio thread has two state *pause* and *play* (with smooth transition) which are handled through an atomic type
+The audio thread has two state *pause* and *play* (with smooth transition) which are handled through an atomic type.
 It also has a transitionary flush state which make sure no data is being used on the audio thread and pause it.
 
 The audio thread contain its own synth. data structure defined globally as `curr_synth`, when the audio thread is paused `curr_synth` can be accessed anywhere otherwise the audio thread has an exclusive access.
@@ -653,6 +706,8 @@ There is a generic thread-safe (altough not really lock-free) commands queue for
 Some non-critical real-time change command relative to synthesis / effects parameters (like spectral window size) will trigger a short pause due to allocation being performed in the network thread while the audio thread is paused.
 
 There is a stream watcher thread which just check the audio callback state and inform whenever it is dropped. (due to xrun etc.)
+
+Parameters are generally bounded for filters to ensure stability. (altough there may be some unstable cases left)
 
 Additive synthesis is wavetable-based, a [magic circle](https://github.com/ccrma/chugins/blob/master/MagicSine/MagicSine.cpp) based sine generator is also available when `MAGIC_SINE` is enabled, this may be faster on some platforms.
 
@@ -838,6 +893,8 @@ Once all dependencies are installed one can run `cmake` followed by `make` in th
 
 FAS can then be installed with `sudo make install` in the build directory
 
+FAS will load grains / waves / impules first by checking `/usr/local/share/fragment/` default install path (specifically `grains` `waves` `impulses` folders) and when they are not available will look into the binary directory.
+
 Recommended launch parameters with HiFiBerry DAC+ :
     ./fas --frames_queue_size 63 --sample_rate 48000 --device 2
 Bit depth is fixed to 32 bits float at the moment.
@@ -852,10 +909,8 @@ There is some cmake build options available to customize features :
  * `-DWITH_FAUST` : Use Faust
  * `-DWITH_SOUNDPIPE` : Use Soundpipe
  * `-DWITH_AUBIO` : Use automatic pitch detection
- * `-DFIXED_WAVETABLE` : Use a fixed wavetable length of 2^16 for fast phase index warping, this will disable wavetable_size option.
- * `-DMAGIC_CIRCLE` : Use additive synthesis magic circle oscillator (may be faster than wavetable on some platforms; not compatible with wavetable option)
+ * `-DMAGIC_CIRCLE` : Use additive synthesis magic circle oscillator (may be faster than wavetable on some platforms; no bandlimited noise for per partial effects)
  * `-DPARTIAL_FX`: Use additive synthesis per partial effects
- * `-DBANDLIMITED_NOISE` : Use additive synthesis with bandlimited noise (not compatible with -DMAGIC_CIRCLE and -DFIXED_WAVETABLE)
  * `-DINTERLEAVED_SAMPLE_FORMAT` : Use interleaved sample format
 
 By default FAS build with `-DWITH_FAUST -DWITH_AUBIO -DWITH_SOUNDPIPE -DMAGIC_CIRCLE -DPARTIAL_FX -DINTERLEAVED_SAMPLE_FORMAT`
@@ -875,7 +930,7 @@ Usage: fas [list_of_parameters]
  * --fps 60 **data stream rate, client monitor Hz usually, you can experiment with this but this may have strange effects**
  * --smooth_factor 1.0 **this is the samples interpolation factor between frames, a high value will sharpen sounds attack / transitions (just like if the stream rate / FPS was higher), a low value will smooth it (audio will become muddy)**
  * --ssl 0
- * --deflate 0 **data compression (add additional processing)**
+ * --deflate 0 **network data compression (add additional processing)**
  * --max_drop 60 **this allow smooth audio in the case of frames drop, allow 60 frames drop by default which equal to approximately 1 sec.**
  * --render target.fs **real-time pixels-data offline rendering, this will save pixels data to "target.fs" file**
  * --render_convert target.fs **this will convert the pixels data contained by the .fs file to a .flac file of the same name**
@@ -903,3 +958,8 @@ Self-signed certificates are provided in `misc` folder in case you compile/run i
 **You can stop the application by pressing any keys while it is running on Windows or by sending SIGINT (Ctrl+C etc.) under Unix systems.**
 
 https://www.fsynth.com
+
+
+## Credits
+
+* [L'audionumérique 3°ed by Curtis Road](http://www.audionumerique.com/)

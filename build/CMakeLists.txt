@@ -8,8 +8,8 @@ get_filename_component(ROOT ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)
 set (SRCDIR ${ROOT}/src)
 set (BINDIR ${ROOT}/bin)
 
-file (GLOB SRC ${SRCDIR}/*.c ${SRCDIR}/afSTFT/*.c ${SRCDIR}/lodepng/*.c ${SRCDIR}/yin/*.c ${SRCDIR}/ccwt/*.c)
-file (GLOB HEADERS  ${SRCDIR}/*.h ${SRCDIR}/afSTFT/*.h ${SRCDIR}/lodepng/*.h ${SRCDIR}/yin/*.h ${SRCDIR}/tinydir/*.h ${SRCDIR}/ccwt/*.h)
+file (GLOB SRC ${SRCDIR}/*.c ${SRCDIR}/afSTFT/*.c ${SRCDIR}/lodepng/*.c ${SRCDIR}/yin/*.c ${SRCDIR}/ccwt/*.c ${SRCDIR}/AHEasing/*.c)
+file (GLOB HEADERS  ${SRCDIR}/*.h ${SRCDIR}/afSTFT/*.h ${SRCDIR}/lodepng/*.h ${SRCDIR}/yin/*.h ${SRCDIR}/tinydir/*.h ${SRCDIR}/ccwt/*.h ${SRCDIR}/AHEasing/*.h)
 
 ############################################################
 # compiler options
@@ -29,10 +29,9 @@ option (WITH_FAUST "Use Faust (custom generators / effects support)" on)
 option (WITH_JACK "Use Jack instead of PortAudio" off)
 option (WITH_AUBIO "Use Aubio to automatically detect samples fundamental frequencies" on)
 option (WITH_SOUNDPIPE "Use Soundpipe (extended generators / effects)" on)
-option (FIXED_WAVETABLE "Use additive synthesis fixed wavetable length oscillator" off)
+#option (WITH_RUBBERBAND "Use Rubberband (granular pitch shifting)" on)
 option (MAGIC_CIRCLE "Use additive synthesis magic circle oscillator" on)
 option (PARTIAL_FX "Use additive synthesis per partial effects" on)
-option (BANDLIMITED_NOISE "Use additive synthesis + bandlimited noise" off)
 option (INTERLEAVED_SAMPLE_FORMAT "PortAudio use interleaved buffers (not used when WITH_JACK is set)" on)
 
 ############################################################
@@ -112,6 +111,14 @@ if (WITH_AUBIO)
     target_link_libraries(fas ${LIBAUBIO_LIBRARIES})
 endif()
 
+#if (WITH_RUBBERBAND)
+#    find_package(LibRubberband MODULE REQUIRED)
+#    include_directories(${LIBRUBBERBAND_INCLUDE_DIR})
+
+#    add_definitions(-DWITH_RUBBERBAND)
+#    target_link_libraries(fas ${LIBRUBBERBAND_LIBRARIES})
+#endif()
+
 if (WITH_SOUNDPIPE)
     find_package(LibSoundpipe MODULE REQUIRED)
     include_directories(${LIBSOUNDPIPE_INCLUDE_DIR})
@@ -128,10 +135,6 @@ if (WITH_OSC)
     target_link_libraries(fas ${LIBLO_LIBRARIES})
 endif()
 
-if (FIXED_WAVETABLE)
-    add_definitions(-DFIXED_WAVETABLE)
-endif()
-
 if (MAGIC_CIRCLE)
     add_definitions(-DMAGIC_CIRCLE)
 endif()
@@ -140,9 +143,7 @@ if (PARTIAL_FX)
     add_definitions(-DPARTIAL_FX)
 endif()
 
-if (BANDLIMITED_NOISE)
-    add_definitions(-DBANDLIMITED_NOISE)
-endif()
+add_definitions(-DAH_EASING_USE_DBL_PRECIS)
 
 find_package(Libsamplerate MODULE REQUIRED)
 find_package(LibSndFile MODULE REQUIRED)

@@ -26,6 +26,9 @@
 #ifdef WITH_SOUNDPIPE
         sp_ftbl *ftbl;
 #endif
+
+        // contain resampled waveforms
+        struct sample *octave_map;
     };
 
     extern unsigned int load_waves(struct sample **waves, char* directory);
@@ -38,7 +41,7 @@
       unsigned int sample_rate,
       int converter_type,
       int pitch_detection,
-      int smooth_end);
+      int octave_map);
     extern void free_samples(struct sample **s, unsigned int samples_count);
 
 #endif

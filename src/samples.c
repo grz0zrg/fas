@@ -35,7 +35,7 @@ struct fas_path {
 };
 
 // https://github.com/tidalcycles/Dirt
-void fix_samplerate (struct sample *sample, unsigned int samplerate, int converter_type) {
+void resample (struct sample *sample, unsigned int samplerate, int converter_type) {
     SRC_DATA data;
     int max_output_frames;
     int channels = sample->chn;
@@ -60,10 +60,10 @@ void fix_samplerate (struct sample *sample, unsigned int samplerate, int convert
         const char *conv_error_str = src_strerror(conv_result);
 
         if (conv_error_str == NULL) {
-            printf("fix_samplerate: Unknown conversion error.\n");
+            printf("resample: Unknown conversion error.\n");
             fflush(stdout);
         } else {
-            printf("fix_samplerate: %s\n", conv_error_str);
+            printf("resample: %s\n", conv_error_str);
             fflush(stdout);
         }
 
@@ -77,6 +77,69 @@ void fix_samplerate (struct sample *sample, unsigned int samplerate, int convert
         sample->samplerate = samplerate;
         sample->frames = data.output_frames_gen;
     }
+}
+
+double parse_pitch(const char *name) {
+    double ratio = pow(2.0, 1.0 / 12.0);
+
+    double o = 16.3515978313 / 2;
+    int detected = 0;
+
+    unsigned int i, j, k;
+    for (j = 0; j < 2; j += 1) {
+        unsigned int start = notes_length * j;
+        for (i = 0; i < notes_length; i += 1) {
+            int n = i % 12;
+            if (n == 0) {
+                o *= 2;
+            }
+
+            char *_note_name = notes[i + start];
+            char *note_name = calloc(strlen(_note_name) + 1, sizeof(char));
+            strcpy(note_name, _note_name);
+
+            // check lowercase and uppercase note character
+            for (k = 0; k < 2; k += 1) {
+                char *res = strstr(name, note_name);
+                if (res) {
+                    double frequency = o * pow(ratio, n);
+
+                    free(note_name);
+
+                    return frequency;
+                }
+
+                note_name[0] -= 32;
+            }
+
+            free(note_name);
+        }
+    }
+
+    return 0;
+}
+
+double parse_frequency(const char *name) {
+    char *filename = calloc(strlen(name) + 1, sizeof(char));
+
+    strcpy(filename, name);
+
+    double pitch = 0;
+
+    char *res = strtok(filename, "##");
+    if (res) {
+        res = strtok (NULL, "##");
+        if (res) {
+            pitch = strtod(res, NULL);
+            if (errno == ERANGE) {
+                pitch = 0;
+            }
+        }
+    }
+
+    free(filename);
+
+    return pitch;
 }
 
 #ifdef WITH_AUBIO
@@ -100,7 +163,7 @@ unsigned int load_samples(
         unsigned int samplerate, 
         int converter_type, 
         int pitch_detection, 
-        int smooth_end) {
+        int octave_map) {
     unsigned int f = 0;
 
     unsigned int samples_count = 0;
@@ -122,8 +185,6 @@ unsigned int load_samples(
 
     samples = calloc(1, sizeof(struct sample));
 
-    double ratio = pow(2.0, 1.0 / 12.0);
-
     size_t dir_length = strlen(directory);
     char *current_dir = (char *)malloc(sizeof(char) * (dir_length + 1));
     memcpy(current_dir, directory, dir_length + 1);
@@ -132,6 +193,8 @@ unsigned int load_samples(
     level_dir->name = NULL;
     level_dir->next = NULL;
     struct fas_path *first_dir = level_dir;
+
+    double folder_pitch = 0;
 
     //while (dir.has_next) {
     for (f = 0; f <= dir.n_files; f++) {
@@ -155,6 +218,14 @@ unsigned int load_samples(
                 printf("switching to %s first dir %s\n", current_dir, first_dir->name);
                 fflush(stdout);
 
+                // detect pitch from folder name
+                if (pitch_detection != 0) {
+                    folder_pitch = parse_pitch(first_dir->name);
+                    if (folder_pitch == 0) {
+                        folder_pitch = parse_frequency(first_dir->name);
+                    }
+                }
+
                 free(tmp);
 
                 struct fas_path *tmp_path = first_dir;
@@ -176,7 +247,7 @@ unsigned int load_samples(
         }
 
         unsigned int i;
-        int j, k;
+        int j;
         tinydir_file file;
         //tinydir_readfile(&dir, &file);
         tinydir_readfile_n(&dir, &file, f);
@@ -246,8 +317,9 @@ unsigned int load_samples(
 
             sf_seek(audio_file, 0, SEEK_SET);
 
-            if (converter_type > 0) {
-                fix_samplerate(smp, samplerate, converter_type);
+            // adjust to current samplerate
+            if (converter_type >= 0) {
+                resample(smp, samplerate, converter_type);
             }
 
 #ifdef FAS_USE_CUBIC_INTERP
@@ -299,27 +371,9 @@ unsigned int load_samples(
                 }
             }
 
-            // apply small amount of fade out/in (eliminate crackles)
-/*
-            unsigned int smooth_samples = 32;
-            float factor_step = 1.0f / (float)smooth_samples;
-            float factor = 0.0f;
-
-            if (smp->frames > (smooth_samples * 4) && smooth_end) {
-                for (i = 0; i < smooth_samples; i ++) {
-                    smp->data_l[i] *= factor;
-                    smp->data_r[i] *= factor;
-
-                    smp->data_l[smp->frames - i - 1] *= factor;
-                    smp->data_r[smp->frames - i - 1] *= factor;
-
-                    factor += factor_step;
-                }
-            }
-*/
             for (j = 0; j < pad_length; j += 1) {
-                smp->data_l[smp->frames - j] = 0;
-                smp->data_r[smp->frames - j] = 0;
+                smp->data_l[smp->frames - j] = smp->data_l[j];
+                smp->data_r[smp->frames - j] = smp->data_r[j];
             }
 
             free(smp->data);
@@ -330,68 +384,27 @@ unsigned int load_samples(
 #endif
 
             if (pitch_detection == 0) {
+                // it is either a single cycle waveform or an impulse file so adjust pitch for single cycle waveform
+                smp->pitch = (double)smp->samplerate / smp->frames;
+
                 goto close;
             }
 
-            // make room to copy filename
-            char *filename = calloc(filename_length + 1, sizeof(char));
-
             // == pitch detection
             // analyze file name to gather pitch informations first
-            double o = 16.35 / 2;
-            int detected = 0;
-            for (j = 0; j < 2; j += 1) {
-                unsigned int start = notes_length * j;
-                for (i = 0; i < notes_length; i += 1) {
-                    int n = i % 12;
-                    if (n == 0) {
-                        o *= 2;
-                    }
+            smp->pitch = parse_pitch(file.name);
 
-                    char *_note_name = notes[i + start];
-                    char *note_name = calloc(strlen(_note_name) + 1, sizeof(char));
-                    strcpy(note_name, _note_name);
-
-                    // check lowercase and uppercase note character
-                    for (k = 0; k < 2; k += 1) {
-                        char *res = strstr(file.name, note_name);
-                        if (res) {
-                            double frequency = o * pow(ratio, n);
-
-                            smp->pitch = frequency;
-
-                            free(note_name);
-
-                            goto pitch_detected;
-                        }
-
-                        note_name[0] -= 32;
-                    }
-
-                    free(note_name);
-                }
-            }
-
-        pitch_detected:
-
-            // TODO : try to get raw pitch from filename
+            // get pitch from filename (raw frequency)
             if (smp->pitch == 0) {
-                strcpy(filename, file.name);
-                char *res = strtok(filename, "##");
-                if (res) {
-                    res = strtok (NULL, "##");
-                    if (res) {
-                        smp->pitch = strtod(res, NULL);
-                        if (errno == ERANGE) {
-                            smp->pitch = 0;
-                        }
-                    }
-                }
+                smp->pitch = parse_frequency(file.name);
             }
 
-            free(filename);
+            // fallback to folder pitch
+            if (smp->pitch == 0) {
+                smp->pitch = folder_pitch;
+            }
 
-            // try to guess it
+            // no pitch detected yet so try to guess it
             if (smp->pitch == 0) {
 #ifdef WITH_AUBIO
                 uint_t buffer_size = 2048;

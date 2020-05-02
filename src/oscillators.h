@@ -27,20 +27,6 @@
         // generic parameters storage (initially used for filter parameters)
         double **fp1, **fp2, **fp3, **fp4;
 
-        // sub bank of oscillators to generate additively synthesized waveforms (for subtractive synthesis)
-#ifndef POLYBLEP
-        int max_harmonics;
-        float *harmonics;
-
-    #ifdef FIXED_WAVETABLE
-        uint16_t **harmo_phase_index;
-        uint16_t *harmo_phase_step;
-    #else
-        unsigned int **harmo_phase_index;
-        unsigned int *harmo_phase_step;
-    #endif
-#endif
-
         // MCF recursive algorithm for sinewave oscillator
 #ifdef MAGIC_CIRCLE
         float mc_eps;
@@ -49,24 +35,16 @@
 #endif
 
         // wavetable related oscillator
-#ifdef FIXED_WAVETABLE
-        uint16_t *phase_index;
-        uint16_t phase_step;
+        double *phase_index;
+        double phase_step;
 
         // fm/pm; modulator
-        uint16_t *phase_index2;
-#else
-        unsigned int *phase_index;
-        unsigned int phase_step;
-
-        // fm/pm; modulator
-        unsigned int *phase_index2;
-#endif
+        double *phase_index2;
 
         // noise wavetable index
         uint16_t *noise_index;
 
-        // floating-point phase (for PolyBLEP subtractive waveforms / physical modelling)
+        // floating-point phase (for PolyBLEP subtractive waveforms / physical modelling) TODO : use wavetable phase (since we dropped integer based phase)
         double *fphase;
         double phase_increment;
 
@@ -79,6 +57,12 @@
 
         // trigger state; wether oscillator has been triggered
         unsigned int *triggered;
+
+        // unallocated wave
+        float **wav1, **wav2;
+
+        // custom waves
+        float **custom_wav;
 
         // Faust generators
 #ifdef WITH_FAUST

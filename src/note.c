@@ -134,6 +134,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
 
                 _note->alpha = alpha;
                 _note->palpha = pa;
+                _note->pblue = pb;
                 _note->blue = blue;
 
                 _note->density = fabs(round(blue));
@@ -167,16 +168,6 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
                 // for subtractive synthesis
                 _note->cutoff = fabs(blue);
                 _note->res = alpha_frac_part;
-#ifndef POLYBLEP
-                _note->waveform = ((unsigned int)alpha_int_part) % 2;
-
-                if ((((unsigned int)alpha_int_part + 1) % 3) == 0) {
-                    _note->exp = 1;
-                    _note->waveform = 1;
-                } else {
-                    _note->exp = 0;
-                }
-#endif
             }
 
             index += 1;

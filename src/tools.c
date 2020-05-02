@@ -281,3 +281,7 @@ double get_time(void) {
     return (double) tv.tv_usec * 1e-6 + tv.tv_sec;
 #endif
 }
+
+double lerp(double a, double b, double f) {
+    return (a * (1.0 - f)) + (b * f);
+}

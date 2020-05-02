@@ -26,4 +26,6 @@
 
     double get_time(void);
 
+    double lerp(double a, double b, double f);
+
 #endif

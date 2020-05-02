@@ -66,6 +66,7 @@
 #endif
 
     #include "lodepng/lodepng.h"
+    #include "AHEasing/easing.h"
 
 #ifdef WITH_SOUNDPIPE
       #include "soundpipe.h"
@@ -116,13 +117,8 @@
     int fas_frames_per_buffer = FAS_FRAMES_PER_BUFFER;
     unsigned int fas_deflate = FAS_DEFLATE;
     unsigned int fas_wavetable = FAS_WAVETABLE;
-#ifdef FIXED_WAVETABLE
-    unsigned int fas_wavetable_size = 65536;
-    unsigned int fas_wavetable_size_m1 = 65535;
-#else
     unsigned int fas_wavetable_size = FAS_WAVETABLE_SIZE;
     unsigned int fas_wavetable_size_m1 = FAS_WAVETABLE_SIZE - 1;
-#endif
     unsigned int fas_noise_wavetable_size = 65536; // noise wavetable size shouldn't change because its lookup wrap is optimized (using a 16-bit index)
     unsigned int fas_audio = FAS_AUDIO;
     unsigned int fas_fps = FAS_FPS;
@@ -283,12 +279,10 @@
     void karplusTrigger(unsigned int chn, struct oscillator *osc, struct note *n) {
         unsigned int d = 0;
 
-        if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
-            memset(osc->fp1[chn], 0, sizeof(double) * 4);
-            memset(osc->fp2[chn], 0, sizeof(double) * 4);
-            memset(osc->fp3[chn], 0, sizeof(double) * 4);
-            memset(osc->fp4[chn], 0, sizeof(double) * 4);
-        }
+        memset(osc->fp1[chn], 0, sizeof(double) * 4);
+        memset(osc->fp2[chn], 0, sizeof(double) * 4);
+        memset(osc->fp3[chn], 0, sizeof(double) * 4);
+        memset(osc->fp4[chn], 0, sizeof(double) * 4);
 
         osc->pvalue[chn] = 0.0f;
         osc->fphase[chn] = 0.0f;
@@ -436,6 +430,75 @@
             }
             curr_synth.chn_settings[i].synthesis_method = FAS_VOID;
             curr_synth.chn_settings[i].muted = 0;
+        }
+    }
+
+    // easing functions
+    double applyEasing(int type, double f) {
+        if (type == 0) {
+            return LinearInterpolation(f);
+        } else if (type == 1) {
+            return QuadraticEaseIn(f);
+        } else if (type == 2) {
+            return QuadraticEaseOut(f);
+        } else if (type == 3) {
+            return QuadraticEaseInOut(f);
+        } else if (type == 4) {
+            return CubicEaseIn(f);
+        } else if (type == 5) {
+            return CubicEaseOut(f);
+        } else if (type == 6) {
+            return CubicEaseInOut(f);
+        } else if (type == 7) {
+            return QuarticEaseIn(f);
+        } else if (type == 8) {
+            return QuarticEaseOut(f);
+        } else if (type == 9) {
+            return QuarticEaseInOut(f);
+        } else if (type == 10) {
+            return QuinticEaseIn(f);
+        } else if (type == 11) {
+            return QuinticEaseOut(f);
+        } else if (type == 12) {
+            return QuinticEaseInOut(f);
+        } else if (type == 13) {
+            return SineEaseIn(f);
+        } else if (type == 14) {
+            return SineEaseOut(f);
+        } else if (type == 15) {
+            return SineEaseInOut(f);
+        } else if (type == 17) {
+            return CircularEaseIn(f);
+        } else if (type == 18) {
+            return CircularEaseOut(f);
+        } else if (type == 19) {
+            return CircularEaseInOut(f);
+        } else if (type == 20) {
+            return ExponentialEaseIn(f);
+        } else if (type == 21) {
+            return ExponentialEaseOut(f);
+        } else if (type == 22) {
+            return ExponentialEaseInOut(f);
+        } else if (type == 23) {
+            return ElasticEaseIn(f);
+        } else if (type == 24) {
+            return ElasticEaseOut(f);
+        } else if (type == 25) {
+            return ElasticEaseInOut(f);
+        } else if (type == 26) {
+            return BackEaseIn(f);
+        } else if (type == 27) {
+            return BackEaseOut(f);
+        } else if (type == 28) {
+            return BackEaseInOut(f);
+        } else if (type == 29) {
+            return BounceEaseIn(f);
+        } else if (type == 30) {
+            return BounceEaseOut(f);
+        } else if (type == 31) {
+            return BounceEaseInOut(f);
+        } else {
+            return f;
         }
     }
 

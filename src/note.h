@@ -19,6 +19,7 @@
         float volume_l; // red (mono = alpha)
         float volume_r; // green (mono = alpha)
         float blue;
+        float pblue;
         float alpha;
         float palpha;
 
@@ -27,11 +28,6 @@
         // subtractive related
         double cutoff;
         double res;
-
-#ifndef POLYBLEP
-        unsigned int waveform;
-        double exp;
-#endif
 
         // granular related
         unsigned int density;

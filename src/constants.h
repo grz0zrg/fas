@@ -39,6 +39,8 @@
 
     #define FAS_STFT_HOP_SIZE 1024
 
+    #define FAS_EASING_COUNT 32
+
     // program settings constants
     #define FAS_SAMPLE_RATE 44100
     #define FAS_FRAMES_PER_BUFFER 0
@@ -70,7 +72,6 @@
     #define FAS_MAX_FX_PARAMETERS 13
 
     //#define FAS_USE_CUBIC_INTERP
-    #define POLYBLEP
 
     // synth commands
     #define FAS_CMD_GAIN_CHANGE 0
@@ -100,12 +101,13 @@
     #define FAS_PHASE_DISTORSION 9
     #define FAS_STRING_RESON 10
     #define FAS_MODAL_SYNTH 11
-    #define FAS_INPUT 12
-    #define FAS_FAUST 13
-    #define FAS_VOID 14
+    #define FAS_MODULATION 12
+    #define FAS_INPUT 13
+    #define FAS_FAUST 14
+    #define FAS_VOID 15
 
     // granular constants
-    #define GRAIN_MIN_DURATION 0.0001
+    #define GRAIN_MIN_DURATION 0.0000001
 
     // Soundpipe
     #define SP_OSC_FILTERS 12 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!

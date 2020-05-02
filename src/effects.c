@@ -649,13 +649,6 @@ void resetConvolutions(
     }
 }
 
-int effectParameterNeedInitialization(
-    unsigned int slot,
-    unsigned int target,
-    double value) {
-
-}
-
 #ifdef WITH_FAUST
 void freeFaustEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
     if (fxs == NULL) {

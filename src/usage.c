@@ -8,9 +8,6 @@ void print_usage() {
     printf("  --frames %u\n", FAS_FRAMES_PER_BUFFER);
     printf("  --noise_amount %f\n", FAS_NOISE_AMOUNT);
     //printf("  --wavetable %u\n", FAS_WAVETABLE);
-#ifndef FIXED_WAVETABLE
-    printf("  --wavetable_size %u\n", FAS_WAVETABLE_SIZE);
-#endif
     printf("  --smooth_factor %f\n", FAS_SMOOTH_FACTOR);
     printf("  --fps %u\n", FAS_FPS);
     printf("  --ssl %u\n", FAS_SSL);

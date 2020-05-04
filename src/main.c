@@ -576,7 +576,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #ifdef WITH_SOUNDPIPE
                                 sp_noise_compute(sp, (sp_noise *)osc->sp_gens[k][SP_WHITE_NOISE_GENERATOR], NULL, &smp);
 #else
-                                smp = fas_white_noise_table[osc->phase_index[k]];
+                                smp = fas_white_noise_table[(int)osc->phase_index[k]];
 
                                 osc->phase_index[k] += osc->phase_step;
                                 osc->phase_index[k] = fmod(osc->phase_index[k], fas_wavetable_size);
@@ -1586,6 +1586,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                     osc->triggered[k] = 0;
                                 }
                             }
+#ifdef WITH_FAUST
                         } else if (chn_settings->synthesis_method == FAS_FAUST) {
                             for (j = s; j < e; j += 1) {
                                 // update notes related parameters
@@ -1631,6 +1632,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                     *tmp->zone = n->alpha;
                                 }
                             }
+#endif
                         }
                     }
                 }
@@ -1969,9 +1971,6 @@ int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
             usd->connected = 1;
 
             usd->synth_h = 0;
-
-            // testing deflate options
-            // lws_set_extension_option(wsi, "permessage-deflate", "rx_buf_size", "11");
             break;
 
         case LWS_CALLBACK_RECEIVE:

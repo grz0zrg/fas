@@ -485,9 +485,9 @@ It is instead used to provide fx / channels settings modulation or to inject wav
 Channel settings :
 
 * p0 : modulation mode
- * 0 : Effects
- * 1 : Channel settings
- * 2 : Wavetable
+  * 0 : Effects
+  * 1 : Channel settings
+  * 2 : Wavetable
 * p1 : Target channel
 * p2 : Target fx slot or channel parameter
 * p3 : Target fx parameter (effects mode only)
@@ -835,7 +835,7 @@ Requirements :
  * [liblo](http://liblo.sourceforge.net/) (Optional)
  * [Soundpipe](https://github.com/PaulBatchelor/Soundpipe) (Optional)
  * [Faust](https://github.com/grame-cncm/faust) (Optional)
- * Faust depend on LLVM as well
+   * Faust depend on LLVM as well
 
 FAS also make use of [tinydir](https://github.com/cxong/tinydir) [lodepng](https://github.com/lvandeve/lodepng) and [afSTFT](https://github.com/jvilkamo/afSTFT) (all of them bundled)
 
@@ -866,7 +866,7 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux with PortAudio :
    * make
    * sudo make install
 * Get latest [libsamplerate](http://www.mega-nerd.com/SRC/download.html)
-  * you may need to specify the build type on configure (example for NanoPi NEO2 : ./configure --build=arm-linux-gnueabihf)
+  * you may need to specify the build type on configure (example for NanoPi NEO2 / Raspberry PI : `./configure --build=arm-linux-gnueabihf`)
   * you may need to install libfftw : `sudo apt-get install libfftw3-dev`
   * uncompress, go into the directory "libsamplerate-0.1.9"
   * ./configure
@@ -880,10 +880,16 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux with PortAudio :
   * make all
   * sudo make install
 * For automatic pitch detection of sample files get aubio from your package manager (can also be installed from sources but instructions have yet to be written)
+* libsndfile can be installed through package manager
 
-Some dependencies can also be installed through the operating system packages manager.
+Some dependencies can also be installed through the operating system packages manager. (may have some issues with deflate option and some libwebsockets packages, this is resolved by compiling libwebsockets 2.2.x)
 
 On ARM64 you must use liblfds 7.2.0 (by passing `-DLIBLFDS720` to cmake) which is provided in the lib folder, this is a not yet released version and potentially unstable for anything else, it is only provided to provide FAS under ARM64 platforms and is not guaranteed to work for anything else.
+
+To compile liblfds720 (ARM64 only):
+
+* cd lib/liblfds7.2.0/src/liblfds720/build
+* make
 
 Once all dependencies are installed one can run `cmake` followed by `make` in the build directory :
 

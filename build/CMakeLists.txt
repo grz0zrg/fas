@@ -151,7 +151,7 @@ find_package(LibWebSockets MODULE REQUIRED)
 find_package(Threads REQUIRED)
 
 include_directories(${LIBSNDFILE_INCLUDE_DIR} ${LIBSAMPLERATE_INCLUDE_DIR} ${LIBWEBSOCKETS_INCLUDE_DIR})
-target_link_libraries(fas m Threads::Threads ${LIBSNDFILE_LIBRARY} ${LIBSAMPLERATE_LIBRARIES} ${LIBWEBSOCKETS_LIBRARIES})
+target_link_libraries(fas m atomic Threads::Threads ${LIBSNDFILE_LIBRARY} ${LIBSAMPLERATE_LIBRARIES} ${LIBWEBSOCKETS_LIBRARIES})
 
 ############################################################
 # Install

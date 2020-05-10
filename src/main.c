@@ -1685,7 +1685,7 @@ int jackCallback (jack_nframes_t nframes, void *arg) {
     // compute CPU load (come from PortAudio)
     double measurementEndTime = get_time();
 
-    double secondsFor100Percent = (nframes * fas_output_channels) * cpu_load_measurer.samplingPeriod;
+    double secondsFor100Percent = nframes * cpu_load_measurer.samplingPeriod;
 
     if (secondsFor100Percent > 0) {
         double measuredLoad = (measurementEndTime - cpu_load_measurer.measurementStartTime) / secondsFor100Percent;

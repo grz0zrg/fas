@@ -330,12 +330,12 @@ unsigned int load_samples(
 
             int padded_frames_len = smp->frames + pad_length; // make room for interpolation methods
 
-            smp->data_l = (float *)calloc(padded_frames_len, sizeof(float));
-            smp->data_r = (float *)calloc(padded_frames_len, sizeof(float));
+            smp->data_l = (FAS_FLOAT *)calloc(padded_frames_len, sizeof(FAS_FLOAT));
+            smp->data_r = (FAS_FLOAT *)calloc(padded_frames_len, sizeof(FAS_FLOAT));
 
             // normalize samples
             unsigned int index = 0;
-            float *max_value = (float *)calloc(sfinfo.channels, sizeof(float));
+            FAS_FLOAT *max_value = (FAS_FLOAT *)calloc(sfinfo.channels, sizeof(FAS_FLOAT));
             for (i = 0; i < smp->frames; i++) {
                 for (j = 0; j < sfinfo.channels; j++) {
                     index = i * sfinfo.channels + j;

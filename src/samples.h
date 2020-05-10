@@ -8,19 +8,20 @@
 #endif
 
   #include "samplerate.h"
+  #include "constants.h"
 #ifdef WITH_AUBIO
   #include "aubio/aubio.h"
 #endif
 
     struct sample {
         float *data; // unused after load
-        float *data_l;
-        float *data_r;
+        FAS_FLOAT *data_l;
+        FAS_FLOAT *data_r;
         uint32_t len;
         uint32_t frames;
         unsigned int chn;
         unsigned int chn_m1;
-        double pitch; // hz
+        FAS_FLOAT pitch; // hz
         int samplerate;
 
 #ifdef WITH_SOUNDPIPE

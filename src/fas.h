@@ -25,6 +25,7 @@
     #include <jack/jack.h>
 #else
     #include "portaudio.h"
+    #include <pthread.h>
 #endif
     #include "libwebsockets.h"
 
@@ -136,8 +137,8 @@
     unsigned int fas_max_drop = FAS_MAX_DROP;
     unsigned int fas_render_width = FAS_RENDER_WIDTH;
     int fas_samplerate_converter_type = -1; // SRC_SINC_MEDIUM_QUALITY
-    double fas_smooth_factor = FAS_SMOOTH_FACTOR;
-    float fas_noise_amount = FAS_NOISE_AMOUNT;
+    FAS_FLOAT fas_smooth_factor = FAS_SMOOTH_FACTOR;
+    FAS_FLOAT fas_noise_amount = FAS_NOISE_AMOUNT;
     int fas_audio_device = -1;
     int fas_input_audio_device = -1;
     char *fas_iface = NULL;
@@ -162,26 +163,26 @@
 
     unsigned char *fas_render_buffer = NULL;
 
-    float *fas_sine_wavetable = NULL;
-    float *fas_white_noise_table = NULL;
+    FAS_FLOAT *fas_sine_wavetable = NULL;
+    FAS_FLOAT *fas_white_noise_table = NULL;
     uint16_t noise_index = 0.;
 
     unsigned int window_size = 8192;
     unsigned int hop_size = 2048;
 
-    double acb_time = 0.;
+    FAS_FLOAT acb_time = 0.;
 
-    double note_time;
-    double note_time_samples;
-    double lerp_t_step;
+    FAS_FLOAT note_time;
+    FAS_FLOAT note_time_samples;
+    FAS_FLOAT lerp_t_step;
 
-    double last_gain_lr = 0.0;
+    FAS_FLOAT last_gain_lr = 0.0;
 
-    float *last_sample_l = NULL;
-    float *last_sample_r = NULL;
+    FAS_FLOAT *last_sample_l = NULL;
+    FAS_FLOAT *last_sample_r = NULL;
 
-    float *curr_chn_gain = NULL;
-    float *last_chn_gain = NULL;
+    FAS_FLOAT *curr_chn_gain = NULL;
+    FAS_FLOAT *last_chn_gain = NULL;
     unsigned int *chn_muted_state = NULL;
 
     atomic_int audio_thread_state = FAS_AUDIO_PAUSE;
@@ -225,7 +226,7 @@
     unsigned int impulses_count = 0;
     unsigned int impulses_count_m1 = 0;
 
-    float **grain_envelope;
+    FAS_FLOAT **grain_envelope;
 
     struct _synth_fx **synth_fx = NULL; 
 
@@ -279,10 +280,10 @@
     void karplusTrigger(unsigned int chn, struct oscillator *osc, struct note *n) {
         unsigned int d = 0;
 
-        memset(osc->fp1[chn], 0, sizeof(double) * 4);
-        memset(osc->fp2[chn], 0, sizeof(double) * 4);
-        memset(osc->fp3[chn], 0, sizeof(double) * 4);
-        memset(osc->fp4[chn], 0, sizeof(double) * 4);
+        memset(osc->fp1[chn], 0, sizeof(FAS_FLOAT) * 4);
+        memset(osc->fp2[chn], 0, sizeof(FAS_FLOAT) * 4);
+        memset(osc->fp3[chn], 0, sizeof(FAS_FLOAT) * 4);
+        memset(osc->fp4[chn], 0, sizeof(FAS_FLOAT) * 4);
 
         osc->pvalue[chn] = 0.0f;
         osc->fphase[chn] = 0.0f;
@@ -291,8 +292,8 @@
         for (d = 0; d < osc->buffer_len; d += 1) {
             unsigned int bindex = chn * osc->buffer_len + d;
 #ifdef WITH_SOUNDPIPE
-            float si = 0.f;
-            float so = 0.f;
+            FAS_FLOAT si = 0.f;
+            FAS_FLOAT so = 0.f;
             sp_noise_compute(sp, (sp_noise *)osc->sp_gens[chn][SP_WHITE_NOISE_GENERATOR], NULL, &si);
 
             sp_streson *streson = (sp_streson *)osc->sp_filters[chn][SP_STRES_FILTER_L];
@@ -434,7 +435,7 @@
     }
 
     // easing functions
-    double applyEasing(int type, double f) {
+    FAS_FLOAT applyEasing(int type, FAS_FLOAT f) {
         if (type == 0) {
             return LinearInterpolation(f);
         } else if (type == 1) {
@@ -467,35 +468,35 @@
             return SineEaseOut(f);
         } else if (type == 15) {
             return SineEaseInOut(f);
-        } else if (type == 17) {
+        } else if (type == 16) {
             return CircularEaseIn(f);
-        } else if (type == 18) {
+        } else if (type == 17) {
             return CircularEaseOut(f);
-        } else if (type == 19) {
+        } else if (type == 18) {
             return CircularEaseInOut(f);
-        } else if (type == 20) {
+        } else if (type == 19) {
             return ExponentialEaseIn(f);
-        } else if (type == 21) {
+        } else if (type == 20) {
             return ExponentialEaseOut(f);
-        } else if (type == 22) {
+        } else if (type == 21) {
             return ExponentialEaseInOut(f);
-        } else if (type == 23) {
+        } else if (type == 22) {
             return ElasticEaseIn(f);
-        } else if (type == 24) {
+        } else if (type == 23) {
             return ElasticEaseOut(f);
-        } else if (type == 25) {
+        } else if (type == 24) {
             return ElasticEaseInOut(f);
-        } else if (type == 26) {
+        } else if (type == 25) {
             return BackEaseIn(f);
-        } else if (type == 27) {
+        } else if (type == 26) {
             return BackEaseOut(f);
-        } else if (type == 28) {
+        } else if (type == 27) {
             return BackEaseInOut(f);
-        } else if (type == 29) {
+        } else if (type == 28) {
             return BounceEaseIn(f);
-        } else if (type == 30) {
+        } else if (type == 29) {
             return BounceEaseOut(f);
-        } else if (type == 31) {
+        } else if (type == 30) {
             return BounceEaseInOut(f);
         } else {
             return f;

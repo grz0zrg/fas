@@ -2,10 +2,11 @@
 #define _FAS_FILTERS_H_
 
   #include <math.h>
+  #include "constants.h"
 
-  double fast_tanh(const double x);
+  FAS_FLOAT fast_tanh(const FAS_FLOAT x);
 
-  extern double huovilainen_moog(double input, double cutoff_computed, double res_computed, double *delay, double *stage, double *stageTanh, int oversample);
-  extern void huovilainen_compute(double cutoff, double resonance, double *cutoff_computed, double *res_computed, double sampleRate);
+  extern FAS_FLOAT huovilainen_moog(FAS_FLOAT input, FAS_FLOAT cutoff_computed, FAS_FLOAT res_computed, FAS_FLOAT *delay, FAS_FLOAT *stage, FAS_FLOAT *stageTanh, int oversample);
+  extern void huovilainen_compute(FAS_FLOAT cutoff, FAS_FLOAT resonance, FAS_FLOAT *cutoff_computed, FAS_FLOAT *res_computed, FAS_FLOAT sampleRate);
 
 #endif

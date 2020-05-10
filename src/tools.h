@@ -13,12 +13,12 @@
 
     #define FAS_ENVS_COUNT 13
 
-    extern double poly_blep(double phase_increment, double t);
-    double raw_waveform(double phase, int type);
+    extern FAS_FLOAT poly_blep(FAS_FLOAT phase_increment, FAS_FLOAT t);
+    FAS_FLOAT raw_waveform(FAS_FLOAT phase, int type);
     
-    extern float randf(float min, float max);
-    extern float **createEnvelopes(unsigned int n);
-    extern void freeEnvelopes(float **envs);
+    extern FAS_FLOAT randf(FAS_FLOAT min, FAS_FLOAT max);
+    extern FAS_FLOAT **createEnvelopes(unsigned int n);
+    extern void freeEnvelopes(FAS_FLOAT **envs);
 
     extern char *create_filepath(char *directory, char *filename);
 
@@ -26,6 +26,6 @@
 
     double get_time(void);
 
-    double lerp(double a, double b, double f);
+    FAS_FLOAT lerp(FAS_FLOAT a, FAS_FLOAT b, FAS_FLOAT f);
 
 #endif

@@ -140,17 +140,17 @@ struct oscillator *createOscillatorsBank(
     unsigned int y = 0, i = 0, k = 0, j = 0;
     int partials = 0;
     int index = 0;
-    double octave_length = (double)n / octaves;
-    double frequency;
-    double frequency_prev;
-    double frequency_next;
-    double phase_increment;
-    double phase_step;
+    FAS_FLOAT octave_length = (FAS_FLOAT)n / octaves;
+    FAS_FLOAT frequency;
+    FAS_FLOAT frequency_prev;
+    FAS_FLOAT frequency_next;
+    FAS_FLOAT phase_increment;
+    FAS_FLOAT phase_step;
     int nmo = n - 1;
 
-    double nyquist_limit = sample_rate / 2;
+    FAS_FLOAT nyquist_limit = sample_rate / 2;
 
-    double max_frequency = base_frequency * pow(2.0, nmo / octave_length);
+    FAS_FLOAT max_frequency = base_frequency * pow(2.0, nmo / octave_length);
 
     for (y = 0; y < n; y += 1) {
         index = nmo - y;
@@ -158,8 +158,8 @@ struct oscillator *createOscillatorsBank(
         frequency = base_frequency * pow(2.0, y / octave_length);
         frequency_prev = base_frequency * pow(2.0, (y - 1) / octave_length);
         frequency_next = base_frequency * pow(2.0, (y + 1) / octave_length);
-        phase_step = frequency / (double)sample_rate * wavetable_size;
-        phase_increment = frequency * 2 * 3.141592653589 / (double)sample_rate;
+        phase_step = frequency / (FAS_FLOAT)sample_rate * wavetable_size;
+        phase_increment = frequency * 2 * 3.141592653589 / (FAS_FLOAT)sample_rate;
 
         struct oscillator *osc = &oscillators[index];
 
@@ -167,38 +167,36 @@ struct oscillator *createOscillatorsBank(
         osc->prev_freq = frequency_prev;
         osc->next_freq = frequency_next;
 
-        osc->phase_index = malloc(sizeof(double) * frame_data_count);
-        osc->phase_index2 = malloc(sizeof(double) * frame_data_count);
+        osc->phase_index = malloc(sizeof(FAS_FLOAT) * frame_data_count);
+        osc->phase_index2 = malloc(sizeof(FAS_FLOAT) * frame_data_count);
 
 #ifdef MAGIC_CIRCLE
-        osc->mc_eps = 2. * sin(2. * 3.141592653589 * (frequency / (double)sample_rate) / 2.);
-        osc->mc_x = malloc(sizeof(float) * frame_data_count);
-        osc->mc_y = malloc(sizeof(float) * frame_data_count);
+        osc->mc_eps = 2. * sin(2. * 3.141592653589 * (frequency / (FAS_FLOAT)sample_rate) / 2.);
+        osc->mc_x = malloc(sizeof(FAS_FLOAT) * frame_data_count);
+        osc->mc_y = malloc(sizeof(FAS_FLOAT) * frame_data_count);
 #endif
 
-        osc->fphase = malloc(sizeof(double) * frame_data_count);
+        osc->fphase = malloc(sizeof(FAS_FLOAT) * frame_data_count);
 
         // ==
-        osc->fp1 = malloc(sizeof(double *) * frame_data_count);
-        osc->fp2 = malloc(sizeof(double *) * frame_data_count);
-        osc->fp3 = malloc(sizeof(double *) * frame_data_count);
-        osc->fp4 = malloc(sizeof(double *) * frame_data_count);
+        osc->fp1 = malloc(sizeof(FAS_FLOAT *) * frame_data_count);
+        osc->fp2 = malloc(sizeof(FAS_FLOAT *) * frame_data_count);
+        osc->fp3 = malloc(sizeof(FAS_FLOAT *) * frame_data_count);
+        osc->fp4 = malloc(sizeof(FAS_FLOAT *) * frame_data_count);
 
-        osc->wav1 = malloc(sizeof(double *) * frame_data_count);
-        osc->wav2 = malloc(sizeof(double *) * frame_data_count);
-
-        osc->custom_wav = malloc(sizeof(double *) * frame_data_count);
+        osc->wav1 = malloc(sizeof(FAS_FLOAT *) * frame_data_count);
+        osc->wav2 = malloc(sizeof(FAS_FLOAT *) * frame_data_count);
 
         osc->triggered = calloc(frame_data_count, sizeof(unsigned int));
 
-        osc->buffer_len = (double)sample_rate / frequency;
-        osc->buffer = malloc(sizeof(double) * osc->buffer_len * frame_data_count);
+        osc->buffer_len = (FAS_FLOAT)sample_rate / frequency;
+        osc->buffer = malloc(sizeof(FAS_FLOAT) * osc->buffer_len * frame_data_count);
 
         osc->noise_index = malloc(sizeof(uint16_t) * frame_data_count);
 
-        osc->pvalue = malloc(sizeof(float) * frame_data_count);
+        osc->pvalue = malloc(sizeof(FAS_FLOAT) * frame_data_count);
 
-        osc->bw = malloc(sizeof(double) * frame_data_count);
+        osc->bw = malloc(sizeof(FAS_FLOAT) * frame_data_count);
 
 #ifdef WITH_SOUNDPIPE
         osc->sp_filters = malloc(sizeof(void **) * frame_data_count);
@@ -209,8 +207,8 @@ struct oscillator *createOscillatorsBank(
 #endif
 
         for (i = 0; i < frame_data_count; i += 1) {
-            osc->phase_index[i] = rand() / (double)RAND_MAX * wavetable_size;
-            osc->noise_index[i] = rand() / (double)RAND_MAX * 65536;
+            osc->phase_index[i] = rand() / (FAS_FLOAT)RAND_MAX * wavetable_size;
+            osc->noise_index[i] = rand() / (FAS_FLOAT)RAND_MAX * 65536;
             osc->pvalue[i] = 0;
 
 #ifdef MAGIC_CIRCLE
@@ -266,7 +264,7 @@ struct oscillator *createOscillatorsBank(
             sp_mode_create((sp_mode **)&osc->sp_filters[i][SP_MODE_FILTER_R]);
             sp_mode_init(spd, osc->sp_filters[i][SP_MODE_FILTER_R]);
 
-            double stabilized_modal_frequency = (sample_rate / frequency) < M_PI ? sample_rate / M_PI - 1 : frequency;
+            FAS_FLOAT stabilized_modal_frequency = (sample_rate / frequency) < M_PI ? sample_rate / M_PI - 1 : frequency;
 
             sp_mode *mode_l = (sp_mode *)osc->sp_filters[i][SP_MODE_FILTER_L];
             mode_l->freq = fmin(stabilized_modal_frequency, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
@@ -331,16 +329,14 @@ struct oscillator *createOscillatorsBank(
 #endif
 
             // == PM
-            osc->phase_index2[i] = rand() / (double)RAND_MAX * wavetable_size;
+            osc->phase_index2[i] = rand() / (FAS_FLOAT)RAND_MAX * wavetable_size;
 
             osc->fphase[i] = 0;
 
-            osc->fp1[i] = calloc(6, sizeof(double));
-            osc->fp2[i] = calloc(6, sizeof(double));
-            osc->fp3[i] = calloc(6, sizeof(double));
-            osc->fp4[i] = calloc(6, sizeof(double));
-
-            osc->custom_wav[i] = calloc(256, sizeof(float));
+            osc->fp1[i] = calloc(6, sizeof(FAS_FLOAT));
+            osc->fp2[i] = calloc(6, sizeof(FAS_FLOAT));
+            osc->fp3[i] = calloc(6, sizeof(FAS_FLOAT));
+            osc->fp4[i] = calloc(6, sizeof(FAS_FLOAT));
         }
 
         osc->phase_step = phase_step;
@@ -386,8 +382,6 @@ struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, un
             free(oscs[y].fp3[i]);
             free(oscs[y].fp4[i]);
 
-            free(oscs[y].custom_wav[i]);
-            
 #ifdef WITH_SOUNDPIPE
             sp_moogladder_destroy((sp_moogladder **)&oscs[y].sp_filters[i][SP_MOOG_FILTER]);
             sp_diode_destroy((sp_diode **)&oscs[y].sp_filters[i][SP_DIODE_FILTER]);
@@ -428,7 +422,6 @@ struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, un
 
         free(oscs[y].wav1);
         free(oscs[y].wav2);
-        free(oscs[y].custom_wav);
 
 #ifdef WITH_SOUNDPIPE
         sp_ftbl_destroy((sp_ftbl **)&oscs[y].ft_void);

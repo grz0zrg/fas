@@ -3,7 +3,7 @@
 
     #include "tools.h"
     
-    extern float *sine_wavetable_init(unsigned int wavetable_size);
-    extern float *wnoise_wavetable_init(unsigned int wavetable_size, float amount);
+    extern FAS_FLOAT *sine_wavetable_init(unsigned int wavetable_size);
+    extern FAS_FLOAT *wnoise_wavetable_init(unsigned int wavetable_size, FAS_FLOAT amount);
 
 #endif

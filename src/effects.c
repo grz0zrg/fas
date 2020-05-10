@@ -176,7 +176,7 @@ void updateEffectParameter(
     struct _synth_chn_settings *chns,
     unsigned int slot,
     unsigned int target,
-    double value) {
+    FAS_FLOAT value) {
     unsigned int k = 0;
 
     struct _synth_fx_settings *fx = &chns->fx[slot];
@@ -545,8 +545,8 @@ void resetConvolution(
     struct sample *impulses,
     unsigned int impulses_count,
     unsigned int slot,
-    double v1,
-    double v2
+    FAS_FLOAT v1,
+    FAS_FLOAT v2
 ) {
     sp_ftbl *imp_ftbl = fxs->ft_void;
     if (v1 < impulses_count) {
@@ -570,10 +570,10 @@ void resetDelays(
     struct _synth_fx *fxs,
     unsigned int slot,
     unsigned int type,
-    double v1,
-    double v2,
-    double v3,
-    double v4
+    FAS_FLOAT v1,
+    FAS_FLOAT v2,
+    FAS_FLOAT v3,
+    FAS_FLOAT v4
 ) {
     unsigned int k = 0;
     for (k = 0; k < 2; k += 1) {
@@ -604,8 +604,8 @@ void resetComb(
     sp_data *sp,
     struct _synth_fx *fxs,
     unsigned int slot,
-    double v1,
-    double v2
+    FAS_FLOAT v1,
+    FAS_FLOAT v2
 ) {
     unsigned int k = 0;
     for (k = 0; k < 2; k += 1) {

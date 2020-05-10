@@ -9,12 +9,12 @@
 void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsigned int max_density, 
                     unsigned int channels, unsigned int data_frame_size, struct note *note_buffer,
                     unsigned int h, size_t data_length, void *prev_data, void *data) {
-    double pvl = 0, pvr = 0, pl, pr, pb, pa, l, r;
+    FAS_FLOAT pvl = 0, pvr = 0, pl, pr, pb, pa, l, r;
     unsigned int i, j, frame_data_index = 8;
     unsigned int li = 0, ri = 1;
     unsigned int index = 0, note_osc_index = 0, osc_count = 0;
-    double volume_l, volume_r, blue, alpha;
-    double inv_full_brightness = 1.0 / 255.0;
+    FAS_FLOAT volume_l, volume_r, blue, alpha;
+    FAS_FLOAT inv_full_brightness = 1.0 / 255.0;
 
     unsigned int note_i = 0;
 
@@ -153,9 +153,9 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
                 double alpha_int_part;
                 double palpha_int_part;
                 _note->blue_frac_part = modf(fabs(blue), &dummy_int_part);
-                double pblue_frac_part = modf(fabs(pb), &dummy_int_part);
-                double palpha_frac_part = modf(fabs(pa), &palpha_int_part);
-                double alpha_frac_part = modf(fabs(alpha), &alpha_int_part);
+                FAS_FLOAT pblue_frac_part = modf(fabs(pb), &dummy_int_part);
+                FAS_FLOAT palpha_frac_part = modf(fabs(pa), &palpha_int_part);
+                FAS_FLOAT alpha_frac_part = modf(fabs(alpha), &alpha_int_part);
 
                 // for granular synthesis, samples and related
                 _note->smp_index = _note->blue_frac_part * (samples_count + 1);

@@ -10,29 +10,29 @@
         unsigned int osc_index;
 
         // common to all synthesis type
-        float previous_volume_l;
-        float previous_volume_r;
-        float diff_volume_l;
-        float diff_volume_r;
+        FAS_FLOAT previous_volume_l;
+        FAS_FLOAT previous_volume_r;
+        FAS_FLOAT diff_volume_l;
+        FAS_FLOAT diff_volume_r;
 
         // generic
-        float volume_l; // red (mono = alpha)
-        float volume_r; // green (mono = alpha)
-        float blue;
-        float pblue;
-        float alpha;
-        float palpha;
+        FAS_FLOAT volume_l; // red (mono = alpha)
+        FAS_FLOAT volume_r; // green (mono = alpha)
+        FAS_FLOAT blue;
+        FAS_FLOAT pblue;
+        FAS_FLOAT alpha;
+        FAS_FLOAT palpha;
 
-        float blue_frac_part;
+        FAS_FLOAT blue_frac_part;
 
         // subtractive related
-        double cutoff;
-        double res;
+        FAS_FLOAT cutoff;
+        FAS_FLOAT res;
 
         // granular related
         unsigned int density;
 
-        float norm_density;
+        FAS_FLOAT norm_density;
 
         unsigned int smp_index;
         unsigned int psmp_index;

@@ -78,7 +78,7 @@
         int chn;
 
         // pre-computed linear interpolation delta
-        float lerp_t;
+        FAS_FLOAT lerp_t;
 
         // track current note-level sample (boundary defined by FPS)
         unsigned long curr_sample;

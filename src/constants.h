@@ -179,4 +179,10 @@
     #define FX_TBVCF 23
     #define FX_FAUST 24
 
+#ifdef USE_DOUBLE
+    #define FAS_FLOAT double
+#else
+    #define FAS_FLOAT float
+#endif
+
 #endif

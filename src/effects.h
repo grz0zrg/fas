@@ -46,8 +46,8 @@
         sp_ftbl *ft_void;
 #endif
 
-        float dry[FAS_MAX_FX_SLOTS];
-        float wet[FAS_MAX_FX_SLOTS];
+        FAS_FLOAT dry[FAS_MAX_FX_SLOTS];
+        FAS_FLOAT wet[FAS_MAX_FX_SLOTS];
 
 #ifdef WITH_FAUST
         struct _fas_faust_dsp **faust_effs[FAS_MAX_FX_SLOTS];
@@ -68,7 +68,7 @@
         struct _synth_chn_settings *chns,
         unsigned int slot,
         unsigned int target,
-        double value);
+        FAS_FLOAT value);
 
     void resetConvolutions(
 #ifdef WITH_SOUNDPIPE
@@ -86,8 +86,8 @@
         struct sample *impulses,
         unsigned int impulses_count,
         unsigned int slot,
-        double v1,
-        double v2
+        FAS_FLOAT v1,
+        FAS_FLOAT v2
     );
 
     void resetDelays(
@@ -95,18 +95,18 @@
         struct _synth_fx *fxs,
         unsigned int slot,
         unsigned int type,
-        double v1,
-        double v2,
-        double v3,
-        double v4
+        FAS_FLOAT v1,
+        FAS_FLOAT v2,
+        FAS_FLOAT v3,
+        FAS_FLOAT v4
     );
 
     void resetComb(
         sp_data *sp,
         struct _synth_fx *fxs,
         unsigned int slot,
-        double v1,
-        double v2
+        FAS_FLOAT v1,
+        FAS_FLOAT v2
     );
 #endif
 

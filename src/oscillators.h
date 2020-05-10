@@ -17,52 +17,49 @@
 
     struct oscillator {
         // frequency Hz
-        double freq;
-        double prev_freq;
-        double next_freq;
+        FAS_FLOAT freq;
+        FAS_FLOAT prev_freq;
+        FAS_FLOAT next_freq;
 
         // bandwidth Hz
-        double *bw;
+        FAS_FLOAT *bw;
 
         // generic parameters storage (initially used for filter parameters)
-        double **fp1, **fp2, **fp3, **fp4;
+        FAS_FLOAT **fp1, **fp2, **fp3, **fp4;
 
         // MCF recursive algorithm for sinewave oscillator
 #ifdef MAGIC_CIRCLE
-        float mc_eps;
-        float *mc_x;
-        float *mc_y;
+        FAS_FLOAT mc_eps;
+        FAS_FLOAT *mc_x;
+        FAS_FLOAT *mc_y;
 #endif
 
         // wavetable related oscillator
-        double *phase_index;
-        double phase_step;
+        FAS_FLOAT *phase_index;
+        FAS_FLOAT phase_step;
 
         // fm/pm; modulator
-        double *phase_index2;
+        FAS_FLOAT *phase_index2;
 
         // noise wavetable index
         uint16_t *noise_index;
 
         // floating-point phase (for PolyBLEP subtractive waveforms / physical modelling) TODO : use wavetable phase (since we dropped integer based phase)
-        double *fphase;
-        double phase_increment;
+        FAS_FLOAT *fphase;
+        FAS_FLOAT phase_increment;
 
         // generic parameter which generally represent a previous value
-        float *pvalue;
+        FAS_FLOAT *pvalue;
 
         // for physical modelling (Karplus-Strong state table)
-        double *buffer;
+        FAS_FLOAT *buffer;
         unsigned int buffer_len;
 
         // trigger state; wether oscillator has been triggered
         unsigned int *triggered;
 
         // unallocated wave
-        float **wav1, **wav2;
-
-        // custom waves
-        float **custom_wav;
+        FAS_FLOAT **wav1, **wav2;
 
         // Faust generators
 #ifdef WITH_FAUST

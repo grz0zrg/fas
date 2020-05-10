@@ -79,7 +79,7 @@ Other type of synthesis (Linear Arithmetic Synthesis, Vector synthesis, Walsh, s
 
 There is also input channels which just play input audio so amplitude envelope, effects or second synthesis type can be applied.
 
-There is also a modulation channel which can be used to modulate fx, channel settings or produce wavetables from pixels data.
+There is also a modulation channel which can be used to modulate fx.
 
 All the synthesis methods can be used at the same time by using different output channels, there is no limit on the number of output channels.
 
@@ -268,15 +268,15 @@ Wavetable synthesis use single cycle waveforms / samples loaded from the `waves`
 
 The implementation is similar to PPG synths with linear interpolation (sampling & wave change) but no oversampling. (may alias)
 
-Interpolation between waves can be enabled / disabled (PPG like) at note time though A fractional part. ( > 0 enabled interpolation)
+Interpolation between waves can be enabled / disabled (PPG like) at note time trough A fractional part. ( > 0 enabled interpolation)
 
 Specific wave can be read by having similar start & end value (which will thus act as an offset) with a wavetable speed set to 0.
 
 The speed at which the table is read can be set with the fractional part of the blue channel, the table will be read in reverse order if the value is negative.
 
-Wavetable synthesis is fast and provide rich sounds.
+Every note-on trigger a wavetable reset from current settings (wavetable position), this can be disabled by using channel settings p0, a value of 1 will reset the wavetable every notes and a value of 0 disable it.
 
-Implementation is recent and may change.
+Wavetable synthesis is fast and provide rich sounds.
 
 Note : FAS does not really have multiple 'wavetables' as it load every waves into a big continuous wavetable but the different wavetables are ordered (by folder then by filename) when loaded so that each loaded waves are contiguous.
 
@@ -480,24 +480,33 @@ This just play an input channel. Typically used in conjunction with formant / mo
 
 This is a special type of synthesis which does not output any sounds.
 
-It is instead used to provide fx / channels settings modulation or to inject wavetables in real-time.
+It is instead used to provide fx / channels settings modulation.
 
 Channel settings :
 
 * p0 : modulation mode
   * 0 : Effects
   * 1 : Channel settings
-  * 2 : Wavetable
 * p1 : Target channel
 * p2 : Target fx slot or channel parameter
 * p3 : Target fx parameter (effects mode only)
 * p4 : Easing method (interpolation between values)
+  * 0 : linear
+  * 1 to 3 : quadratic ease in/out/in out
+  * 4 to 6 : cubic ease in/out/in out
+  * 7 to 9 : quartic ease in/out/in out
+  * 10 to 12 : quintic ease in/out/in out
+  * 13 to 15 : sine ease in/out/in out
+  * 16 to 18 : circular ease in/out/in out 
+  * 19 to 21 : exponential ease in/out/in out 
+  * 22 to 24 : elastic ease in/out/in out 
+  * 25 to 26 : back ease in/out/in out 
+  * 27 to 29 : bounce ease in/out/in out
+  * any others value : no interpolation
 
 This is provided as a shortcut solution to provide some more standalone modulation options (modulation can also be done flexibly through chn / fx synth commands), disadvantage is the usage of an output channel...
 
 Simple use case would be to modulate filters cutoff / resonance parameter or wavetable selection for FM/PM.
-
-WIP : More useful is the Wavetable mode which allow to write the alpha value in real-time to a small wavetable (256 samples) which can then be used in FM/PM or wavetable synthesis.
 
 Note : Parameters which require re-allocation (eg. convolution file, delay comb time) cannot be modulated.
 
@@ -918,6 +927,9 @@ There is some cmake build options available to customize features :
  * `-DMAGIC_CIRCLE` : Use additive synthesis magic circle oscillator (may be faster than wavetable on some platforms; no bandlimited noise for per partial effects)
  * `-DPARTIAL_FX`: Use additive synthesis per partial effects
  * `-DINTERLEAVED_SAMPLE_FORMAT` : Use interleaved sample format
+ * `-DUSE_NEON` : Use NEON instructions (optimizations; ARM platforms)
+ * `-DUSE_SSE` : Use SSE instructions (optimizations; Desktop platforms)
+ * `-DUSE_DOUBLE` : Use double precision for all internal computations (note : must probably compile dependencies such as Soundpipe and Faust as well when it is defined)
 
 By default FAS build with `-DWITH_FAUST -DWITH_AUBIO -DWITH_SOUNDPIPE -DMAGIC_CIRCLE -DPARTIAL_FX -DINTERLEAVED_SAMPLE_FORMAT`
 

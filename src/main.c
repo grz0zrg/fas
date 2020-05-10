@@ -62,7 +62,7 @@ void doSynthCommands() {
         } else if (synth_command->type == FAS_CMD_CHN_SETTINGS) {
             uint32_t chn = synth_command->value[0];
             uint32_t target = synth_command->value[1];
-            double value = synth_command->value[2];
+            FAS_FLOAT value = synth_command->value[2];
 
 #ifdef DEBUG
     printf("CMD CHN_SETTINGS : chn %i target %i value %f\n", chn, target, value);
@@ -123,7 +123,7 @@ void doSynthCommands() {
             uint32_t chn = synth_command->value[0];
             uint32_t slot = synth_command->value[1];
             uint32_t target = synth_command->value[2];
-            double value = synth_command->value[3];
+            FAS_FLOAT value = synth_command->value[3];
 
 #ifdef DEBUG
     printf("CMD CHN_FX_SETTINGS : chn %i slot %i target %i value %f\n", chn, slot, target, value);
@@ -149,7 +149,11 @@ void doSynthCommands() {
 
                                 fx_settings1->bypass = fx_settings2->bypass;
                                 fx_settings1->fx_id = fx_settings2->fx_id;
-                                memcpy(&fx_settings1->fp[0], &fx_settings2->fp[0], sizeof(double) * FAS_MAX_FX_PARAMETERS);
+
+                                unsigned int j = 0;
+                                for (j = 0; j < FAS_MAX_FX_PARAMETERS; j += 1) {
+                                    fx_settings1->fp[j] = fx_settings2->fp[j];
+                                }
                             }
 
                             struct _synth_fx_settings *fx_settings_tail = &chn_settings->fx[FAS_MAX_FX_SLOTS - 1];
@@ -250,8 +254,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                 *outputBuffer[j + 1]++ = last_sample_r[j] * (1.0f - curr_synth.lerp_t) * last_gain_lr;
             }
 #endif
-            curr_synth.lerp_t += (1.0f / (float)nframes);
-            curr_synth.lerp_t = fminf(curr_synth.lerp_t, 1.0f);
+            curr_synth.lerp_t += (1.0f / (FAS_FLOAT)nframes);
+            curr_synth.lerp_t = fmin(curr_synth.lerp_t, 1.0f);
         }
 
         curr_synth.lerp_t = 0.0;
@@ -271,8 +275,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
         pv_note_buffer_len = 0;
 
         for (k = 0; k < frame_data_count; k += 1) {
-            float output_l = 0.0f;
-            float output_r = 0.0f;
+            FAS_FLOAT output_l = 0.0f;
+            FAS_FLOAT output_r = 0.0f;
 
             struct _synth_chn_settings *chn_settings = &curr_synth.chn_settings[k];
 
@@ -293,23 +297,23 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         osc->mc_x[k] = osc->mc_x[k] + osc->mc_eps * osc->mc_y[k];
                         osc->mc_y[k] = -osc->mc_eps * osc->mc_x[k] + osc->mc_y[k];
 
-                        float smp = osc->mc_y[k];
+                        FAS_FLOAT smp = osc->mc_y[k];
 #else
                         // linear interpolation sampling
-                        double phase_index = osc->phase_index[k];
+                        FAS_FLOAT phase_index = osc->phase_index[k];
                         int phase_index1 = (int)phase_index;
                         int phase_index2 = phase_index1 + 1;
 
-                        float smp1 = fas_sine_wavetable[phase_index1];
-                        float smp2 = fas_sine_wavetable[phase_index2];
+                        FAS_FLOAT smp1 = fas_sine_wavetable[phase_index1];
+                        FAS_FLOAT smp2 = fas_sine_wavetable[phase_index2];
 
-                        float mu = phase_index - (double)phase_index1;
+                        FAS_FLOAT mu = phase_index - (FAS_FLOAT)phase_index1;
 
-                        float smp = smp1 + mu * (smp2 - smp1);
+                        FAS_FLOAT smp = smp1 + mu * (smp2 - smp1);
                         //
 #endif
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
 #ifdef PARTIAL_FX
                         int fx = (int)n->cutoff % SP_OSC_MODS; // TODO : rename pre-computed note parameters with generic ones
@@ -318,7 +322,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             sp_bitcrush *crush = (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS];
                             
                             crush->bitdepth = 1.f + (n->blue_frac_part * 15.f);
-                            crush->srate = n->res * (float)fas_sample_rate;
+                            crush->srate = n->res * (FAS_FLOAT)fas_sample_rate;
 
                             sp_bitcrush_compute(sp, (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS], &smp, &smp); 
                         } else if (fx == SP_PD_MODS) {
@@ -386,14 +390,14 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                             struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                            float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                            float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                            FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                            FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                            float v[2] = { vl, vr };
-                            float p[2] = { n->blue, n->alpha };
+                            FAS_FLOAT v[2] = { vl, vr };
+                            FAS_FLOAT p[2] = { n->blue, n->alpha };
 
-                            double bin_delta = ((double)(fas_sample_rate / 2) / chn_states->hop_size);
-                            double bin = osc->freq / bin_delta;
+                            FAS_FLOAT bin_delta = ((FAS_FLOAT)(fas_sample_rate / 2) / chn_states->hop_size);
+                            FAS_FLOAT bin = osc->freq / bin_delta;
 
                             int ibin = round(bin);
 
@@ -403,19 +407,19 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                     chn_states->stft_temp[d].re[ibin] = v[d];
                                     chn_states->stft_temp[d].im[ibin] = p[d];
                                 } else {
-                                    float real = chn_states->stft_result[d].re[ibin];
-                                    float imag = chn_states->stft_result[d].im[ibin];
+                                    FAS_FLOAT real = chn_states->stft_result[d].re[ibin];
+                                    FAS_FLOAT imag = chn_states->stft_result[d].im[ibin];
 
                                     // polar
-                                    float mag = sqrtf(real * real + imag * imag);
-                                    float pha = atan2f(imag, real);
+                                    FAS_FLOAT mag = sqrtf(real * real + imag * imag);
+                                    FAS_FLOAT pha = atan2f(imag, real);
 
                                     mag *= v[d];
                                     pha *= p[d];
 
                                     // rectangular
-                                    float creal = mag * cosf(pha);
-                                    float cimag = mag * sinf(pha);
+                                    FAS_FLOAT creal = mag * cosf(pha);
+                                    FAS_FLOAT cimag = mag * sinf(pha);
 
                                     chn_states->stft_temp[d].re[ibin] = creal;
                                     chn_states->stft_temp[d].im[ibin] = cimag;
@@ -426,8 +430,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         // copy processing result
                         for (d = 0; d < 2; d += 1) {
                             for (w = 0; w < chn_states->hop_size / 2; w += 1) {
-                                float re = chn_states->stft_temp[d].re[w];
-                                float im = chn_states->stft_temp[d].im[w];
+                                FAS_FLOAT re = chn_states->stft_temp[d].re[w];
+                                FAS_FLOAT im = chn_states->stft_temp[d].im[w];
 
                                 chn_states->stft_result[d].re[w] = re;
                                 chn_states->stft_result[d].im[w] = im;
@@ -443,22 +447,22 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     output_r += chn_states->out[1][chn_states->position];
                 } else if (chn_settings->synthesis_method == FAS_GRANULAR) {
                     int env_type = chn_settings->p0;
-                    float *gr_env = grain_envelope[env_type];
+                    FAS_FLOAT *gr_env = grain_envelope[env_type];
 
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         unsigned int grain_index = n->osc_index * samples_count + n->psmp_index;
                         unsigned int si = curr_synth.settings->h * samples_count;
 
                         struct grain *gr = &curr_synth.grains[grain_index];
 
-                        float gr_out_l = 0, gr_out_r = 0;
+                        FAS_FLOAT gr_out_l = 0, gr_out_r = 0;
                         computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, chn_settings->p3, gr_env, samples, n->psmp_index, fas_sample_rate, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
 /*
                         // WIP :  allow real-time density change
@@ -502,33 +506,33 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        double mod_phase_step = osc->fp1[k][4];
-                        double car_wav_size = osc->fp2[k][0];
-                        double mod_wav_size = osc->fp2[k][1];
+                        FAS_FLOAT mod_phase_step = osc->fp1[k][4];
+                        FAS_FLOAT car_wav_size = osc->fp2[k][0];
+                        FAS_FLOAT mod_wav_size = osc->fp2[k][1];
 
-                        double fbf = (osc->fp1[k][0] + osc->fp1[k][1]) / 2; // 'anti-hunting' filter (simple low-pass)
-                        double fb = fbf * (floor(n->blue) / 65536.0);
+                        FAS_FLOAT fbf = (osc->fp1[k][0] + osc->fp1[k][1]) / 2; // 'anti-hunting' filter (simple low-pass)
+                        FAS_FLOAT fb = fbf * (floor(n->blue) / 65536.0);
                         
-                        double ph2 = fmod(osc->phase_index2[k] + (fb * mod_wav_size), mod_wav_size);
+                        FAS_FLOAT ph2 = fmod(osc->phase_index2[k] + (fb * mod_wav_size), mod_wav_size);
 
-                        float smp_mod = osc->wav2[k][(int)ph2];
-                        double mod = (((double)smp_mod * n->blue_frac_part) * car_wav_size);
-                        double ph1 = fmod(osc->phase_index[k] + mod, car_wav_size);
+                        FAS_FLOAT smp_mod = osc->wav2[k][(int)ph2];
+                        FAS_FLOAT mod = (((FAS_FLOAT)smp_mod * n->blue_frac_part) * car_wav_size);
+                        FAS_FLOAT ph1 = fmod(osc->phase_index[k] + mod, car_wav_size);
 
                         int phase_index1 = (int)ph1;
                         int phase_index2 = phase_index1 + 1;
 
-                        float smp1 = osc->wav1[k][phase_index1];
-                        float smp2 = osc->wav1[k][phase_index2];
+                        FAS_FLOAT smp1 = osc->wav1[k][phase_index1];
+                        FAS_FLOAT smp2 = osc->wav1[k][phase_index2];
 
-                        float mu = ph1 - (double)phase_index1;
-                        float smp = smp1 + mu * (smp2 - smp1);
+                        FAS_FLOAT mu = ph1 - (FAS_FLOAT)phase_index1;
+                        FAS_FLOAT smp = smp1 + mu * (smp2 - smp1);
 
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         // dc filter (due to feedback there is a 0Hz component)
-                        float dc_filtered_smp = smp - osc->pvalue[k] + (0.99 * osc->fp1[k][2]);
+                        FAS_FLOAT dc_filtered_smp = smp - osc->pvalue[k] + (0.99 * osc->fp1[k][2]);
                         osc->pvalue[k] = smp;
                         osc->fp1[k][2] = dc_filtered_smp;
 
@@ -550,8 +554,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
                         // implementation from http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/
-                        float smp;
-                        double t = osc->fphase[k] / M_PI2;
+                        FAS_FLOAT smp;
+                        FAS_FLOAT t = osc->fphase[k] / M_PI2;
 
                         int waveform = ((int)fabs(floor(n->alpha))) % 6;
 
@@ -599,8 +603,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             osc->fphase[k] -= M_PI2;
                         }
 
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
 #ifdef WITH_SOUNDPIPE
                         if (filter_type == 0) {
@@ -626,15 +630,15 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
 #ifdef WITH_SOUNDPIPE
                         if (model_type == 1) {
-                            float trigger_l = ((n->previous_volume_l <= 0) || osc->triggered[k]) ? 1.f : 0.f;
-                            float trigger_r = ((n->previous_volume_r <= 0) || osc->triggered[k]) ? 1.f : 0.f;
-                            float drip_out_l = 0.;
-                            float drip_out_r = 0.;
+                            FAS_FLOAT trigger_l = ((n->previous_volume_l <= 0) || osc->triggered[k]) ? 1.f : 0.f;
+                            FAS_FLOAT trigger_r = ((n->previous_volume_r <= 0) || osc->triggered[k]) ? 1.f : 0.f;
+                            FAS_FLOAT drip_out_l = 0.;
+                            FAS_FLOAT drip_out_r = 0.;
 
                             sp_drip_compute(sp, (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR], &trigger_l, &drip_out_l);
                             sp_drip_compute(sp, (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR], &trigger_r, &drip_out_r);
@@ -647,22 +651,22 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             }
                         } else if (model_type == 0) {
 #endif
-                        double phase_step = osc->freq / (double)fas_sample_rate * (osc->buffer_len + 0.5);
+                        FAS_FLOAT phase_step = osc->freq / (FAS_FLOAT)fas_sample_rate * (osc->buffer_len + 0.5);
 
                         unsigned int curr_sample_index = osc->fphase[k];
                         unsigned int curr_sample_index2 = curr_sample_index + 1;
 
-                        float mu = osc->fphase[k] - (float)curr_sample_index;
+                        FAS_FLOAT mu = osc->fphase[k] - (FAS_FLOAT)curr_sample_index;
 
                         unsigned int si = k * osc->buffer_len;
 
                         unsigned int curr_sample = si + (curr_sample_index % osc->buffer_len);
                         unsigned int curr_sample2 = si + (curr_sample_index2 % osc->buffer_len);
 
-                        float smp = osc->buffer[curr_sample];
+                        FAS_FLOAT smp = osc->buffer[curr_sample];
 
-                        float stretch = n->blue_frac_part;
-                        float in = 0.0f;
+                        FAS_FLOAT stretch = n->blue_frac_part;
+                        FAS_FLOAT in = 0.0f;
                         if (stretch <= randf(0.f, 1.f)) {
                             in = 0.5f * ((smp + mu * (osc->buffer[curr_sample2] - smp)) + osc->pvalue[k]);
                         } else {
@@ -670,13 +674,13 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         }
 
                         // allpass
-                        float delay = fabs((double)osc->buffer_len - ((double)fas_sample_rate / osc->freq));
-                        float c = (1.0f - delay) / (1.0f + delay);
+                        FAS_FLOAT delay = fabs((FAS_FLOAT)osc->buffer_len - ((FAS_FLOAT)fas_sample_rate / osc->freq));
+                        FAS_FLOAT c = (1.0f - delay) / (1.0f + delay);
 
                         osc->buffer[curr_sample] = osc->fp4[k][0] + c * in;
                         osc->fp4[k][0] = in - c * osc->buffer[curr_sample];
 
-                        float ol = osc->buffer[curr_sample];
+                        FAS_FLOAT ol = osc->buffer[curr_sample];
 
                         osc->pvalue[k] = ol;
 
@@ -699,22 +703,22 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         unsigned int curr_sample_index = osc->fp1[k][1];
                         unsigned int curr_sample_index2 = curr_sample_index + 1;
 
-                        float mu = osc->fp1[k][1] - (double)curr_sample_index;
+                        FAS_FLOAT mu = osc->fp1[k][1] - (FAS_FLOAT)curr_sample_index;
 
-                        float wsmp = smp->data_l[curr_sample_index] + mu * (smp->data_l[curr_sample_index2] - smp->data_l[curr_sample_index]);
+                        FAS_FLOAT wsmp = smp->data_l[curr_sample_index] + mu * (smp->data_l[curr_sample_index2] - smp->data_l[curr_sample_index]);
 
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        float fsmp = 0;
+                        FAS_FLOAT fsmp = 0;
                         if (n->res > 0) {
                             // next sample interpolation
                             struct sample *nsmp = &waves[(int)osc->fp2[k][0]];
 
                             unsigned int nsample_index = osc->fp2[k][1];
                             unsigned int nsample_index2 = nsample_index + 1;
-                            float nmu = osc->fp2[k][1] - (double)nsample_index;
-                            float nwsmp = nsmp->data_l[nsample_index] + nmu * (nsmp->data_l[nsample_index2] - nsmp->data_l[nsample_index]);
+                            FAS_FLOAT nmu = osc->fp2[k][1] - (FAS_FLOAT)nsample_index;
+                            FAS_FLOAT nwsmp = nsmp->data_l[nsample_index] + nmu * (nsmp->data_l[nsample_index2] - nsmp->data_l[nsample_index]);
                             //
 
                             fsmp = wsmp + fmin(osc->fp1[k][3], 1.0) * (nwsmp - wsmp);
@@ -767,11 +771,11 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 }
 
                                 struct sample *smp = &waves[(int)osc->fp1[k][0]];
-                                osc->fp1[k][2] = osc->freq / smp->pitch / ((double)fas_sample_rate / (double)smp->samplerate);
+                                osc->fp1[k][2] = osc->freq / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
                                 osc->fp1[k][3] = 0;
 
                                 struct sample *nsmp = &waves[(int)osc->fp2[k][0]];
-                                osc->fp2[k][2] = osc->freq / nsmp->pitch / ((double)fas_sample_rate / (double)nsmp->samplerate);
+                                osc->fp2[k][2] = osc->freq / nsmp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)nsmp->samplerate);
                             }
                         }
 
@@ -791,7 +795,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             if (chn >= 0 && slot >= 0 && target >= 0) {
                                 struct _synth_chn_settings *target_chn_settings = &curr_synth.chn_settings[chn];
 
-                                double value = lerp(n->palpha, n->alpha, applyEasing(easing_type, curr_synth.lerp_t));
+                                FAS_FLOAT value = lerp(n->palpha, n->alpha, applyEasing(easing_type, curr_synth.lerp_t));
 
                                 updateEffectParameter(
     #ifdef WITH_SOUNDPIPE
@@ -806,7 +810,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             int easing_type = ((int)floor(chn_settings->p4)) % (FAS_EASING_COUNT + 1);
 
                             if (chn >= 0 && param >= 0) {
-                                double value = lerp(n->palpha, n->alpha, applyEasing(easing_type, curr_synth.lerp_t));
+                                FAS_FLOAT value = lerp(n->palpha, n->alpha, applyEasing(easing_type, curr_synth.lerp_t));
                                 
                                 struct _synth_chn_settings *target_chn_settings = &curr_synth.chn_settings[chn];
                                 if (param == 0) {
@@ -821,17 +825,6 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                     target_chn_settings->p4 = value;
                                 }
                             }
-                        } else if (chn_settings->p0 == 2) {
-                            // osc mod
-                            int chn = ((int)floor(chn_settings->p1)) % frame_data_count;
-                            int easing_type = ((int)floor(chn_settings->p4)) % (FAS_EASING_COUNT + 1);
-                            double value = lerp(n->alpha, n->alpha, applyEasing(easing_type, curr_synth.lerp_t));
-
-                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-                            osc->custom_wav[chn][(int)osc->fp1[k][0]] = value;
-
-                            osc->fp1[k][0] += 1;
-                            osc->fp1[k][0] = fmod(osc->fp1[k][0], 256);
                         }
                     }
                 } else if (chn_settings->synthesis_method == FAS_INPUT) {
@@ -840,8 +833,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         int chn_count = fas_input_channels / 2;
                         int chn = abs((int)n->blue) % chn_count;
@@ -862,16 +855,16 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         int chn = abs((int)n->blue) % frame_data_count;
 
-                        float sl = 0.0f;
-                        float sr = 0.0f;
+                        FAS_FLOAT sl = 0.0f;
+                        FAS_FLOAT sr = 0.0f;
 
-                        float il = last_sample_l[chn] * vl;
-                        float ir = last_sample_r[chn] * vr;
+                        FAS_FLOAT il = last_sample_l[chn] * vl;
+                        FAS_FLOAT ir = last_sample_r[chn] * vr;
 
                         sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
                         sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &ir, &sr);
@@ -885,16 +878,16 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         int chn = abs((int)n->blue) % frame_data_count;
 
-                        float sl = 0.0f;
-                        float sr = 0.0f;
+                        FAS_FLOAT sl = 0.0f;
+                        FAS_FLOAT sr = 0.0f;
 
-                        float il = last_sample_l[chn] * vl;
-                        float ir = last_sample_r[chn] * vr;
+                        FAS_FLOAT il = last_sample_l[chn] * vl;
+                        FAS_FLOAT ir = last_sample_r[chn] * vr;
 
                         sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L], &il, &sl);
                         sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R], &ir, &sr);
@@ -908,16 +901,16 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         int chn = abs((int)n->blue) % frame_data_count;
 
-                        float sl = 0.0f;
-                        float sr = 0.0f;
+                        FAS_FLOAT sl = 0.0f;
+                        FAS_FLOAT sr = 0.0f;
 
-                        float il = last_sample_l[chn] * vl;
-                        float ir = last_sample_r[chn] * vr;
+                        FAS_FLOAT il = last_sample_l[chn] * vl;
+                        FAS_FLOAT ir = last_sample_r[chn] * vr;
 
                         sp_streson_compute(sp, (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_L], &il, &sl);
                         sp_streson_compute(sp, (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_R], &ir, &sr);
@@ -931,16 +924,16 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         int chn = abs((int)n->blue) % frame_data_count;
 
-                        float sl = 0.0f;
-                        float sr = 0.0f;
+                        FAS_FLOAT sl = 0.0f;
+                        FAS_FLOAT sr = 0.0f;
 
-                        float il = last_sample_l[chn] * vl;
-                        float ir = last_sample_r[chn] * vr;
+                        FAS_FLOAT il = last_sample_l[chn] * vl;
+                        FAS_FLOAT ir = last_sample_r[chn] * vr;
 
                         sp_mode_compute(sp, (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_L], &il, &sl);
                         sp_mode_compute(sp, (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_R], &ir, &sr);
@@ -954,16 +947,16 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         int chn = abs((int)n->blue) % frame_data_count;
 
-                        float sl = 0.0f;
-                        float sr = 0.0f;
+                        FAS_FLOAT sl = 0.0f;
+                        FAS_FLOAT sr = 0.0f;
 
-                        float il = fminf(fabsf(last_sample_l[chn]), 1.f);
-                        float ir = fminf(fabsf(last_sample_r[chn]), 1.f);
+                        FAS_FLOAT il = fmin(fabs(last_sample_l[chn]), 1.f);
+                        FAS_FLOAT ir = fmin(fabs(last_sample_r[chn]), 1.f);
 
                         sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &il, &sl);
                         sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &ir, &sr);
@@ -980,8 +973,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                         struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        float vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        float vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                         int faust_dsp_index = chn_settings->p0 % osc->faust_gens_len;
 
@@ -1016,11 +1009,11 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         if (faust_dsp_input_count >= 1) {
                             int chn = abs((int)n->blue) % frame_data_count;
 
-                            float sl = 0.0f;
-                            float sr = 0.0f;
+                            FAS_FLOAT sl = 0.0f;
+                            FAS_FLOAT sr = 0.0f;
 
-                            float il = last_sample_l[chn];
-                            float ir = last_sample_r[chn];
+                            FAS_FLOAT il = last_sample_l[chn];
+                            FAS_FLOAT ir = last_sample_r[chn];
 
                             FAUSTFLOAT *faust_input[2] = { &il, &ir };
                             FAUSTFLOAT *faust_output[2] = { &sl, &sr };
@@ -1030,8 +1023,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             output_l += sl * vl;
                             output_r += sr * vr;
                         } else {
-                            float sl = 0.0f;
-                            float sr = 0.0f;
+                            FAS_FLOAT sl = 0.0f;
+                            FAS_FLOAT sr = 0.0f;
 
                             FAUSTFLOAT *faust_output[2] = { &sl, &sr };
 
@@ -1064,11 +1057,11 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                 if (fx_id == FX_CONV) {
 #ifdef WITH_SOUNDPIPE
-                    float insl = output_l;
-                    float insr = output_r;
+                    FAS_FLOAT insl = output_l;
+                    FAS_FLOAT insr = output_r;
 
-                    float outsl = 0;
-                    float outsr = 0;
+                    FAS_FLOAT outsl = 0;
+                    FAS_FLOAT outsr = 0;
                     
                     sp_conv_compute(sp, (sp_conv *)fx->conv[j], &insl, &outsl);
                     sp_conv_compute(sp, (sp_conv *)fx->conv[j + 1], &insr, &outsr);
@@ -1095,15 +1088,15 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #endif
                 } else if (fx_id == FX_VDELAY) {
 #ifdef WITH_SOUNDPIPE
-                    float insl = output_l;
-                    float insr = output_r;
+                    FAS_FLOAT insl = output_l;
+                    FAS_FLOAT insr = output_r;
                     sp_vdelay_compute(sp, (sp_vdelay *)fx->vdelay[j], &insl, &output_l);
                     sp_vdelay_compute(sp, (sp_vdelay *)fx->vdelay[j + 1], &insr, &output_r);
 #endif
                 } else if (fx_id == FX_SMOOTH_DELAY) {
 #ifdef WITH_SOUNDPIPE
-                    float insl = output_l;
-                    float insr = output_r;
+                    FAS_FLOAT insl = output_l;
+                    FAS_FLOAT insr = output_r;
                     sp_smoothdelay_compute(sp, (sp_smoothdelay *)fx->sdelay[j], &insl, &output_l);
                     sp_smoothdelay_compute(sp, (sp_smoothdelay *)fx->sdelay[j + 1], &insr, &output_r);
 #endif
@@ -1189,15 +1182,15 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #endif
                 } else if (fx_id == FX_TBVCF) {
 #ifdef WITH_SOUNDPIPE
-                    float insl = output_l;
-                    float insr = output_r;
+                    FAS_FLOAT insl = output_l;
+                    FAS_FLOAT insr = output_r;
                     sp_tbvcf_compute(sp, (sp_tbvcf *)fx->tbvcf[j], &insl, &output_l);
                     sp_tbvcf_compute(sp, (sp_tbvcf *)fx->tbvcf[j + 1], &insr, &output_r);
 #endif
                 } else if (fx_id == FX_FAUST) {
 #ifdef WITH_FAUST
-                    float insl = output_l;
-                    float insr = output_r;
+                    FAS_FLOAT insl = output_l;
+                    FAS_FLOAT insr = output_r;
 
                     FAUSTFLOAT *faust_input[2] = { &insl, &insr };
                     FAUSTFLOAT *faust_output[2] = { &output_l, &output_r };
@@ -1218,7 +1211,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
             last_sample_l[k] = output_l;
             last_sample_r[k] = output_r;
 
-            float chn_gain = last_chn_gain[k] + (curr_chn_gain[k] - last_chn_gain[k]) * curr_synth.lerp_t;
+            FAS_FLOAT chn_gain = last_chn_gain[k] + (curr_chn_gain[k] - last_chn_gain[k]) * curr_synth.lerp_t;
 
 #ifdef INTERLEAVED_SAMPLE_FORMAT
             *audio_out++ = output_l * chn_gain * curr_synth.gain->gain_lr;
@@ -1230,7 +1223,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
         }
 
         curr_synth.lerp_t += lerp_t_step * fas_smooth_factor;
-        curr_synth.lerp_t = fminf(curr_synth.lerp_t, 1.0f);
+        curr_synth.lerp_t = fmin(curr_synth.lerp_t, 1.0f);
 
         curr_synth.curr_sample += 1;
 
@@ -1397,7 +1390,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #ifdef WITH_SOUNDPIPE
                                 sp_fofilt *fofilt_l = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L];
                                 sp_fofilt *fofilt_r = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R];
-                                fofilt_l->atk = fofilt_l->atk = fabsf(n->blue_frac_part);
+                                fofilt_l->atk = fofilt_l->atk = fabs(n->blue_frac_part);
                                 fofilt_r->dec = fofilt_r->dec = fabs(n->res);
 #endif
                             }    
@@ -1410,8 +1403,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #ifdef WITH_SOUNDPIPE
                                 sp_streson *streson_l = (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_L];
                                 sp_streson *streson_r = (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_R];
-                                streson_l->fdbgain = n->res;//fminf(n->alpha, 1.f);
-                                streson_r->fdbgain = n->res;//fminf(n->alpha, 1.f);
+                                streson_l->fdbgain = n->res;//fmin(n->alpha, 1.f);
+                                streson_r->fdbgain = n->res;//fmin(n->alpha, 1.f);
 #endif
                             }
                         } else if (chn_settings->synthesis_method == FAS_MODAL_SYNTH) {
@@ -1436,7 +1429,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #ifdef WITH_SOUNDPIPE
                                 sp_pdhalf *pdhalf = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
                                 pdhalf->ibipolar = 1;
-                                pdhalf->amount = n->alpha;//fminf(fmaxf(n->alpha, -1.f), 1.f);
+                                pdhalf->amount = n->alpha;//fmin(fmax(n->alpha, -1.f), 1.f);
 #endif
                             } 
                         } else if (chn_settings->synthesis_method == FAS_FM) {
@@ -1457,7 +1450,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                                     osc->wav1[k] = smp->data_l;
  
-                                    osc->fp1[k][3] = osc->freq / smp->pitch / ((double)fas_sample_rate / (double)smp->samplerate);
+                                    osc->fp1[k][3] = osc->freq / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
                                     osc->fp2[k][0] = smp->frames;
                                 } else {
                                     osc->wav1[k] = fas_sine_wavetable;
@@ -1473,12 +1466,12 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                                     osc->wav2[k] = smp->data_l;
 
-                                    osc->fp1[k][4] = n->alpha / smp->pitch / ((double)fas_sample_rate / (double)smp->samplerate);
+                                    osc->fp1[k][4] = n->alpha / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
                                     osc->fp2[k][1] = smp->frames;
                                 } else {
                                     osc->wav2[k] = fas_sine_wavetable;
 
-                                    osc->fp1[k][4] = n->alpha / (double)fas_sample_rate * fas_wavetable_size;
+                                    osc->fp1[k][4] = n->alpha / (FAS_FLOAT)fas_sample_rate * fas_wavetable_size;
                                     osc->fp2[k][1] = fas_wavetable_size;
                                 }
                             }
@@ -1493,31 +1486,31 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 SPFLOAT res = fabs(n->res * 2.); // allow > 1 resonance
 
                                 // clamp to nyquist limit / filter limit
-                                freq = fminf(freq, fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
+                                freq = fmin(freq, fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
 
                                 sp_moogladder *spmf = (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER];
                                 spmf->freq = freq;
-                                spmf->res = fabsf(res);
+                                spmf->res = fabs(res);
 
                                 sp_diode *spdf = (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER];
                                 spdf->freq = freq;
-                                spdf->res = fabsf(res);
+                                spdf->res = fabs(res);
 
                                 sp_wpkorg35 *spkf = (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER];
                                 spkf->cutoff = freq;
-                                spkf->res = fabsf(res);
+                                spkf->res = fabs(res);
 
                                 sp_lpf18 *splf = (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER];
                                 splf->cutoff = freq;
-                                splf->res = fabsf(n->res);
+                                splf->res = fabs(n->res);
 #else
-                                huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (double)fas_sample_rate);
+                                huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (FAS_FLOAT)fas_sample_rate);
 
                                 // reset standalone filter on note-off
                                 if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
-                                    memset(osc->fp1[k], 0, sizeof(double) * 4);
-                                    memset(osc->fp2[k], 0, sizeof(double) * 4);
-                                    memset(osc->fp3[k], 0, sizeof(double) * 4);
+                                    memset(osc->fp1[k], 0, sizeof(FAS_FLOAT) * 4);
+                                    memset(osc->fp2[k], 0, sizeof(FAS_FLOAT) * 4);
+                                    memset(osc->fp3[k], 0, sizeof(FAS_FLOAT) * 4);
 
                                     osc->pvalue[k] = 0.0f;
                                 }
@@ -1533,15 +1526,15 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #ifdef WITH_SOUNDPIPE
                                 if (model_type == 1) {
                                     sp_drip *drip = (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR];
-                                    drip->damp = fabsf(n->blue_frac_part * 2.f);
+                                    drip->damp = fabs(n->blue_frac_part * 2.f);
                                     drip->shake_max = n->res;
-                                    drip->freq1 = fminf(fabsf(round(n->blue)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
-                                    drip->freq2 = fminf(fabsf(round(n->alpha)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
+                                    drip->freq1 = fmin(fabs(round(n->blue)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
+                                    drip->freq2 = fmin(fabs(round(n->alpha)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
                                 }
 #endif
 
 #ifndef WITH_SOUNDPIPE
-                                huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (double)fas_sample_rate);
+                                huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (FAS_FLOAT)fas_sample_rate);
 #endif
                                 if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || osc->triggered[k] == 1) {
                                     karplusTrigger(k, osc, n);
@@ -1557,9 +1550,9 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                                 struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0 || osc->triggered[k] == 1) {
-                                    unsigned int start_index = (int)fabs(round(n->blue)) % waves_count;
-                                    unsigned int stop_index = (int)fabs(round(n->alpha)) % waves_count;
+                                if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || (osc->triggered[k] == 1 && chn_settings->p0 == 1)) {
+                                    int start_index = (int)fabs(round(n->blue)) % waves_count;
+                                    int stop_index = (int)fabs(round(n->alpha)) % waves_count;
 
                                     if (n->blue > 0) {
                                         osc->fp1[k][0] = start_index;
@@ -1575,13 +1568,13 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                     struct sample *smp = &waves[(unsigned int)osc->fp1[k][0]];
 
                                     osc->fp1[k][1] = 0;
-                                    osc->fp1[k][2] = osc->freq / smp->pitch / ((double)fas_sample_rate / (double)smp->samplerate);
+                                    osc->fp1[k][2] = osc->freq / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
                                     osc->fp1[k][3] = 0;
                                     
                                     struct sample *nsmp = &waves[(unsigned int)osc->fp2[k][0]];
 
                                     osc->fp2[k][1] = 0;
-                                    osc->fp2[k][2] = osc->freq / nsmp->pitch / ((double)fas_sample_rate / (double)nsmp->samplerate);;
+                                    osc->fp2[k][2] = osc->freq / nsmp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)nsmp->samplerate);
 
                                     osc->triggered[k] = 0;
                                 }
@@ -1895,10 +1888,10 @@ void render(struct user_session_data *usd, void *data, unsigned int channels) {
                 if (usd->frame_data_size == sizeof(float)) {
                     float *cdata = (float *)data;
 
-                    fas_render_buffer[index] = fminf(cdata[frame_data_index] * 255.0f, 255.0f);
-                    fas_render_buffer[index + 1] = fminf(cdata[frame_data_index + 1] * 255.0f, 255.0f);
-                    fas_render_buffer[index + 2] = fminf(cdata[frame_data_index + 2] * 255.0f, 255.0f);
-                    fas_render_buffer[index + 3] = fminf(cdata[frame_data_index + 3] * 255.0f, 255.0f);
+                    fas_render_buffer[index] = fmin(cdata[frame_data_index] * 255.0f, 255.0f);
+                    fas_render_buffer[index + 1] = fmin(cdata[frame_data_index + 1] * 255.0f, 255.0f);
+                    fas_render_buffer[index + 2] = fmin(cdata[frame_data_index + 2] * 255.0f, 255.0f);
+                    fas_render_buffer[index + 3] = fmin(cdata[frame_data_index + 3] * 255.0f, 255.0f);
                 } else {
                     unsigned char *dst = fas_render_buffer + index;
                     unsigned char *src = (unsigned char *)data + frame_data_index;
@@ -3080,7 +3073,7 @@ int main(int argc, char **argv)
 #endif
 
         // fas setup
-        note_time = 1 / (double)fas_fps;
+        note_time = 1 / (FAS_FLOAT)fas_fps;
         note_time_samples = round(note_time * fas_sample_rate);
         lerp_t_step = 1 / note_time_samples;
 

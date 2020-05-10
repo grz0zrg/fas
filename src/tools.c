@@ -2,8 +2,8 @@
 
 // http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/
 // http://www.kvraudio.com/forum/viewtopic.php?t=375517
-double poly_blep(double phase_increment, double t) {
-    double dt = phase_increment / M_PI2;
+FAS_FLOAT poly_blep(FAS_FLOAT phase_increment, FAS_FLOAT t) {
+    FAS_FLOAT dt = phase_increment / M_PI2;
     // 0 <= t < 1
     if (t < dt) {
         t /= dt;
@@ -19,8 +19,8 @@ double poly_blep(double phase_increment, double t) {
 }
 
 // http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/
-double raw_waveform(double phase, int type) {
-    double value;
+FAS_FLOAT raw_waveform(FAS_FLOAT phase, int type) {
+    FAS_FLOAT value;
     switch (type) {
         case 0: // SINE
             value = sin(phase);
@@ -40,26 +40,27 @@ double raw_waveform(double phase, int type) {
             value = 2.0 * (fabs(value) - 0.5);
             break;
         default:
+            value = 0;
             break;
     }
     return value;
 }
 
-float randf(float min, float max) {
+FAS_FLOAT randf(FAS_FLOAT min, FAS_FLOAT max) {
     if (min == 0.f && max == 0.f) {
         return 0.f;
     }
 
-    float range = (max - min);
-    float div = RAND_MAX / range;
+    FAS_FLOAT range = (max - min);
+    FAS_FLOAT div = RAND_MAX / range;
     return min + (rand() / div);
 }
 
-float gaussian(float x, int L, float sigma) {
+FAS_FLOAT gaussian(FAS_FLOAT x, int L, FAS_FLOAT sigma) {
     return exp(-pow((x - L / 2) / (2 * sigma), 2));
 }
 
-float bessi0(float x) {
+FAS_FLOAT bessi0(FAS_FLOAT x) {
     double ax = fabs(x);
 
     if (ax < 3.75) {
@@ -72,13 +73,13 @@ float bessi0(float x) {
    }
 }
 
-float **createEnvelopes(unsigned int n) {
-    float **envs = (float **)malloc(FAS_ENVS_COUNT * sizeof(float *));
+FAS_FLOAT **createEnvelopes(unsigned int n) {
+    FAS_FLOAT **envs = (FAS_FLOAT **)malloc(FAS_ENVS_COUNT * sizeof(FAS_FLOAT *));
 
-    float a0, a1, a2, a3, L, fN;
+    FAS_FLOAT a0, a1, a2, a3, L, fN;
 
     for (unsigned int i = 0; i < FAS_ENVS_COUNT; i++) {
-        envs[i] = (float *)malloc(n * sizeof(float));
+        envs[i] = (FAS_FLOAT *)malloc(n * sizeof(FAS_FLOAT));
 
         // thank to http://michaelkrzyzaniak.com/AudioSynthesis/2_Audio_Synthesis/11_Granular_Synthesis/1_Window_Functions/
         // NOTE : some fix is applied to ensure the boundaries land on 0
@@ -103,43 +104,43 @@ float **createEnvelopes(unsigned int n) {
 
             case 3: // TUKEY
               for (unsigned int j = 0; j < n; j++) {
-                  float truncationHeight = 0.5f;
-                  float f = 1.0f / (2.0f * truncationHeight) * (1.0f - cos(2.0f * M_PI * (double)j / (double)(n - 1)));
+                  FAS_FLOAT truncationHeight = 0.5f;
+                  FAS_FLOAT f = 1.0f / (2.0f * truncationHeight) * (1.0f - cos(2.0f * M_PI * (double)j / (double)(n - 1)));
                   envs[i][j] = f < 1 ? f : 1;
               }
               break;
 
             case 4: // GAUSSIAN
               for (unsigned int j = 0; j < n; j++) {
-                  float sigma = 0.3f;
-                  envs[i][j] = fabsf(pow(E, -0.5f * pow(((j - (double)(n - 1) /   2) / (sigma * (double)(n - 1) / 2)), 2) ) - 0.003866f);
+                  FAS_FLOAT sigma = 0.3f;
+                  envs[i][j] = fabs(pow(E, -0.5f * pow(((j - (double)(n - 1) /   2) / (sigma * (double)(n - 1) / 2)), 2) ) - 0.003866f);
               }
               break;
 
             case 5: // CONFINED GAUSSIAN
-                fN = (float)n;
-                float sigma = fN * 0.2f;
-                float L = (float)(n - 1);
+                fN = (FAS_FLOAT)n;
+                FAS_FLOAT sigma = fN * 0.2f;
+                FAS_FLOAT L = (FAS_FLOAT)(n - 1);
 
-                float numerator = 0.0f;
-                float denominator = 0.0f;
-                float fn = 0.0f;
+                FAS_FLOAT numerator = 0.0f;
+                FAS_FLOAT denominator = 0.0f;
+                FAS_FLOAT fn = 0.0f;
 
                 for (unsigned int j = 0; j < n; j++) {
-                    fn = (float)j;
+                    fn = (FAS_FLOAT)j;
                     numerator = gaussian(-0.5f, L, sigma) * (gaussian(fn + fN, L, sigma) + gaussian(fn - fN, L, sigma));
                     denominator = gaussian(-0.5f + fN, L, sigma) + gaussian(-0.5f - fN, L, sigma);
-                    envs[i][j] = fmaxf(gaussian(fn, L, sigma) - numerator / denominator - 0.000020f, 0.f);
+                    envs[i][j] = fmax(gaussian(fn, L, sigma) - numerator / denominator - 0.000020f, 0.f);
                 }
               break;
 
             case 6: // TRAPEZOIDAL
               for (unsigned int j = 0; j < n; j++) {
-                  float slope = 10;
-                  float x = (float) j / n;
-                  float f1 = slope * x;
-                  float f2 = -1 * slope * (x-(slope-1) / slope) + 1;
-                  envs[i][j] = fmaxf((x < 0.5f ? (f1 < 1 ? f1 : 1) : (f2 < 1 ? f2 : 1)) - 0.000152f, 0.f);
+                  FAS_FLOAT slope = 10;
+                  FAS_FLOAT x = (FAS_FLOAT) j / n;
+                  FAS_FLOAT f1 = slope * x;
+                  FAS_FLOAT f2 = -1 * slope * (x-(slope-1) / slope) + 1;
+                  envs[i][j] = fmax((x < 0.5f ? (f1 < 1 ? f1 : 1) : (f2 < 1 ? f2 : 1)) - 0.000152f, 0.f);
               }
               break;
 
@@ -147,11 +148,11 @@ float **createEnvelopes(unsigned int n) {
                 a0 = 0.426591f;
                 a1 = 0.496561f;
                 a2 = 0.076849f;
-                L = (float)(n - 1);
+                L = (FAS_FLOAT)(n - 1);
                 for (unsigned int j = 0; j < n; j++) {
                     envs[i][j] = a0;
-                    envs[i][j] -= a1 * cos((1.0f * 2.0f * (float)(M_PI) * j) / L);
-                    envs[i][j] += a2 * cos((2.0f * 2.0f * (float)(M_PI) * j) / L);
+                    envs[i][j] -= a1 * cos((1.0f * 2.0f * (FAS_FLOAT)(M_PI) * j) / L);
+                    envs[i][j] += a2 * cos((2.0f * 2.0f * (FAS_FLOAT)(M_PI) * j) / L);
                     envs[i][j] -= 0.006879f;
                 }
               break;
@@ -161,40 +162,40 @@ float **createEnvelopes(unsigned int n) {
                 a1 = 0.48829f;
                 a2 = 0.14128f;
                 a3 = 0.01168f;
-                L = (float)(n - 1);
+                L = (FAS_FLOAT)(n - 1);
 
                 for (unsigned int j = 0; j < n; j++) {
                     envs[i][j] = a0;
-                    envs[i][j] -= a1 * cos((1.0f * 2.0f * (float)(M_PI) * j) / L);
-                    envs[i][j] += a2 * cos((2.0f * 2.0f * (float)(M_PI) * j) / L);
-                    envs[i][j] -= a3 * cos((3.0f * 2.0f * (float)(M_PI) * j) / L);
-                    envs[i][j] = fmaxf(envs[i][j] - 0.000060f, 0.0f);
+                    envs[i][j] -= a1 * cos((1.0f * 2.0f * (FAS_FLOAT)(M_PI) * j) / L);
+                    envs[i][j] += a2 * cos((2.0f * 2.0f * (FAS_FLOAT)(M_PI) * j) / L);
+                    envs[i][j] -= a3 * cos((3.0f * 2.0f * (FAS_FLOAT)(M_PI) * j) / L);
+                    envs[i][j] = fmax(envs[i][j] - 0.000060f, 0.0f);
                 }
               break;
 
             case 9: // PARZEN
               for (unsigned int j = 0; j < n; j++) {
-                  envs[i][j] = fmaxf(1.0f - fabs(((double)j - 0.5f * (double)(n - 1)) / (0.5f * (double)(n + 1))) - 0.000031f, 0.f);
+                  envs[i][j] = fmax(1.0f - fabs(((double)j - 0.5f * (double)(n - 1)) / (0.5f * (double)(n + 1))) - 0.000031f, 0.f);
               }
               break;
 
             case 10: // NUTALL
               for (unsigned int j = 0; j < n; j++) {
-                  envs[i][j] = 0.3635819f - 0.3635819f * cos(2*(float)(M_PI)*(double)j/(n-1)) + 0.1365995f * cos(4*(float)(M_PI)*(double)j/(n-1)) - 0.130411f *cos(6*(float)(M_PI)*(double)j/(n-1));
+                  envs[i][j] = 0.3635819f - 0.3635819f * cos(2*(FAS_FLOAT)(M_PI)*(double)j/(n-1)) + 0.1365995f * cos(4*(FAS_FLOAT)(M_PI)*(double)j/(n-1)) - 0.130411f *cos(6*(FAS_FLOAT)(M_PI)*(double)j/(n-1));
                   envs[i][j] -= 0.006188f;
               }
               break;
 
             case 11: // FLATTOP
               for (unsigned int j = 0; j < n; j++) {
-                  envs[i][j] = fmaxf(1 - 1.93f*cos(2*(float)(M_PI)*(double)j/(n-1)) + 1.29f*cos(4*(float)(M_PI)*(double)j/(n-1)) - 0.388f*cos(6*(float)(M_PI)*(double)j/(n-1)) + 0.032f*cos(8*(float)(M_PI)*(double)j/(n-1)) * 0.215f, 0.0f);
+                  envs[i][j] = fmax(1 - 1.93f*cos(2*(FAS_FLOAT)(M_PI)*(double)j/(n-1)) + 1.29f*cos(4*(FAS_FLOAT)(M_PI)*(double)j/(n-1)) - 0.388f*cos(6*(FAS_FLOAT)(M_PI)*(double)j/(n-1)) + 0.032f*cos(8*(FAS_FLOAT)(M_PI)*(double)j/(n-1)) * 0.215f, 0.0f);
               }
               break;
 
             case 12: // KAISER
               for (unsigned int j = 0; j < n; j++) {
                   double alpha = 3.0f;
-                  envs[i][j] = bessi0((float)(M_PI) * alpha * sqrt(1 - pow((2 * (double)j / (n - 1)) - 1, 2))) / bessi0((float)(M_PI) * alpha);
+                  envs[i][j] = bessi0((FAS_FLOAT)(M_PI) * alpha * sqrt(1 - pow((2 * (double)j / (n - 1)) - 1, 2))) / bessi0((FAS_FLOAT)(M_PI) * alpha);
                   envs[i][j] -= 0.000612f;
               }
               break;
@@ -209,7 +210,7 @@ float **createEnvelopes(unsigned int n) {
     return envs;
 }
 
-void freeEnvelopes(float **envs) {
+void freeEnvelopes(FAS_FLOAT **envs) {
     if (envs) {
         for (unsigned int i = 0; i < FAS_ENVS_COUNT; i++) {
             free(envs[i]);
@@ -282,6 +283,6 @@ double get_time(void) {
 #endif
 }
 
-double lerp(double a, double b, double f) {
+FAS_FLOAT lerp(FAS_FLOAT a, FAS_FLOAT b, FAS_FLOAT f) {
     return (a * (1.0 - f)) + (b * f);
 }

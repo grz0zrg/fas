@@ -23,8 +23,6 @@
         FAS_FLOAT alpha;
         FAS_FLOAT palpha;
 
-        FAS_FLOAT blue_frac_part;
-
         // subtractive related
         FAS_FLOAT cutoff;
         FAS_FLOAT res;

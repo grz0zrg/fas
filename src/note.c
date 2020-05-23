@@ -152,13 +152,13 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
                 double dummy_int_part;
                 double alpha_int_part;
                 double palpha_int_part;
-                _note->blue_frac_part = modf(fabs(blue), &dummy_int_part);
+                FAS_FLOAT blue_frac_part = modf(fabs(blue), &dummy_int_part);
                 FAS_FLOAT pblue_frac_part = modf(fabs(pb), &dummy_int_part);
                 FAS_FLOAT palpha_frac_part = modf(fabs(pa), &palpha_int_part);
                 FAS_FLOAT alpha_frac_part = modf(fabs(alpha), &alpha_int_part);
 
                 // for granular synthesis, samples and related
-                _note->smp_index = _note->blue_frac_part * (samples_count + 1);
+                _note->smp_index = blue_frac_part * (samples_count + 1);
                 _note->psmp_index = pblue_frac_part * (samples_count + 1);
 
                 // for wavetable synthesis

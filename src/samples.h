@@ -2,6 +2,7 @@
 #define _FAS_SAMPLES_H_
 
   #include <math.h>
+  #include <stdint.h>
 
 #ifdef WITH_SOUNDPIPE
   #include "soundpipe.h"
@@ -27,9 +28,6 @@
 #ifdef WITH_SOUNDPIPE
         sp_ftbl *ftbl;
 #endif
-
-        // contain resampled waveforms
-        struct sample *octave_map;
     };
 
     extern unsigned int load_waves(struct sample **waves, char* directory);
@@ -41,8 +39,7 @@
       char *directory,
       unsigned int sample_rate,
       int converter_type,
-      int pitch_detection,
-      int octave_map);
+      int pitch_detection);
     extern void free_samples(struct sample **s, unsigned int samples_count);
 
 #endif

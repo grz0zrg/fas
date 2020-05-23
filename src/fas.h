@@ -248,6 +248,7 @@
     struct _freelist_synth_commands *fsc;
     //
 
+    struct note *dummy_notes = NULL;
     struct note *curr_notes = NULL;
     struct _freelist_frames_data *curr_freelist_frames_data = NULL;
     unsigned long frames_read = 0;

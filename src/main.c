@@ -228,12 +228,12 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
         audio_thread_state = FAS_AUDIO_PLAY;
     } else if (audio_thread_state == FAS_AUDIO_DO_FLUSH_THEN_PAUSE) {
         // flush away callback data
-        if (curr_notes) {
+        if (curr_notes != dummy_notes) {
             LFDS720_FREELIST_N_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
             lfds720_freelist_n_threadsafe_push(&freelist_frames, NULL, &curr_freelist_frames_data->fe);
         }
 
-        curr_notes = NULL;
+        curr_notes = dummy_notes;
 
         last_gain_lr = curr_synth.gain->gain_lr;
 
@@ -280,351 +280,110 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
             struct _synth_chn_settings *chn_settings = &curr_synth.chn_settings[k];
 
-            if (curr_notes) {
-                pv_note_buffer_len += note_buffer_len;
-                note_buffer_len = curr_notes[pv_note_buffer_len].osc_index;
-                pv_note_buffer_len += 1;
-                s = pv_note_buffer_len;
-                e = s + note_buffer_len;
+            pv_note_buffer_len += note_buffer_len;
+            note_buffer_len = curr_notes[pv_note_buffer_len].osc_index;
+            pv_note_buffer_len += 1;
+            s = pv_note_buffer_len;
+            e = s + note_buffer_len;
 
-                if (chn_settings->synthesis_method == FAS_ADDITIVE) {
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
+            if (chn_settings->synthesis_method == FAS_ADDITIVE) {
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
 
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
 #ifdef MAGIC_CIRCLE
-                        osc->mc_x[k] = osc->mc_x[k] + osc->mc_eps * osc->mc_y[k];
-                        osc->mc_y[k] = -osc->mc_eps * osc->mc_x[k] + osc->mc_y[k];
+                    osc->mc_x[k] = osc->mc_x[k] + osc->mc_eps * osc->mc_y[k];
+                    osc->mc_y[k] = -osc->mc_eps * osc->mc_x[k] + osc->mc_y[k];
 
-                        FAS_FLOAT smp = osc->mc_y[k];
+                    FAS_FLOAT smp = osc->mc_y[k];
 #else
-                        // linear interpolation sampling
-                        FAS_FLOAT phase_index = osc->phase_index[k];
-                        int phase_index1 = (int)phase_index;
-                        int phase_index2 = phase_index1 + 1;
+                    // linear interpolation sampling
+                    FAS_FLOAT phase_index = osc->phase_index[k];
+                    int phase_index1 = (int)phase_index;
+                    int phase_index2 = phase_index1 + 1;
 
-                        FAS_FLOAT smp1 = fas_sine_wavetable[phase_index1];
-                        FAS_FLOAT smp2 = fas_sine_wavetable[phase_index2];
+                    FAS_FLOAT smp1 = fas_sine_wavetable[phase_index1];
+                    FAS_FLOAT smp2 = fas_sine_wavetable[phase_index2];
 
-                        FAS_FLOAT mu = phase_index - (FAS_FLOAT)phase_index1;
+                    FAS_FLOAT mu = phase_index - (FAS_FLOAT)phase_index1;
 
-                        FAS_FLOAT smp = smp1 + mu * (smp2 - smp1);
-                        //
+                    FAS_FLOAT smp = smp1 + mu * (smp2 - smp1);
+                    //
 #endif
-                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
 #ifdef PARTIAL_FX
-                        int fx = (int)n->cutoff % SP_OSC_MODS; // TODO : rename pre-computed note parameters with generic ones
+                    int fx = (int)osc->fp1[k][0] % SP_OSC_MODS;
 #ifdef WITH_SOUNDPIPE
-                        if (fx == SP_CRUSH_MODS) {
-                            sp_bitcrush *crush = (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS];
-                            
-                            crush->bitdepth = 1.f + (n->blue_frac_part * 15.f);
-                            crush->srate = n->res * (FAS_FLOAT)fas_sample_rate;
-
-                            sp_bitcrush_compute(sp, (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS], &smp, &smp); 
-                        } else if (fx == SP_PD_MODS) {
-                            sp_pdhalf *pdh = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
-                            
-                            pdh->amount = (0.5f - n->res) * 2.f;
-
-                            sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &smp, &smp); 
-                        } else if (fx == SP_WAVSH_MODS) {
-                            sp_dist *dist = (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS];
-                            
-                            dist->shape1 = n->blue_frac_part;
-                            dist->shape2 = n->alpha;
-
-                            sp_dist_compute(sp, (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS], &smp, &smp); 
-                        } else if (fx == SP_FOLD_MODS) {
-                            sp_fold *fold = (sp_fold *)osc->sp_mods[k][SP_FOLD_MODS];
-                            
-                            fold->incr = n->alpha;
-
-                            sp_fold_compute(sp, (sp_fold *)osc->sp_mods[k][SP_FOLD_MODS], &smp, &smp); 
-                        } else if (fx == SP_CONV_MODS) {
-                            sp_conv_compute(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], &smp, &smp); 
-                        } else if (fx == NOISE_MODS) {
-#ifndef MAGIC_CIRCLE
-                            osc->phase_index[k] += osc->phase_step * (1.0f + (fas_white_noise_table[osc->noise_index[k]++] * fas_noise_amount) * n->alpha);
-#endif
-                        }
-#endif
-#endif
-
-                        output_l += vl * smp;
-                        output_r += vr * smp;
-
-#ifndef MAGIC_CIRCLE
-                        osc->phase_index[k] += osc->phase_step;
-                        osc->phase_index[k] = fmod(osc->phase_index[k], fas_wavetable_size);
-#endif
-                    }
-                } else if (chn_settings->synthesis_method == FAS_SPECTRAL) {
-                    struct _synth_chn_states *chn_states = &fas_chn_states[k];
-
-                    // accumulate frames until there is enough for a STFT frame
-                    unsigned int input_channel = chn_settings->p0 % frame_data_count;
-                    chn_states->in[0][chn_states->position] = last_sample_l[input_channel];
-                    chn_states->in[1][chn_states->position] = last_sample_r[input_channel];
-
-                    chn_states->position += 1;
-                    if (chn_states->position >= chn_states->hop_size) {
-                        if (chn_settings->p2 != 1) {
-                            afSTFTforward(chn_states->afSTFT_handle, chn_states->in, chn_states->stft_result);
-                        }
-
-                        // empty processing buffer
-                        for (d = 0; d < 2; d += 1) {
-                            for (w = 0; w < chn_states->hop_size / 2; w += 1) {
-                                chn_states->stft_temp[d].re[w] = 0;
-                                chn_states->stft_temp[d].im[w] = 0;
-                            }
-                        }
-
-                        // process incoming data
-                        for (j = s; j < e; j += 1) {
-                            struct note *n = &curr_notes[j];
-
-                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                            FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                            FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
-
-                            FAS_FLOAT v[2] = { vl, vr };
-                            FAS_FLOAT p[2] = { n->blue, n->alpha };
-
-                            FAS_FLOAT bin_delta = ((FAS_FLOAT)(fas_sample_rate / 2) / chn_states->hop_size);
-                            FAS_FLOAT bin = osc->freq / bin_delta;
-
-                            int ibin = round(bin);
-
-                            // stereo spectral processing
-                            for (d = 0; d < 2; d += 1) {                                
-                                if (chn_settings->p2 == 1) {
-                                    chn_states->stft_temp[d].re[ibin] = v[d];
-                                    chn_states->stft_temp[d].im[ibin] = p[d];
-                                } else {
-                                    FAS_FLOAT real = chn_states->stft_result[d].re[ibin];
-                                    FAS_FLOAT imag = chn_states->stft_result[d].im[ibin];
-
-                                    // polar
-                                    FAS_FLOAT mag = sqrtf(real * real + imag * imag);
-                                    FAS_FLOAT pha = atan2f(imag, real);
-
-                                    mag *= v[d];
-                                    pha *= p[d];
-
-                                    // rectangular
-                                    FAS_FLOAT creal = mag * cosf(pha);
-                                    FAS_FLOAT cimag = mag * sinf(pha);
-
-                                    chn_states->stft_temp[d].re[ibin] = creal;
-                                    chn_states->stft_temp[d].im[ibin] = cimag;
-                                }
-                            }
-                        }
-
-                        // copy processing result
-                        for (d = 0; d < 2; d += 1) {
-                            for (w = 0; w < chn_states->hop_size / 2; w += 1) {
-                                FAS_FLOAT re = chn_states->stft_temp[d].re[w];
-                                FAS_FLOAT im = chn_states->stft_temp[d].im[w];
-
-                                chn_states->stft_result[d].re[w] = re;
-                                chn_states->stft_result[d].im[w] = im;
-                            }
-                        }
-
-                        afSTFTinverse(chn_states->afSTFT_handle, chn_states->stft_result, chn_states->out);
-
-                        chn_states->position = 0;
-                    }
-
-                    output_l += chn_states->out[0][chn_states->position];
-                    output_r += chn_states->out[1][chn_states->position];
-                } else if (chn_settings->synthesis_method == FAS_GRANULAR) {
-                    int env_type = chn_settings->p0;
-                    FAS_FLOAT *gr_env = grain_envelope[env_type];
-
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
-
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
-
-                        unsigned int grain_index = n->osc_index * samples_count + n->psmp_index;
-                        unsigned int si = curr_synth.settings->h * samples_count;
-
-                        struct grain *gr = &curr_synth.grains[grain_index];
-
-                        FAS_FLOAT gr_out_l = 0, gr_out_r = 0;
-                        computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, chn_settings->p3, gr_env, samples, n->psmp_index, fas_sample_rate, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
-/*
-                        // WIP :  allow real-time density change
-                        unsigned density_difference = n->density - n->pdensity;
-                        if (density_difference < 0) {
-                            gr->density[k] = -density_difference;
-
-                            computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, n->density, gr_env, samples, n->psmp_index, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
-
-                            output_l += (vl * gr->density[k]) * gr_out_l * (1.0f - curr_synth.lerp_t);
-                            output_r += (vr * gr->density[k]) * gr_out_r * (1.0f - curr_synth.lerp_t);
-
-                            gr->density[k] = n->density;
-
-                            gr_out_l = 0; gr_out_r = 0;
-                            computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, 0, gr_env, samples, n->psmp_index, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
-                        } else {
-                            computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, 0, gr_env, samples, n->psmp_index, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
-                        }
-*/
-                        // allow real-time sample change : cross-fade between old & new on a sudden sample change
-                        if (n->psmp_index != n->smp_index) {
-                            output_l += (vl * n->norm_density) * gr_out_l * (1.0f - curr_synth.lerp_t);
-                            output_r += (vr * n->norm_density) * gr_out_r * (1.0f - curr_synth.lerp_t);
-
-                            grain_index = n->osc_index * samples_count + n->smp_index;
-
-                            gr_out_l = 0; gr_out_r = 0;
-                            computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, chn_settings->p3, gr_env, samples, n->smp_index, fas_sample_rate, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
-
-                            output_l += (vl * n->density) * gr_out_l;
-                            output_r += (vr * n->density) * gr_out_r;
-                        } else {
-                            output_l += (vl * n->density) * gr_out_l;
-                            output_r += (vr * n->density) * gr_out_r;
-                        }
-                    }
-                } else if (chn_settings->synthesis_method == FAS_FM) {
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
-
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                        FAS_FLOAT mod_phase_step = osc->fp1[k][4];
-                        FAS_FLOAT car_wav_size = osc->fp2[k][0];
-                        FAS_FLOAT mod_wav_size = osc->fp2[k][1];
-
-                        FAS_FLOAT fbf = (osc->fp1[k][0] + osc->fp1[k][1]) / 2; // 'anti-hunting' filter (simple low-pass)
-                        FAS_FLOAT fb = fbf * (floor(n->blue) / 65536.0);
+                    if (fx == SP_CRUSH_MODS) {
+                        sp_bitcrush *crush = (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS];
                         
-                        FAS_FLOAT ph2 = fmod(osc->phase_index2[k] + (fb * mod_wav_size), mod_wav_size);
+                        crush->bitdepth = 1.f + (osc->fp1[k][1] * 15.f);
+                        crush->srate = n->res * (FAS_FLOAT)fas_sample_rate;
 
-                        FAS_FLOAT smp_mod = osc->wav2[k][(int)ph2];
-                        FAS_FLOAT mod = (((FAS_FLOAT)smp_mod * n->blue_frac_part) * car_wav_size);
-                        FAS_FLOAT ph1 = fmod(osc->phase_index[k] + mod, car_wav_size);
+                        sp_bitcrush_compute(sp, (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS], &smp, &smp); 
+                    } else if (fx == SP_PD_MODS) {
+                        sp_pdhalf *pdh = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
+                        
+                        pdh->amount = (0.5f - n->res) * 2.f;
 
-                        int phase_index1 = (int)ph1;
-                        int phase_index2 = phase_index1 + 1;
+                        sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &smp, &smp); 
+                    } else if (fx == SP_WAVSH_MODS) {
+                        sp_dist *dist = (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS];
+                        
+                        dist->shape1 = osc->fp1[k][1];
+                        dist->shape2 = n->alpha;
 
-                        FAS_FLOAT smp1 = osc->wav1[k][phase_index1];
-                        FAS_FLOAT smp2 = osc->wav1[k][phase_index2];
+                        sp_dist_compute(sp, (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS], &smp, &smp); 
+                    } else if (fx == SP_FOLD_MODS) {
+                        sp_fold *fold = (sp_fold *)osc->sp_mods[k][SP_FOLD_MODS];
+                        
+                        fold->incr = n->alpha;
 
-                        FAS_FLOAT mu = ph1 - (FAS_FLOAT)phase_index1;
-                        FAS_FLOAT smp = smp1 + mu * (smp2 - smp1);
-
-                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
-
-                        // dc filter (due to feedback there is a 0Hz component)
-                        FAS_FLOAT dc_filtered_smp = smp - osc->pvalue[k] + (0.99 * osc->fp1[k][2]);
-                        osc->pvalue[k] = smp;
-                        osc->fp1[k][2] = dc_filtered_smp;
-
-                        output_l += vl * dc_filtered_smp;
-                        output_r += vr * dc_filtered_smp;
-
-                        osc->phase_index[k] += osc->fp1[k][3];
-                        osc->phase_index2[k] += mod_phase_step;
-
-                        // feedback
-                        osc->fp1[k][0] = osc->fp1[k][1];
-                        osc->fp1[k][1] = vl * smp_mod;
+                        sp_fold_compute(sp, (sp_fold *)osc->sp_mods[k][SP_FOLD_MODS], &smp, &smp); 
+                    } else if (fx == SP_CONV_MODS) {
+                        sp_conv_compute(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], &smp, &smp); 
+                    } else if (fx == NOISE_MODS) {
+#ifndef MAGIC_CIRCLE
+                        osc->phase_index[k] += osc->phase_step * (1.0f + (fas_white_noise_table[osc->noise_index[k]++] * fas_noise_amount) * n->alpha);
+#endif
                     }
-                } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE) {
-                    int filter_type = chn_settings->p0;
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
-
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                        // implementation from http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/
-                        FAS_FLOAT smp;
-                        FAS_FLOAT t = osc->fphase[k] / M_PI2;
-
-                        int waveform = ((int)fabs(floor(n->alpha))) % 6;
-
-                        switch (waveform) {
-                            case 0:
-                                smp = raw_waveform(osc->fphase[k], 1);
-                                smp -= poly_blep(osc->phase_increment, t);
-                                break;
-                            case 1:
-                                smp = raw_waveform(osc->fphase[k], 2);
-                                smp += poly_blep(osc->phase_increment, t);
-                                smp -= poly_blep(osc->phase_increment, fmod(t + 0.5, 1.0));
-                                break;
-                            case 2:
-                                smp = raw_waveform(osc->fphase[k], 3);
-                                smp += poly_blep(osc->phase_increment, t);
-                                smp -= poly_blep(osc->phase_increment, fmod(t + 0.5, 1.0));
-                                smp = osc->phase_increment * smp + (1.0 - osc->phase_increment) * osc->pvalue[k];
-                                osc->pvalue[k] = smp;
-                                break;
-                            case 3: // white noise
-#ifdef WITH_SOUNDPIPE
-                                sp_noise_compute(sp, (sp_noise *)osc->sp_gens[k][SP_WHITE_NOISE_GENERATOR], NULL, &smp);
-#else
-                                smp = fas_white_noise_table[(int)osc->phase_index[k]];
-
-                                osc->phase_index[k] += osc->phase_step;
-                                osc->phase_index[k] = fmod(osc->phase_index[k], fas_wavetable_size);
 #endif
-                                break;
-#ifdef WITH_SOUNDPIPE
-                            case 4: // pink noise
-                                sp_pinknoise_compute(sp, (sp_pinknoise *)osc->sp_gens[k][SP_PINK_NOISE_GENERATOR], NULL, &smp);
-                                break;
-                            case 5: // brown noise
-                                sp_brown_compute(sp, (sp_brown *)osc->sp_gens[k][SP_BROWN_NOISE_GENERATOR], NULL, &smp);
-                                break;
-#endif
-                            default:
-                                break;
-                        }
-
-                        osc->fphase[k] += osc->phase_increment;
-                        while (osc->fphase[k] >= M_PI2) {
-                            osc->fphase[k] -= M_PI2;
-                        }
-
-                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
-
-#ifdef WITH_SOUNDPIPE
-                        if (filter_type == 0) {
-                            sp_moogladder_compute(sp, (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER], &smp, &smp); 
-                        } else if (filter_type == 1) {
-                            sp_diode_compute(sp, (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER], &smp, &smp);
-                        } else if (filter_type == 2) {
-                            sp_wpkorg35_compute(sp, (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER], &smp, &smp);
-                        } else if (filter_type == 3) {
-                            sp_lpf18_compute(sp, (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER], &smp, &smp);
-                        }
-#else
-                        smp = huovilainen_moog(smp, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
 #endif
 
-                        output_l += vl * smp;
-                        output_r += vr * smp;
+                    output_l += vl * smp;
+                    output_r += vr * smp;
+
+#ifndef MAGIC_CIRCLE
+                    osc->phase_index[k] += osc->phase_step;
+                    osc->phase_index[k] = fmod(osc->phase_index[k], fas_wavetable_size);
+#endif
+                }
+            } else if (chn_settings->synthesis_method == FAS_SPECTRAL) {
+                struct _synth_chn_states *chn_states = &fas_chn_states[k];
+
+                // accumulate frames until there is enough for a STFT frame
+                unsigned int input_channel = chn_settings->p0 % frame_data_count;
+                chn_states->in[0][chn_states->position] = last_sample_l[input_channel];
+                chn_states->in[1][chn_states->position] = last_sample_r[input_channel];
+
+                chn_states->position += 1;
+                if (chn_states->position >= chn_states->hop_size) {
+                    if (chn_settings->p2 != 1) {
+                        afSTFTforward(chn_states->afSTFT_handle, chn_states->in, chn_states->stft_result);
                     }
-                } else if (chn_settings->synthesis_method == FAS_PHYSICAL_MODELLING) {
-                    int model_type = chn_settings->p0;
+
+                    // empty processing buffer
+                    for (d = 0; d < 2; d += 1) {
+                        for (w = 0; w < chn_states->hop_size / 2; w += 1) {
+                            chn_states->stft_temp[d].re[w] = 0;
+                            chn_states->stft_temp[d].im[w] = 0;
+                        }
+                    }
+
+                    // process incoming data
                     for (j = s; j < e; j += 1) {
                         struct note *n = &curr_notes[j];
 
@@ -633,410 +392,649 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                         FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-#ifdef WITH_SOUNDPIPE
-                        if (model_type == 1) {
-                            FAS_FLOAT trigger_l = ((n->previous_volume_l <= 0) || osc->triggered[k]) ? 1.f : 0.f;
-                            FAS_FLOAT trigger_r = ((n->previous_volume_r <= 0) || osc->triggered[k]) ? 1.f : 0.f;
-                            FAS_FLOAT drip_out_l = 0.;
-                            FAS_FLOAT drip_out_r = 0.;
+                        FAS_FLOAT v[2] = { vl, vr };
+                        FAS_FLOAT p[2] = { n->blue, n->alpha };
 
-                            sp_drip_compute(sp, (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR], &trigger_l, &drip_out_l);
-                            sp_drip_compute(sp, (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR], &trigger_r, &drip_out_r);
-  
-                            output_l += vl * drip_out_l;
-                            output_r += vr * drip_out_r;
+                        FAS_FLOAT bin_delta = ((FAS_FLOAT)(fas_sample_rate / 2) / chn_states->hop_size);
+                        FAS_FLOAT bin = osc->freq / bin_delta;
 
-                            if (osc->triggered[k]) {
-                                osc->triggered[k] = 0;
+                        int ibin = round(bin);
+
+                        // stereo spectral processing
+                        for (d = 0; d < 2; d += 1) {                                
+                            if (chn_settings->p2 == 1) {
+                                chn_states->stft_temp[d].re[ibin] = v[d];
+                                chn_states->stft_temp[d].im[ibin] = p[d];
+                            } else {
+                                FAS_FLOAT real = chn_states->stft_result[d].re[ibin];
+                                FAS_FLOAT imag = chn_states->stft_result[d].im[ibin];
+
+                                // polar
+                                FAS_FLOAT mag = sqrtf(real * real + imag * imag);
+                                FAS_FLOAT pha = atan2f(imag, real);
+
+                                mag *= v[d];
+                                pha *= p[d];
+
+                                // rectangular
+                                FAS_FLOAT creal = mag * cosf(pha);
+                                FAS_FLOAT cimag = mag * sinf(pha);
+
+                                chn_states->stft_temp[d].re[ibin] = creal;
+                                chn_states->stft_temp[d].im[ibin] = cimag;
                             }
-                        } else if (model_type == 0) {
-#endif
-                        FAS_FLOAT phase_step = osc->freq / (FAS_FLOAT)fas_sample_rate * (osc->buffer_len + 0.5);
-
-                        unsigned int curr_sample_index = osc->fphase[k];
-                        unsigned int curr_sample_index2 = curr_sample_index + 1;
-
-                        FAS_FLOAT mu = osc->fphase[k] - (FAS_FLOAT)curr_sample_index;
-
-                        unsigned int si = k * osc->buffer_len;
-
-                        unsigned int curr_sample = si + (curr_sample_index % osc->buffer_len);
-                        unsigned int curr_sample2 = si + (curr_sample_index2 % osc->buffer_len);
-
-                        FAS_FLOAT smp = osc->buffer[curr_sample];
-
-                        FAS_FLOAT stretch = n->blue_frac_part;
-                        FAS_FLOAT in = 0.0f;
-                        if (stretch <= randf(0.f, 1.f)) {
-                            in = 0.5f * ((smp + mu * (osc->buffer[curr_sample2] - smp)) + osc->pvalue[k]);
-                        } else {
-                            in = smp;
                         }
-
-                        // allpass
-                        FAS_FLOAT delay = fabs((FAS_FLOAT)osc->buffer_len - ((FAS_FLOAT)fas_sample_rate / osc->freq));
-                        FAS_FLOAT c = (1.0f - delay) / (1.0f + delay);
-
-                        osc->buffer[curr_sample] = osc->fp4[k][0] + c * in;
-                        osc->fp4[k][0] = in - c * osc->buffer[curr_sample];
-
-                        FAS_FLOAT ol = osc->buffer[curr_sample];
-
-                        osc->pvalue[k] = ol;
-
-                        output_l += vl * ol;
-                        output_r += vr * ol;
-
-                        osc->fphase[k] += phase_step;
-#ifdef WITH_SOUNDPIPE
-                        }
-#endif
                     }
-                } else if (chn_settings->synthesis_method == FAS_WAVETABLE_SYNTH) {
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
 
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+                    // copy processing result
+                    for (d = 0; d < 2; d += 1) {
+                        for (w = 0; w < chn_states->hop_size / 2; w += 1) {
+                            FAS_FLOAT re = chn_states->stft_temp[d].re[w];
+                            FAS_FLOAT im = chn_states->stft_temp[d].im[w];
 
-                        struct sample *smp = &waves[(int)osc->fp1[k][0]];
+                            chn_states->stft_result[d].re[w] = re;
+                            chn_states->stft_result[d].im[w] = im;
+                        }
+                    }
 
-                        unsigned int curr_sample_index = osc->fp1[k][1];
-                        unsigned int curr_sample_index2 = curr_sample_index + 1;
+                    afSTFTinverse(chn_states->afSTFT_handle, chn_states->stft_result, chn_states->out);
 
-                        FAS_FLOAT mu = osc->fp1[k][1] - (FAS_FLOAT)curr_sample_index;
+                    chn_states->position = 0;
+                }
 
-                        FAS_FLOAT wsmp = smp->data_l[curr_sample_index] + mu * (smp->data_l[curr_sample_index2] - smp->data_l[curr_sample_index]);
+                output_l += chn_states->out[0][chn_states->position];
+                output_r += chn_states->out[1][chn_states->position];
+            } else if (chn_settings->synthesis_method == FAS_GRANULAR) {
+                int env_type = chn_settings->p0;
+                FAS_FLOAT *gr_env = grain_envelope[env_type];
 
-                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
 
-                        FAS_FLOAT fsmp = 0;
-                        if (n->res > 0) {
-                            // next sample interpolation
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                    unsigned int grain_index = n->osc_index * samples_count + n->psmp_index;
+                    unsigned int si = curr_synth.settings->h * samples_count;
+
+                    struct grain *gr = &curr_synth.grains[grain_index];
+
+                    FAS_FLOAT gr_out_l = 0, gr_out_r = 0;
+                    computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, chn_settings->p3, gr_env, samples, n->psmp_index, fas_sample_rate, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
+/*
+                    // WIP :  allow real-time density change
+                    unsigned density_difference = n->density - n->pdensity;
+                    if (density_difference < 0) {
+                        gr->density[k] = -density_difference;
+
+                        computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, n->density, gr_env, samples, n->psmp_index, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
+
+                        output_l += (vl * gr->density[k]) * gr_out_l * (1.0f - curr_synth.lerp_t);
+                        output_r += (vr * gr->density[k]) * gr_out_r * (1.0f - curr_synth.lerp_t);
+
+                        gr->density[k] = n->density;
+
+                        gr_out_l = 0; gr_out_r = 0;
+                        computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, 0, gr_env, samples, n->psmp_index, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
+                    } else {
+                        computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, 0, gr_env, samples, n->psmp_index, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
+                    }
+*/
+                    // allow real-time sample change : cross-fade between old & new on a sudden sample change
+                    if (n->psmp_index != n->smp_index) {
+                        output_l += (vl * n->norm_density) * gr_out_l * (1.0f - curr_synth.lerp_t);
+                        output_r += (vr * n->norm_density) * gr_out_r * (1.0f - curr_synth.lerp_t);
+
+                        grain_index = n->osc_index * samples_count + n->smp_index;
+
+                        gr_out_l = 0; gr_out_r = 0;
+                        computeGrains(k, curr_synth.grains, grain_index, n->alpha, si, n->density, chn_settings->p3, gr_env, samples, n->smp_index, fas_sample_rate, chn_settings->p1, chn_settings->p2, &gr_out_l, &gr_out_r);
+
+                        output_l += (vl * n->density) * gr_out_l;
+                        output_r += (vr * n->density) * gr_out_r;
+                    } else {
+                        output_l += (vl * n->density) * gr_out_l;
+                        output_r += (vr * n->density) * gr_out_r;
+                    }
+                }
+            } else if (chn_settings->synthesis_method == FAS_FM) {
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
+
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                    FAS_FLOAT mod_phase_step = osc->fp1[k][4];
+                    FAS_FLOAT car_wav_size = osc->fp2[k][0];
+                    FAS_FLOAT mod_wav_size = osc->fp2[k][1];
+
+                    FAS_FLOAT fbf = (osc->fp1[k][0] + osc->fp1[k][1]) / 2; // 'anti-hunting' filter (simple low-pass)
+                    FAS_FLOAT fb = fbf * (floor(n->blue) / 65536.0);
+                    
+                    FAS_FLOAT ph2 = fmod(osc->phase_index2[k] + (fb * mod_wav_size), mod_wav_size);
+
+                    FAS_FLOAT smp_mod = osc->wav2[k][(int)ph2];
+                    FAS_FLOAT mod = (((FAS_FLOAT)smp_mod * osc->fp3[k][0]) * car_wav_size);
+                    FAS_FLOAT ph1 = fmod(osc->phase_index[k] + mod, car_wav_size);
+
+                    int phase_index1 = (int)ph1;
+                    int phase_index2 = phase_index1 + 1;
+
+                    FAS_FLOAT smp1 = osc->wav1[k][phase_index1];
+                    FAS_FLOAT smp2 = osc->wav1[k][phase_index2];
+
+                    FAS_FLOAT mu = ph1 - (FAS_FLOAT)phase_index1;
+                    FAS_FLOAT smp = smp1 + mu * (smp2 - smp1);
+
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                    // dc filter (due to feedback there is a 0Hz component)
+                    FAS_FLOAT dc_filtered_smp = smp - osc->pvalue[k] + (0.99 * osc->fp1[k][2]);
+                    osc->pvalue[k] = smp;
+                    osc->fp1[k][2] = dc_filtered_smp;
+
+                    output_l += vl * dc_filtered_smp;
+                    output_r += vr * dc_filtered_smp;
+
+                    osc->phase_index[k] += osc->fp1[k][3];
+                    osc->phase_index2[k] += mod_phase_step;
+
+                    // feedback
+                    osc->fp1[k][0] = osc->fp1[k][1];
+                    osc->fp1[k][1] = vl * smp_mod;
+                }
+            } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE) {
+                int filter_type = chn_settings->p0;
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
+
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                    // implementation from http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/
+                    FAS_FLOAT smp;
+                    FAS_FLOAT t = osc->fphase[k] / M_PI2;
+
+                    int waveform = ((int)fabs(floor(n->alpha))) % 6;
+
+                    switch (waveform) {
+                        case 0:
+                            smp = raw_waveform(osc->fphase[k], 1);
+                            smp -= poly_blep(osc->phase_increment, t);
+                            break;
+                        case 1:
+                            smp = raw_waveform(osc->fphase[k], 2);
+                            smp += poly_blep(osc->phase_increment, t);
+                            smp -= poly_blep(osc->phase_increment, fmod(t + 0.5, 1.0));
+                            break;
+                        case 2:
+                            smp = raw_waveform(osc->fphase[k], 3);
+                            smp += poly_blep(osc->phase_increment, t);
+                            smp -= poly_blep(osc->phase_increment, fmod(t + 0.5, 1.0));
+                            smp = osc->phase_increment * smp + (1.0 - osc->phase_increment) * osc->pvalue[k];
+                            osc->pvalue[k] = smp;
+                            break;
+                        case 3: // white noise
+#ifdef WITH_SOUNDPIPE
+                            sp_noise_compute(sp, (sp_noise *)osc->sp_gens[k][SP_WHITE_NOISE_GENERATOR], NULL, &smp);
+#else
+                            smp = fas_white_noise_table[(int)osc->phase_index[k]];
+
+                            osc->phase_index[k] += osc->phase_step;
+                            osc->phase_index[k] = fmod(osc->phase_index[k], fas_wavetable_size);
+#endif
+                            break;
+#ifdef WITH_SOUNDPIPE
+                        case 4: // pink noise
+                            sp_pinknoise_compute(sp, (sp_pinknoise *)osc->sp_gens[k][SP_PINK_NOISE_GENERATOR], NULL, &smp);
+                            break;
+                        case 5: // brown noise
+                            sp_brown_compute(sp, (sp_brown *)osc->sp_gens[k][SP_BROWN_NOISE_GENERATOR], NULL, &smp);
+                            break;
+#endif
+                        default:
+                            break;
+                    }
+
+                    osc->fphase[k] += osc->phase_increment;
+                    while (osc->fphase[k] >= M_PI2) {
+                        osc->fphase[k] -= M_PI2;
+                    }
+
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+#ifdef WITH_SOUNDPIPE
+                    if (filter_type == 0) {
+                        sp_moogladder_compute(sp, (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER], &smp, &smp); 
+                    } else if (filter_type == 1) {
+                        sp_diode_compute(sp, (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER], &smp, &smp);
+                    } else if (filter_type == 2) {
+                        sp_wpkorg35_compute(sp, (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER], &smp, &smp);
+                    } else if (filter_type == 3) {
+                        sp_lpf18_compute(sp, (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER], &smp, &smp);
+                    }
+#else
+                    smp = huovilainen_moog(smp, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
+#endif
+
+                    output_l += vl * smp;
+                    output_r += vr * smp;
+                }
+            } else if (chn_settings->synthesis_method == FAS_PHYSICAL_MODELLING) {
+                int model_type = chn_settings->p0;
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
+
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+#ifdef WITH_SOUNDPIPE
+                    if (model_type == 1) {
+                        FAS_FLOAT trigger_l = ((n->previous_volume_l <= 0) || osc->triggered[k]) ? 1.f : 0.f;
+                        FAS_FLOAT trigger_r = ((n->previous_volume_r <= 0) || osc->triggered[k]) ? 1.f : 0.f;
+                        FAS_FLOAT drip_out_l = 0.;
+                        FAS_FLOAT drip_out_r = 0.;
+
+                        sp_drip_compute(sp, (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR], &trigger_l, &drip_out_l);
+                        sp_drip_compute(sp, (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR], &trigger_r, &drip_out_r);
+
+                        output_l += vl * drip_out_l;
+                        output_r += vr * drip_out_r;
+
+                        if (osc->triggered[k]) {
+                            osc->triggered[k] = 0;
+                        }
+                    } else if (model_type == 0) {
+#endif
+                    FAS_FLOAT phase_step = osc->freq / (FAS_FLOAT)fas_sample_rate * (osc->buffer_len + 0.5);
+
+                    unsigned int curr_sample_index = osc->fphase[k];
+                    unsigned int curr_sample_index2 = curr_sample_index + 1;
+
+                    FAS_FLOAT mu = osc->fphase[k] - (FAS_FLOAT)curr_sample_index;
+
+                    unsigned int si = k * osc->buffer_len;
+
+                    unsigned int curr_sample = si + (curr_sample_index % osc->buffer_len);
+                    unsigned int curr_sample2 = si + (curr_sample_index2 % osc->buffer_len);
+
+                    FAS_FLOAT smp = osc->buffer[curr_sample];
+
+                    FAS_FLOAT stretch = osc->fp1[k][0];
+                    FAS_FLOAT in = 0.0f;
+                    if (stretch <= randf(0.f, 1.f)) {
+                        in = 0.5f * ((smp + mu * (osc->buffer[curr_sample2] - smp)) + osc->pvalue[k]);
+                    } else {
+                        in = smp;
+                    }
+
+                    // allpass
+                    FAS_FLOAT delay = fabs((FAS_FLOAT)osc->buffer_len - ((FAS_FLOAT)fas_sample_rate / osc->freq));
+                    FAS_FLOAT c = (1.0f - delay) / (1.0f + delay);
+
+                    osc->buffer[curr_sample] = osc->fp4[k][0] + c * in;
+                    osc->fp4[k][0] = in - c * osc->buffer[curr_sample];
+
+                    FAS_FLOAT ol = osc->buffer[curr_sample];
+
+                    osc->pvalue[k] = ol;
+
+                    output_l += vl * ol;
+                    output_r += vr * ol;
+
+                    osc->fphase[k] += phase_step;
+#ifdef WITH_SOUNDPIPE
+                    }
+#endif
+                }
+            } else if (chn_settings->synthesis_method == FAS_WAVETABLE_SYNTH) {
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
+
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                    struct sample *smp = &waves[(int)osc->fp1[k][0]];
+
+                    unsigned int curr_sample_index = osc->fp1[k][1];
+                    unsigned int curr_sample_index2 = curr_sample_index + 1;
+
+                    FAS_FLOAT mu = osc->fp1[k][1] - (FAS_FLOAT)curr_sample_index;
+
+                    FAS_FLOAT wsmp = smp->data_l[curr_sample_index] + mu * (smp->data_l[curr_sample_index2] - smp->data_l[curr_sample_index]);
+
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                    FAS_FLOAT fsmp = 0;
+                    if (n->res > 0) {
+                        // next sample interpolation
+                        struct sample *nsmp = &waves[(int)osc->fp2[k][0]];
+
+                        unsigned int nsample_index = osc->fp2[k][1];
+                        unsigned int nsample_index2 = nsample_index + 1;
+                        FAS_FLOAT nmu = osc->fp2[k][1] - (FAS_FLOAT)nsample_index;
+                        FAS_FLOAT nwsmp = nsmp->data_l[nsample_index] + nmu * (nsmp->data_l[nsample_index2] - nsmp->data_l[nsample_index]);
+                        //
+
+                        fsmp = wsmp + fmin(osc->fp1[k][3], 1.0) * (nwsmp - wsmp);
+
+                        osc->fp2[k][1] += osc->fp2[k][2];
+                        if (osc->fp2[k][1] >= nsmp->frames) {
+                            osc->fp2[k][1] = fmod(osc->fp2[k][1], nsmp->frames);
+                        }
+                    } else {
+                        fsmp = wsmp;
+                    }
+
+                    output_l += vl * fsmp;
+                    output_r += vr * fsmp;
+
+                    osc->fp1[k][1] += osc->fp1[k][2];
+                    if (osc->fp1[k][1] >= smp->frames) {
+                        osc->fp1[k][1] = fmod(osc->fp1[k][1], smp->frames);
+
+                        if (osc->fp1[k][3] >= 1) {
+                            unsigned int start_index = (int)fabs(round(n->blue)) % waves_count;
+                            unsigned int stop_index = (int)fabs(round(n->alpha)) % waves_count;
+
+                            unsigned int next_start_index = start_index;
+
+                            if (n->blue < 0) {
+                                osc->fp1[k][0] -= 1;
+                                next_start_index = stop_index;
+                            } else {
+                                osc->fp1[k][0] += 1;
+                            }
+
+                            unsigned int current_index = osc->fp1[k][0];
+
+                            if (current_index < start_index) {
+                                osc->fp1[k][0] = next_start_index;
+                            }
+
+                            if (current_index > stop_index) {
+                                osc->fp1[k][0] = next_start_index;
+                            }
+
+                            if (n->blue > 0) {
+                                osc->fp2[k][0] = (unsigned int)(osc->fp1[k][0] + 1) % waves_count;
+                            } else {
+                                osc->fp2[k][0] = osc->fp1[k][0] - 1;
+                                if (osc->fp2[k][0] < 0) {
+                                    osc->fp2[k][0] = start_index;
+                                }
+                            }
+
+                            struct sample *smp = &waves[(int)osc->fp1[k][0]];
+                            osc->fp1[k][2] = osc->freq / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
+                            osc->fp1[k][3] = 0;
+
                             struct sample *nsmp = &waves[(int)osc->fp2[k][0]];
-
-                            unsigned int nsample_index = osc->fp2[k][1];
-                            unsigned int nsample_index2 = nsample_index + 1;
-                            FAS_FLOAT nmu = osc->fp2[k][1] - (FAS_FLOAT)nsample_index;
-                            FAS_FLOAT nwsmp = nsmp->data_l[nsample_index] + nmu * (nsmp->data_l[nsample_index2] - nsmp->data_l[nsample_index]);
-                            //
-
-                            fsmp = wsmp + fmin(osc->fp1[k][3], 1.0) * (nwsmp - wsmp);
-
-                            osc->fp2[k][1] += osc->fp2[k][2];
-                            if (osc->fp2[k][1] >= nsmp->frames) {
-                                osc->fp2[k][1] = fmod(osc->fp2[k][1], nsmp->frames);
-                            }
-                        } else {
-                            fsmp = wsmp;
+                            osc->fp2[k][2] = osc->freq / nsmp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)nsmp->samplerate);
                         }
-
-                        output_l += vl * fsmp;
-                        output_r += vr * fsmp;
-
-                        osc->fp1[k][1] += osc->fp1[k][2];
-                        if (osc->fp1[k][1] >= smp->frames) {
-                            osc->fp1[k][1] = fmod(osc->fp1[k][1], smp->frames);
-
-                            if (osc->fp1[k][3] >= 1) {
-                                unsigned int start_index = (int)fabs(round(n->blue)) % waves_count;
-                                unsigned int stop_index = (int)fabs(round(n->alpha)) % waves_count;
-
-                                unsigned int next_start_index = start_index;
-
-                                if (n->blue < 0) {
-                                    osc->fp1[k][0] -= 1;
-                                    next_start_index = stop_index;
-                                } else {
-                                    osc->fp1[k][0] += 1;
-                                }
-
-                                unsigned int current_index = osc->fp1[k][0];
-
-                                if (current_index < start_index) {
-                                    osc->fp1[k][0] = next_start_index;
-                                }
-
-                                if (current_index > stop_index) {
-                                    osc->fp1[k][0] = next_start_index;
-                                }
-
-                                if (n->blue > 0) {
-                                    osc->fp2[k][0] = (unsigned int)(osc->fp1[k][0] + 1) % waves_count;
-                                } else {
-                                    osc->fp2[k][0] = osc->fp1[k][0] - 1;
-                                    if (osc->fp2[k][0] < 0) {
-                                        osc->fp2[k][0] = start_index;
-                                    }
-                                }
-
-                                struct sample *smp = &waves[(int)osc->fp1[k][0]];
-                                osc->fp1[k][2] = osc->freq / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
-                                osc->fp1[k][3] = 0;
-
-                                struct sample *nsmp = &waves[(int)osc->fp2[k][0]];
-                                osc->fp2[k][2] = osc->freq / nsmp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)nsmp->samplerate);
-                            }
-                        }
-
-                        osc->fp1[k][3] += n->blue_frac_part;
                     }
-                } else if (chn_settings->synthesis_method == FAS_MODULATION) {
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
 
-                        if (chn_settings->p0 == 0) {
-                            // fx modulation
-                            int chn = ((int)floor(chn_settings->p1)) % frame_data_count;
-                            int slot = ((int)floor(chn_settings->p2)) % FAS_MAX_FX_SLOTS;
-                            int target = 2 + ((int)floor(chn_settings->p3)) % FAS_MAX_FX_PARAMETERS;
-                            int easing_type = (int)chn_settings->p4 % (FAS_EASING_COUNT + 1);
+                    osc->fp1[k][3] += osc->fp3[k][0];
+                }
+            } else if (chn_settings->synthesis_method == FAS_MODULATION) {
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
 
-                            if (chn >= 0 && slot >= 0 && target >= 0) {
-                                struct _synth_chn_settings *target_chn_settings = &curr_synth.chn_settings[chn];
+                    if (chn_settings->p0 == 0) {
+                        // fx modulation
+                        int chn = ((int)floor(chn_settings->p1)) % frame_data_count;
+                        int slot = ((int)floor(chn_settings->p2)) % FAS_MAX_FX_SLOTS;
+                        int target = 2 + ((int)floor(chn_settings->p3)) % FAS_MAX_FX_PARAMETERS;
+                        int easing_type = (int)chn_settings->p4 % (FAS_EASING_COUNT + 1);
 
-                                FAS_FLOAT value = lerp(n->palpha, n->alpha, applyEasing(easing_type, curr_synth.lerp_t));
+                        if (chn >= 0 && slot >= 0 && target >= 0) {
+                            struct _synth_chn_settings *target_chn_settings = &curr_synth.chn_settings[chn];
 
-                                updateEffectParameter(
-    #ifdef WITH_SOUNDPIPE
-                                    sp,
-    #endif                    
-                                    synth_fx[chn], target_chn_settings, slot, target, value);
-                            }
-                        } else if (chn_settings->p0 == 1) {
-                            // chn settings modulation
-                            int chn = ((int)floor(chn_settings->p1)) % frame_data_count;
-                            int param = ((int)floor(chn_settings->p2)) % 6;
-                            int easing_type = ((int)floor(chn_settings->p4)) % (FAS_EASING_COUNT + 1);
+                            FAS_FLOAT value = lerp(n->palpha, n->alpha, applyEasing(easing_type, curr_synth.lerp_t));
 
-                            if (chn >= 0 && param >= 0) {
-                                FAS_FLOAT value = lerp(n->palpha, n->alpha, applyEasing(easing_type, curr_synth.lerp_t));
-                                
-                                struct _synth_chn_settings *target_chn_settings = &curr_synth.chn_settings[chn];
-                                if (param == 0) {
-                                    target_chn_settings->p0 = value;
-                                } else if (param == 1) {
-                                    target_chn_settings->p1 = value;
-                                } else if (param == 2) {
-                                    target_chn_settings->p2 = value;
-                                } else if (param == 3) {
-                                    target_chn_settings->p3 = value;
-                                } else if (param == 4) {
-                                    target_chn_settings->p4 = value;
-                                }
+                            updateEffectParameter(
+#ifdef WITH_SOUNDPIPE
+                                sp,
+#endif                    
+                                synth_fx[chn], target_chn_settings, slot, target, value);
+                        }
+                    } else if (chn_settings->p0 == 1) {
+                        // chn settings modulation
+                        int chn = ((int)floor(chn_settings->p1)) % frame_data_count;
+                        int param = ((int)floor(chn_settings->p2)) % 6;
+                        int easing_type = ((int)floor(chn_settings->p4)) % (FAS_EASING_COUNT + 1);
+
+                        if (chn >= 0 && param >= 0) {
+                            FAS_FLOAT value = lerp(n->palpha, n->alpha, applyEasing(easing_type, curr_synth.lerp_t));
+                            
+                            struct _synth_chn_settings *target_chn_settings = &curr_synth.chn_settings[chn];
+                            if (param == 0) {
+                                target_chn_settings->p0 = value;
+                            } else if (param == 1) {
+                                target_chn_settings->p1 = value;
+                            } else if (param == 2) {
+                                target_chn_settings->p2 = value;
+                            } else if (param == 3) {
+                                target_chn_settings->p3 = value;
+                            } else if (param == 4) {
+                                target_chn_settings->p4 = value;
                             }
                         }
                     }
-                } else if (chn_settings->synthesis_method == FAS_INPUT) {
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
+                }
+            } else if (chn_settings->synthesis_method == FAS_INPUT) {
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
 
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        int chn_count = fas_input_channels / 2;
-                        int chn = abs((int)n->blue) % chn_count;
+                    int chn_count = fas_input_channels / 2;
+                    int chn = abs((int)n->blue) % chn_count;
 
 #ifdef INTERLEAVED_SAMPLE_FORMAT
-                        output_l += audio_in[i * 2 * chn_count + chn * 2] * vl;
-                        output_r += audio_in[i * 2 * chn_count + 1 + chn * 2] * vr;
+                    output_l += audio_in[i * 2 * chn_count + chn * 2] * vl;
+                    output_r += audio_in[i * 2 * chn_count + 1 + chn * 2] * vr;
 #else
-                        output_l += inputBuffer[chn][i] * vl;
-                        output_r += inputBuffer[chn][i] * vr;
+                    output_l += inputBuffer[chn][i] * vl;
+                    output_r += inputBuffer[chn][i] * vr;
 #endif
-                    }
                 }
+            }
 #ifdef WITH_SOUNDPIPE
-                else if (chn_settings->synthesis_method == FAS_BANDPASS) {
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
+            else if (chn_settings->synthesis_method == FAS_BANDPASS) {
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
 
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        int chn = abs((int)n->blue) % frame_data_count;
+                    int chn = abs((int)n->blue) % frame_data_count;
 
-                        FAS_FLOAT sl = 0.0f;
-                        FAS_FLOAT sr = 0.0f;
+                    FAS_FLOAT sl = 0.0f;
+                    FAS_FLOAT sr = 0.0f;
 
-                        FAS_FLOAT il = last_sample_l[chn] * vl;
-                        FAS_FLOAT ir = last_sample_r[chn] * vr;
+                    FAS_FLOAT il = last_sample_l[chn] * vl;
+                    FAS_FLOAT ir = last_sample_r[chn] * vr;
 
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &ir, &sr);
+                    sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
+                    sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &ir, &sr);
 
-                        output_l += sl * vl;
-                        output_r += sr * vr;
-                    }
-                } else if (chn_settings->synthesis_method == FAS_FORMANT_SYNTH) {
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
-
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
-
-                        int chn = abs((int)n->blue) % frame_data_count;
-
-                        FAS_FLOAT sl = 0.0f;
-                        FAS_FLOAT sr = 0.0f;
-
-                        FAS_FLOAT il = last_sample_l[chn] * vl;
-                        FAS_FLOAT ir = last_sample_r[chn] * vr;
-
-                        sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L], &il, &sl);
-                        sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R], &ir, &sr);
-
-                        output_l += sl * vl;
-                        output_r += sr * vr;
-                    }
-                } else if (chn_settings->synthesis_method == FAS_STRING_RESON) {
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
-
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
-
-                        int chn = abs((int)n->blue) % frame_data_count;
-
-                        FAS_FLOAT sl = 0.0f;
-                        FAS_FLOAT sr = 0.0f;
-
-                        FAS_FLOAT il = last_sample_l[chn] * vl;
-                        FAS_FLOAT ir = last_sample_r[chn] * vr;
-
-                        sp_streson_compute(sp, (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_L], &il, &sl);
-                        sp_streson_compute(sp, (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_R], &ir, &sr);
-
-                        output_l += sl * vl;
-                        output_r += sr * vr;
-                    }
-                } else if (chn_settings->synthesis_method == FAS_MODAL_SYNTH) {
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
-
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
-
-                        int chn = abs((int)n->blue) % frame_data_count;
-
-                        FAS_FLOAT sl = 0.0f;
-                        FAS_FLOAT sr = 0.0f;
-
-                        FAS_FLOAT il = last_sample_l[chn] * vl;
-                        FAS_FLOAT ir = last_sample_r[chn] * vr;
-
-                        sp_mode_compute(sp, (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_L], &il, &sl);
-                        sp_mode_compute(sp, (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_R], &ir, &sr);
-
-                        output_l += sl * vl;
-                        output_r += sr * vr;
-                    }
-                } else if (chn_settings->synthesis_method == FAS_PHASE_DISTORSION) {
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
-
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
-
-                        int chn = abs((int)n->blue) % frame_data_count;
-
-                        FAS_FLOAT sl = 0.0f;
-                        FAS_FLOAT sr = 0.0f;
-
-                        FAS_FLOAT il = fmin(fabs(last_sample_l[chn]), 1.f);
-                        FAS_FLOAT ir = fmin(fabs(last_sample_r[chn]), 1.f);
-
-                        sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &il, &sl);
-                        sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &ir, &sr);
-
-                        output_l += sl * vl;
-                        output_r += sr * vr;
-                    }
+                    output_l += sl * vl;
+                    output_r += sr * vr;
                 }
+            } else if (chn_settings->synthesis_method == FAS_FORMANT_SYNTH) {
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
+
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                    int chn = abs((int)n->blue) % frame_data_count;
+
+                    FAS_FLOAT sl = 0.0f;
+                    FAS_FLOAT sr = 0.0f;
+
+                    FAS_FLOAT il = last_sample_l[chn] * vl;
+                    FAS_FLOAT ir = last_sample_r[chn] * vr;
+
+                    sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L], &il, &sl);
+                    sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R], &ir, &sr);
+
+                    output_l += sl * vl;
+                    output_r += sr * vr;
+                }
+            } else if (chn_settings->synthesis_method == FAS_STRING_RESON) {
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
+
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                    int chn = abs((int)n->blue) % frame_data_count;
+
+                    FAS_FLOAT sl = 0.0f;
+                    FAS_FLOAT sr = 0.0f;
+
+                    FAS_FLOAT il = last_sample_l[chn] * vl;
+                    FAS_FLOAT ir = last_sample_r[chn] * vr;
+
+                    sp_streson_compute(sp, (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_L], &il, &sl);
+                    sp_streson_compute(sp, (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_R], &ir, &sr);
+
+                    output_l += sl * vl;
+                    output_r += sr * vr;
+                }
+            } else if (chn_settings->synthesis_method == FAS_MODAL_SYNTH) {
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
+
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                    int chn = abs((int)n->blue) % frame_data_count;
+
+                    FAS_FLOAT sl = 0.0f;
+                    FAS_FLOAT sr = 0.0f;
+
+                    FAS_FLOAT il = last_sample_l[chn] * vl;
+                    FAS_FLOAT ir = last_sample_r[chn] * vr;
+
+                    sp_mode_compute(sp, (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_L], &il, &sl);
+                    sp_mode_compute(sp, (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_R], &ir, &sr);
+
+                    output_l += sl * vl;
+                    output_r += sr * vr;
+                }
+            } else if (chn_settings->synthesis_method == FAS_PHASE_DISTORSION) {
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
+
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+
+                    int chn = abs((int)n->blue) % frame_data_count;
+
+                    FAS_FLOAT sl = 0.0f;
+                    FAS_FLOAT sr = 0.0f;
+
+                    FAS_FLOAT il = fmin(fabs(last_sample_l[chn]), 1.f);
+                    FAS_FLOAT ir = fmin(fabs(last_sample_r[chn]), 1.f);
+
+                    sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &il, &sl);
+                    sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &ir, &sr);
+
+                    output_l += sl * vl;
+                    output_r += sr * vr;
+                }
+            }
 #endif
 #ifdef WITH_FAUST
-                else if (chn_settings->synthesis_method == FAS_FAUST) {
-                    for (j = s; j < e; j += 1) {
-                        struct note *n = &curr_notes[j];
+            else if (chn_settings->synthesis_method == FAS_FAUST) {
+                for (j = s; j < e; j += 1) {
+                    struct note *n = &curr_notes[j];
 
-                        struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+                    struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                        FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
-                        FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
+                    FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
+                    FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                        int faust_dsp_index = chn_settings->p0 % osc->faust_gens_len;
+                    int faust_dsp_index = chn_settings->p0 % osc->faust_gens_len;
 
-                        struct _fas_faust_dsp *fas_faust_dsp = osc->faust_gens[k][faust_dsp_index];
+                    struct _fas_faust_dsp *fas_faust_dsp = osc->faust_gens[k][faust_dsp_index];
 
-                        // update Faust DSP params
-                        struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
+                    // update Faust DSP params
+                    struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
 
-                        struct _fas_faust_ui_control *tmp;
-                        // note : p0 is used as the Faust generator index
-                        tmp = getFaustControl(ctrl, "fs_p0");
-                        if (tmp) {
-                            *tmp->zone = chn_settings->p1;
-                        }
+                    struct _fas_faust_ui_control *tmp;
+                    // note : p0 is used as the Faust generator index
+                    tmp = getFaustControl(ctrl, "fs_p0");
+                    if (tmp) {
+                        *tmp->zone = chn_settings->p1;
+                    }
 
-                        tmp = getFaustControl(ctrl, "fs_p1");
-                        if (tmp) {
-                            *tmp->zone = chn_settings->p2;
-                        }
+                    tmp = getFaustControl(ctrl, "fs_p1");
+                    if (tmp) {
+                        *tmp->zone = chn_settings->p2;
+                    }
 
-                        tmp = getFaustControl(ctrl, "fs_p2");
-                        if (tmp) {
-                            *tmp->zone = chn_settings->p3;
-                        }
+                    tmp = getFaustControl(ctrl, "fs_p2");
+                    if (tmp) {
+                        *tmp->zone = chn_settings->p3;
+                    }
 
-                        tmp = getFaustControl(ctrl, "fs_p3");
-                        if (tmp) {
-                            *tmp->zone = chn_settings->p4;
-                        }
+                    tmp = getFaustControl(ctrl, "fs_p3");
+                    if (tmp) {
+                        *tmp->zone = chn_settings->p4;
+                    }
 
-                        int faust_dsp_input_count = getNumInputsCDSPInstance(fas_faust_dsp->dsp);
-                        if (faust_dsp_input_count >= 1) {
-                            int chn = abs((int)n->blue) % frame_data_count;
+                    int faust_dsp_input_count = getNumInputsCDSPInstance(fas_faust_dsp->dsp);
+                    if (faust_dsp_input_count >= 1) {
+                        int chn = abs((int)n->blue) % frame_data_count;
 
-                            FAS_FLOAT sl = 0.0f;
-                            FAS_FLOAT sr = 0.0f;
+                        FAS_FLOAT sl = 0.0f;
+                        FAS_FLOAT sr = 0.0f;
 
-                            FAS_FLOAT il = last_sample_l[chn];
-                            FAS_FLOAT ir = last_sample_r[chn];
+                        FAS_FLOAT il = last_sample_l[chn];
+                        FAS_FLOAT ir = last_sample_r[chn];
 
-                            FAUSTFLOAT *faust_input[2] = { &il, &ir };
-                            FAUSTFLOAT *faust_output[2] = { &sl, &sr };
+                        FAUSTFLOAT *faust_input[2] = { &il, &ir };
+                        FAUSTFLOAT *faust_output[2] = { &sl, &sr };
 
-                            computeCDSPInstance(fas_faust_dsp->dsp, 1, faust_input, faust_output);
+                        computeCDSPInstance(fas_faust_dsp->dsp, 1, faust_input, faust_output);
 
-                            output_l += sl * vl;
-                            output_r += sr * vr;
-                        } else {
-                            FAS_FLOAT sl = 0.0f;
-                            FAS_FLOAT sr = 0.0f;
+                        output_l += sl * vl;
+                        output_r += sr * vr;
+                    } else {
+                        FAS_FLOAT sl = 0.0f;
+                        FAS_FLOAT sr = 0.0f;
 
-                            FAUSTFLOAT *faust_output[2] = { &sl, &sr };
+                        FAUSTFLOAT *faust_output[2] = { &sl, &sr };
 
-                            computeCDSPInstance(fas_faust_dsp->dsp, 1, NULL, faust_output);
+                        computeCDSPInstance(fas_faust_dsp->dsp, 1, NULL, faust_output);
 
-                            output_l += sl * vl;
-                            output_r += sr * vr;
-                        }
+                        output_l += sl * vl;
+                        output_r += sr * vr;
                     }
                 }
-#endif
             }
+#endif
 
             // channel effects
             d = 0; j = 0;
@@ -1240,7 +1238,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                 _notes = freelist_frames_data->data;
 
                 // previously consumed notes data is pushed back into the pool
-                if (curr_notes) {
+                if (curr_notes != dummy_notes) {
                     LFDS720_FREELIST_N_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
                     lfds720_freelist_n_threadsafe_push(&freelist_frames, NULL, &curr_freelist_frames_data->fe);
                 }
@@ -1251,7 +1249,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                 curr_synth.lerp_t = 0;
                 lerp_t_step = 1 / note_time_samples;
 
-                note_buffer_len = curr_notes[0].osc_index;
+                //note_buffer_len = curr_notes[0].osc_index;
 
                 fas_drop_counter = 0;
 
@@ -1283,350 +1281,368 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         }
                     }
 
-                    if (curr_notes) {
-                        pv_note_buffer_len += note_buffer_len;
-                        note_buffer_len = curr_notes[pv_note_buffer_len].osc_index;
-                        pv_note_buffer_len += 1;
-                        s = pv_note_buffer_len;
-                        e = s + note_buffer_len;
+                    // preprocess notes
 
-                        if (chn_settings->synthesis_method == FAS_ADDITIVE) {
-                            for (j = s; j < e; j += 1) {
-                                struct note *n = &curr_notes[j];
+                    pv_note_buffer_len += note_buffer_len;
+                    note_buffer_len = curr_notes[pv_note_buffer_len].osc_index;
+                    pv_note_buffer_len += 1;
+                    s = pv_note_buffer_len;
+                    e = s + note_buffer_len;
 
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+                    if (chn_settings->synthesis_method == FAS_ADDITIVE) {
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
 
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                            double dummy_int_part;
+                            osc->fp1[k][0] = fabs(n->blue);
+                            osc->fp1[k][1] = modf(fabs(n->blue), &dummy_int_part);
+
+                            if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
                                 unsigned int alpha = fabs(round(n->alpha));
                                 unsigned int palpha = fabs(round(n->palpha));
-
-                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
 #ifdef PARTIAL_FX
-                                    int fx = n->density % SP_OSC_MODS;
-                                    if (alpha != palpha) {
-                                        if (fx == SP_CONV_MODS) {
+                                int fx = n->density % SP_OSC_MODS;
+                                if (alpha != palpha) {
+                                    if (fx == SP_CONV_MODS) {
 #ifdef WITH_SOUNDPIPE
-                                            sp_ftbl *imp_ftbl = osc->ft_void;
-                                            if (impulses_count > 0) {
-                                                struct sample *smp = &impulses[alpha % impulses_count];
-                                                imp_ftbl = smp->ftbl;
-                                            }
-                                            sp_conv_destroy((sp_conv **)&osc->sp_mods[k][SP_CONV_MODS]);
-
-                                            sp_conv_create((sp_conv **)&osc->sp_mods[k][SP_CONV_MODS]);
-                                            sp_conv_init(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], imp_ftbl, 2048);
-#endif
+                                        sp_ftbl *imp_ftbl = osc->ft_void;
+                                        if (impulses_count > 0) {
+                                            struct sample *smp = &impulses[alpha % impulses_count];
+                                            imp_ftbl = smp->ftbl;
                                         }
-                                    }
+                                        sp_conv_destroy((sp_conv **)&osc->sp_mods[k][SP_CONV_MODS]);
 
-                                    //if (fx == SP_EMPTY_MODS) {
-                                    //    osc->phase_index[k] = n->alpha * fas_wavetable_size_m1;
-                                    //}
+                                        sp_conv_create((sp_conv **)&osc->sp_mods[k][SP_CONV_MODS]);
+                                        sp_conv_init(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], imp_ftbl, 2048);
+#endif
+                                    }
+                                }
+
+                                //if (fx == SP_EMPTY_MODS) {
+                                //    osc->phase_index[k] = n->alpha * fas_wavetable_size_m1;
+                                //}
 #else
-                                    // phase control via alpha value
-                                    //osc->phase_index[k] = n->alpha * fas_wavetable_size_m1;
-#endif
-                                }
-                            }
-                        } else if (chn_settings->synthesis_method == FAS_GRANULAR) {
-                            for (j = s; j < e; j += 1) {
-                                struct note *n = &curr_notes[j];
-
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                                // reset granular envelope; force grains creation
-                                if (n->smp_index != n->psmp_index) {
-                                    unsigned int grain_index = n->osc_index * samples_count + n->smp_index;
-                                    unsigned int si = curr_synth.settings->h * samples_count;
-
-                                    struct grain *gr = &curr_synth.grains[grain_index];
-
-                                    for (d = 0; d < gr->density[k]; d += 1) {
-                                        gr = &curr_synth.grains[grain_index + (d * si)];
-
-                                        gr->env_index[k] = FAS_ENVS_SIZE;
-                                    }
-                                }
-
-                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
-                                    unsigned int grain_index = n->osc_index * samples_count + n->smp_index;
-                                    unsigned int pgrain_index = n->osc_index * samples_count + n->psmp_index;
-                                    unsigned int si = curr_synth.settings->h * samples_count;
-
-                                    struct grain *gr = &curr_synth.grains[grain_index];
-                                    struct grain *gr2 = &curr_synth.grains[pgrain_index];
-
-                                    for (d = 0; d < gr->density[k]; d += 1) {
-                                        gr = &curr_synth.grains[grain_index + (d * si)];
-
-                                        gr->env_index[k] = FAS_ENVS_SIZE;
-                                    }
-
-                                    for (d = 0; d < gr2->density[k]; d += 1) {
-                                        gr2 = &curr_synth.grains[pgrain_index + (d * si)];
-
-                                        gr2->env_index[k] = FAS_ENVS_SIZE;
-                                    }
-                                }
-                            }
-                        } else if (chn_settings->synthesis_method == FAS_BANDPASS) {
-                            for (j = s; j < e; j += 1) {
-                                struct note *n = &curr_notes[j];
-
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-#ifdef WITH_SOUNDPIPE
-                                sp_butbp *bpb_l = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L];
-                                sp_butbp *bpb_r = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R];
-                                bpb_l->bw = osc->bw[k] * fabs(n->alpha);
-                                bpb_r->bw = osc->bw[k] * fabs(n->alpha);
-#endif
-                            }  
-                        } else if (chn_settings->synthesis_method == FAS_FORMANT_SYNTH) {
-                            for (j = s; j < e; j += 1) {
-                                struct note *n = &curr_notes[j];
-
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-#ifdef WITH_SOUNDPIPE
-                                sp_fofilt *fofilt_l = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L];
-                                sp_fofilt *fofilt_r = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R];
-                                fofilt_l->atk = fofilt_l->atk = fabs(n->blue_frac_part);
-                                fofilt_r->dec = fofilt_r->dec = fabs(n->res);
-#endif
-                            }    
-                        } else if (chn_settings->synthesis_method == FAS_STRING_RESON) {
-                            for (j = s; j < e; j += 1) {
-                                struct note *n = &curr_notes[j];
-
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-#ifdef WITH_SOUNDPIPE
-                                sp_streson *streson_l = (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_L];
-                                sp_streson *streson_r = (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_R];
-                                streson_l->fdbgain = n->res;//fmin(n->alpha, 1.f);
-                                streson_r->fdbgain = n->res;//fmin(n->alpha, 1.f);
+                                // phase control via alpha value
+                                //osc->phase_index[k] = n->alpha * fas_wavetable_size_m1;
 #endif
                             }
-                        } else if (chn_settings->synthesis_method == FAS_MODAL_SYNTH) {
-                            for (j = s; j < e; j += 1) {
-                                struct note *n = &curr_notes[j];
+                        }
+                    } else if (chn_settings->synthesis_method == FAS_GRANULAR) {
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
 
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-#ifdef WITH_SOUNDPIPE
-                                sp_mode *mode_l = (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_L];
-                                sp_mode *mode_r = (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_R];
-                                mode_l->q = n->alpha;
-                                mode_r->q = n->alpha;
-#endif
-                            }
-                        } else if (chn_settings->synthesis_method == FAS_PHASE_DISTORSION) {
-                            for (j = s; j < e; j += 1) {
-                                struct note *n = &curr_notes[j];
+                            // reset granular envelope; force grains creation
+                            if (n->smp_index != n->psmp_index) {
+                                unsigned int grain_index = n->osc_index * samples_count + n->smp_index;
+                                unsigned int si = curr_synth.settings->h * samples_count;
 
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+                                struct grain *gr = &curr_synth.grains[grain_index];
 
-#ifdef WITH_SOUNDPIPE
-                                sp_pdhalf *pdhalf = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
-                                pdhalf->ibipolar = 1;
-                                pdhalf->amount = n->alpha;//fmin(fmax(n->alpha, -1.f), 1.f);
-#endif
-                            } 
-                        } else if (chn_settings->synthesis_method == FAS_FM) {
-                            for (j = s; j < e; j += 1) {
-                                struct note *n = &curr_notes[j];
+                                for (d = 0; d < gr->density[k]; d += 1) {
+                                    gr = &curr_synth.grains[grain_index + (d * si)];
 
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
-                                    osc->fp1[k][0] = 0.0f;
-                                    osc->fp1[k][1] = 0.0f;
-                                }
-
-                                if (chn_settings->p0 >= 0 && waves_count > 0) {
-                                    unsigned int index = chn_settings->p0 % waves_count;
-
-                                    struct sample *smp = &waves[index];
-
-                                    osc->wav1[k] = smp->data_l;
- 
-                                    osc->fp1[k][3] = osc->freq / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
-                                    osc->fp2[k][0] = smp->frames;
-                                } else {
-                                    osc->wav1[k] = fas_sine_wavetable;
-   
-                                    osc->fp1[k][3] = osc->phase_step;
-                                    osc->fp2[k][0] = fas_wavetable_size;
-                                }
-
-                                if (chn_settings->p1 >= 0 && waves_count > 0) {
-                                    unsigned int index = (int)chn_settings->p1 % waves_count;
-
-                                    struct sample *smp = &waves[index];
-
-                                    osc->wav2[k] = smp->data_l;
-
-                                    osc->fp1[k][4] = n->alpha / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
-                                    osc->fp2[k][1] = smp->frames;
-                                } else {
-                                    osc->wav2[k] = fas_sine_wavetable;
-
-                                    osc->fp1[k][4] = n->alpha / (FAS_FLOAT)fas_sample_rate * fas_wavetable_size;
-                                    osc->fp2[k][1] = fas_wavetable_size;
+                                    gr->env_index[k] = FAS_ENVS_SIZE;
                                 }
                             }
-                        } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE) {
-                            for (j = s; j < e; j += 1) {
-                                struct note *n = &curr_notes[j];
 
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+                            if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+                                unsigned int grain_index = n->osc_index * samples_count + n->smp_index;
+                                unsigned int pgrain_index = n->osc_index * samples_count + n->psmp_index;
+                                unsigned int si = curr_synth.settings->h * samples_count;
+
+                                struct grain *gr = &curr_synth.grains[grain_index];
+                                struct grain *gr2 = &curr_synth.grains[pgrain_index];
+
+                                for (d = 0; d < gr->density[k]; d += 1) {
+                                    gr = &curr_synth.grains[grain_index + (d * si)];
+
+                                    gr->env_index[k] = FAS_ENVS_SIZE;
+                                }
+
+                                for (d = 0; d < gr2->density[k]; d += 1) {
+                                    gr2 = &curr_synth.grains[pgrain_index + (d * si)];
+
+                                    gr2->env_index[k] = FAS_ENVS_SIZE;
+                                }
+                            }
+                        }
+                    } else if (chn_settings->synthesis_method == FAS_BANDPASS) {
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
+
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
 #ifdef WITH_SOUNDPIPE
-                                SPFLOAT freq = osc->freq * n->cutoff;
-                                SPFLOAT res = fabs(n->res * 2.); // allow > 1 resonance
+                            sp_butbp *bpb_l = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L];
+                            sp_butbp *bpb_r = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R];
+                            bpb_l->bw = osc->bw[k] * fabs(n->alpha);
+                            bpb_r->bw = osc->bw[k] * fabs(n->alpha);
+#endif
+                        }  
+                    } else if (chn_settings->synthesis_method == FAS_FORMANT_SYNTH) {
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
 
-                                // clamp to nyquist limit / filter limit
-                                freq = fmin(freq, fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                                sp_moogladder *spmf = (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER];
-                                spmf->freq = freq;
-                                spmf->res = fabs(res);
+                            FAS_FLOAT dummy_int_part;
+                            FAS_FLOAT blue_frac_part = modf(fabs(n->blue), &dummy_int_part);
 
-                                sp_diode *spdf = (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER];
-                                spdf->freq = freq;
-                                spdf->res = fabs(res);
+#ifdef WITH_SOUNDPIPE
+                            sp_fofilt *fofilt_l = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L];
+                            sp_fofilt *fofilt_r = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R];
+                            fofilt_l->atk = fofilt_l->atk = blue_frac_part;
+                            fofilt_r->dec = fofilt_r->dec = fabs(n->res);
+#endif
+                        }    
+                    } else if (chn_settings->synthesis_method == FAS_STRING_RESON) {
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
 
-                                sp_wpkorg35 *spkf = (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER];
-                                spkf->cutoff = freq;
-                                spkf->res = fabs(res);
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                                sp_lpf18 *splf = (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER];
-                                splf->cutoff = freq;
-                                splf->res = fabs(n->res);
+#ifdef WITH_SOUNDPIPE
+                            sp_streson *streson_l = (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_L];
+                            sp_streson *streson_r = (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_R];
+                            streson_l->fdbgain = n->res;//fmin(n->alpha, 1.f);
+                            streson_r->fdbgain = n->res;//fmin(n->alpha, 1.f);
+#endif
+                        }
+                    } else if (chn_settings->synthesis_method == FAS_MODAL_SYNTH) {
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
+
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+#ifdef WITH_SOUNDPIPE
+                            sp_mode *mode_l = (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_L];
+                            sp_mode *mode_r = (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_R];
+                            mode_l->q = n->alpha;
+                            mode_r->q = n->alpha;
+#endif
+                        }
+                    } else if (chn_settings->synthesis_method == FAS_PHASE_DISTORSION) {
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
+
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+#ifdef WITH_SOUNDPIPE
+                            sp_pdhalf *pdhalf = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
+                            pdhalf->ibipolar = 1;
+                            pdhalf->amount = n->alpha;//fmin(fmax(n->alpha, -1.f), 1.f);
+#endif
+                        } 
+                    } else if (chn_settings->synthesis_method == FAS_FM) {
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
+
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                            if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+                                osc->fp1[k][0] = 0.0f;
+                                osc->fp1[k][1] = 0.0f;
+                            }
+
+                            if (chn_settings->p0 >= 0 && waves_count > 0) {
+                                unsigned int index = chn_settings->p0 % waves_count;
+
+                                struct sample *smp = &waves[index];
+
+                                osc->wav1[k] = smp->data_l;
+
+                                osc->fp1[k][3] = osc->freq / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
+                                osc->fp2[k][0] = smp->frames;
+                            } else {
+                                osc->wav1[k] = fas_sine_wavetable;
+
+                                osc->fp1[k][3] = osc->phase_step;
+                                osc->fp2[k][0] = fas_wavetable_size;
+                            }
+
+                            if (chn_settings->p1 >= 0 && waves_count > 0) {
+                                unsigned int index = (int)chn_settings->p1 % waves_count;
+
+                                struct sample *smp = &waves[index];
+
+                                osc->wav2[k] = smp->data_l;
+
+                                osc->fp1[k][4] = n->alpha / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
+                                osc->fp2[k][1] = smp->frames;
+                            } else {
+                                osc->wav2[k] = fas_sine_wavetable;
+
+                                osc->fp1[k][4] = n->alpha / (FAS_FLOAT)fas_sample_rate * fas_wavetable_size;
+                                osc->fp2[k][1] = fas_wavetable_size;
+                            }
+
+                            double dummy_int_part;
+                            osc->fp3[k][0] = modf(fabs(n->blue), &dummy_int_part);
+                        }
+                    } else if (chn_settings->synthesis_method == FAS_SUBTRACTIVE) {
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
+
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+#ifdef WITH_SOUNDPIPE
+                            SPFLOAT freq = osc->freq * n->cutoff;
+                            SPFLOAT res = fabs(n->res * 2.); // allow > 1 resonance
+
+                            // clamp to nyquist limit / filter limit
+                            freq = fmin(freq, fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
+
+                            sp_moogladder *spmf = (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER];
+                            spmf->freq = freq;
+                            spmf->res = fabs(res);
+
+                            sp_diode *spdf = (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER];
+                            spdf->freq = freq;
+                            spdf->res = fabs(res);
+
+                            sp_wpkorg35 *spkf = (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER];
+                            spkf->cutoff = freq;
+                            spkf->res = fabs(res);
+
+                            sp_lpf18 *splf = (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER];
+                            splf->cutoff = freq;
+                            splf->res = fabs(n->res);
 #else
-                                huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (FAS_FLOAT)fas_sample_rate);
+                            huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (FAS_FLOAT)fas_sample_rate);
 
-                                // reset standalone filter on note-off
-                                if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
-                                    memset(osc->fp1[k], 0, sizeof(FAS_FLOAT) * 4);
-                                    memset(osc->fp2[k], 0, sizeof(FAS_FLOAT) * 4);
-                                    memset(osc->fp3[k], 0, sizeof(FAS_FLOAT) * 4);
+                            // reset standalone filter on note-off
+                            if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+                                memset(osc->fp1[k], 0, sizeof(FAS_FLOAT) * 4);
+                                memset(osc->fp2[k], 0, sizeof(FAS_FLOAT) * 4);
+                                memset(osc->fp3[k], 0, sizeof(FAS_FLOAT) * 4);
 
-                                    osc->pvalue[k] = 0.0f;
-                                }
-#endif
-                            }
-                        } else if (chn_settings->synthesis_method == FAS_PHYSICAL_MODELLING) {
-                            int model_type = chn_settings->p0;
-                            for (j = s; j < e; j += 1) {
-                                struct note *n = &curr_notes[j];
-
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-#ifdef WITH_SOUNDPIPE
-                                if (model_type == 1) {
-                                    sp_drip *drip = (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR];
-                                    drip->damp = fabs(n->blue_frac_part * 2.f);
-                                    drip->shake_max = n->res;
-                                    drip->freq1 = fmin(fabs(round(n->blue)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
-                                    drip->freq2 = fmin(fabs(round(n->alpha)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
-                                }
-#endif
-
-#ifndef WITH_SOUNDPIPE
-                                huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (FAS_FLOAT)fas_sample_rate);
-#endif
-                                if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || osc->triggered[k] == 1) {
-                                    karplusTrigger(k, osc, n);
-
-                                    if (model_type == 1) {
-                                        osc->triggered[k] = 0;
-                                    }
-                                }
-                            }
-                        } else if (chn_settings->synthesis_method == FAS_WAVETABLE_SYNTH) {
-                            for (j = s; j < e; j += 1) {
-                                struct note *n = &curr_notes[j];
-
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                                if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || (osc->triggered[k] == 1 && chn_settings->p0 == 1)) {
-                                    int start_index = (int)fabs(round(n->blue)) % waves_count;
-                                    int stop_index = (int)fabs(round(n->alpha)) % waves_count;
-
-                                    if (n->blue > 0) {
-                                        osc->fp1[k][0] = start_index;
-                                        osc->fp2[k][0] = (start_index + 1) % waves_count;
-                                    } else {
-                                        osc->fp1[k][0] = stop_index;
-                                        osc->fp2[k][0] = stop_index - 1;
-                                        if (osc->fp2[k][0] < 0) {
-                                            osc->fp2[k][0] = start_index;
-                                        }
-                                    }
-
-                                    struct sample *smp = &waves[(unsigned int)osc->fp1[k][0]];
-
-                                    osc->fp1[k][1] = 0;
-                                    osc->fp1[k][2] = osc->freq / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
-                                    osc->fp1[k][3] = 0;
-                                    
-                                    struct sample *nsmp = &waves[(unsigned int)osc->fp2[k][0]];
-
-                                    osc->fp2[k][1] = 0;
-                                    osc->fp2[k][2] = osc->freq / nsmp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)nsmp->samplerate);
-
-                                    osc->triggered[k] = 0;
-                                }
-                            }
-#ifdef WITH_FAUST
-                        } else if (chn_settings->synthesis_method == FAS_FAUST) {
-                            for (j = s; j < e; j += 1) {
-                                // update notes related parameters
-                                struct note *n = &curr_notes[j];
-
-                                struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
-
-                                int faust_dsp_index = chn_settings->p0 % osc->faust_gens_len;
-
-                                struct _fas_faust_dsp *fas_faust_dsp = osc->faust_gens[k][faust_dsp_index];
-
-                                // update Faust DSP params
-                                struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
-
-                                struct _fas_faust_ui_control *tmp;
-                                tmp = getFaustControl(ctrl, "fs_pr");
-                                if (tmp) {
-                                    *tmp->zone = n->previous_volume_l;
-                                }
-
-                                tmp = getFaustControl(ctrl, "fs_pg");
-                                if (tmp) {
-                                    *tmp->zone = n->previous_volume_r;
-                                }
-
-                                tmp = getFaustControl(ctrl, "fs_r");
-                                if (tmp) {
-                                    *tmp->zone = n->volume_l;
-                                }
-
-                                tmp = getFaustControl(ctrl, "fs_g");
-                                if (tmp) {
-                                    *tmp->zone = n->volume_r;
-                                }
-
-                                tmp = getFaustControl(ctrl, "fs_b");
-                                if (tmp) {
-                                    *tmp->zone = n->blue;
-                                }
-
-                                tmp = getFaustControl(ctrl, "fs_a");
-                                if (tmp) {
-                                    *tmp->zone = n->alpha;
-                                }
+                                osc->pvalue[k] = 0.0f;
                             }
 #endif
                         }
+                    } else if (chn_settings->synthesis_method == FAS_PHYSICAL_MODELLING) {
+                        int model_type = chn_settings->p0;
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
+
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+#ifdef WITH_SOUNDPIPE
+                            if (model_type == 1) {
+                                FAS_FLOAT dummy_int_part;
+                                FAS_FLOAT blue_frac_part = modf(fabs(n->blue), &dummy_int_part);
+
+                                sp_drip *drip = (sp_drip *)osc->sp_gens[k][SP_DRIP_GENERATOR];
+                                drip->damp = blue_frac_part * 2.f;
+                                drip->shake_max = n->res;
+                                drip->freq1 = fmin(fabs(round(n->blue)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
+                                drip->freq2 = fmin(fabs(round(n->alpha)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
+                            }
+#endif
+
+#ifndef WITH_SOUNDPIPE
+                            huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (FAS_FLOAT)fas_sample_rate);
+#endif
+                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || osc->triggered[k] == 1) {
+                                karplusTrigger(k, osc, n);
+
+                                if (model_type == 1) {
+                                    osc->triggered[k] = 0;
+                                }
+                            }
+
+                            double dummy_int_part;
+                            osc->fp1[k][0] = modf(fabs(n->blue), &dummy_int_part);
+                        }
+                    } else if (chn_settings->synthesis_method == FAS_WAVETABLE_SYNTH) {
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
+
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || (osc->triggered[k] == 1 && chn_settings->p0 == 1)) {
+                                int start_index = (int)fabs(round(n->blue)) % waves_count;
+                                int stop_index = (int)fabs(round(n->alpha)) % waves_count;
+
+                                if (n->blue > 0) {
+                                    osc->fp1[k][0] = start_index;
+                                    osc->fp2[k][0] = (start_index + 1) % waves_count;
+                                } else {
+                                    osc->fp1[k][0] = stop_index;
+                                    osc->fp2[k][0] = stop_index - 1;
+                                    if (osc->fp2[k][0] < 0) {
+                                        osc->fp2[k][0] = start_index;
+                                    }
+                                }
+
+                                struct sample *smp = &waves[(unsigned int)osc->fp1[k][0]];
+
+                                osc->fp1[k][1] = 0;
+                                osc->fp1[k][2] = osc->freq / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
+                                osc->fp1[k][3] = 0;
+                                
+                                struct sample *nsmp = &waves[(unsigned int)osc->fp2[k][0]];
+
+                                osc->fp2[k][1] = 0;
+                                osc->fp2[k][2] = osc->freq / nsmp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)nsmp->samplerate);
+
+                                osc->triggered[k] = 0;
+                            }
+
+                            double dummy_int_part;
+                            osc->fp3[k][0] = modf(fabs(n->blue), &dummy_int_part);
+                        }
+#ifdef WITH_FAUST
+                    } else if (chn_settings->synthesis_method == FAS_FAUST) {
+                        for (j = s; j < e; j += 1) {
+                            // update notes related parameters
+                            struct note *n = &curr_notes[j];
+
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                            int faust_dsp_index = chn_settings->p0 % osc->faust_gens_len;
+
+                            struct _fas_faust_dsp *fas_faust_dsp = osc->faust_gens[k][faust_dsp_index];
+
+                            // update Faust DSP params
+                            struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
+
+                            struct _fas_faust_ui_control *tmp;
+                            tmp = getFaustControl(ctrl, "fs_pr");
+                            if (tmp) {
+                                *tmp->zone = n->previous_volume_l;
+                            }
+
+                            tmp = getFaustControl(ctrl, "fs_pg");
+                            if (tmp) {
+                                *tmp->zone = n->previous_volume_r;
+                            }
+
+                            tmp = getFaustControl(ctrl, "fs_r");
+                            if (tmp) {
+                                *tmp->zone = n->volume_l;
+                            }
+
+                            tmp = getFaustControl(ctrl, "fs_g");
+                            if (tmp) {
+                                *tmp->zone = n->volume_r;
+                            }
+
+                            tmp = getFaustControl(ctrl, "fs_b");
+                            if (tmp) {
+                                *tmp->zone = n->blue;
+                            }
+
+                            tmp = getFaustControl(ctrl, "fs_a");
+                            if (tmp) {
+                                *tmp->zone = n->alpha;
+                            }
+                        }
+#endif
                     }
                 }
 
@@ -1649,12 +1665,12 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                 // ensure smooth audio in most situations (the only downside : it may sound delayed, the impact depend on how many frames are dropped)
                 fas_drop_counter += 1;
                 if (fas_drop_counter >= fas_max_drop) {
-                    if (curr_notes) {
+                    if (curr_notes != dummy_notes) {
                         LFDS720_FREELIST_N_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
                         lfds720_freelist_n_threadsafe_push(&freelist_frames, NULL, &curr_freelist_frames_data->fe);
                     }
 
-                    curr_notes = NULL;
+                    curr_notes = dummy_notes;
 
                     note_buffer_len = 0;
 
@@ -1788,6 +1804,7 @@ struct _freelist_synth_commands *getSynthCommandFreelist() {
     return LFDS720_FREELIST_N_GET_VALUE_FROM_ELEMENT(*fe);
 }
 
+#ifdef WITH_OSC
 void oscSend(struct oscillator *oscillators, struct note *data) {
     if (!fas_osc_out || !oscillators) {
         return;
@@ -1819,15 +1836,14 @@ void oscSend(struct oscillator *oscillators, struct note *data) {
             lo_message_add_float(msg, n->alpha);
 */
             //if (n->volume_l > 0 && n->volume_r > 0) {
-#ifdef WITH_OSC
                 lo_send(fas_lo_addr, "/fragment", "idfff", n->osc_index, osc->freq, n->volume_l, n->volume_r, n->alpha);
-#endif
             //}
         }
     }
 
     //lo_send_bundle(fas_lo_addr, bundle);
 }
+#endif
 
 void freeRender() {
     if (fas_render_buffer) {
@@ -2422,9 +2438,9 @@ fflush(stdout);
                         free_samples(&waves, waves_count);
 
 #ifdef WITH_SOUNDPIPE
-                        waves_count = load_samples(sp, &waves, fas_waves_path, fas_sample_rate, fas_samplerate_converter_type, 0, 1);
+                        waves_count = load_samples(sp, &waves, fas_waves_path, fas_sample_rate, fas_samplerate_converter_type, 0);
 #else
-                        waves_count = load_samples(&waves, fas_waves_path, fas_sample_rate, fas_samplerate_converter_type, 0, 1);
+                        waves_count = load_samples(&waves, fas_waves_path, fas_sample_rate, fas_samplerate_converter_type, 0);
 #endif
 
                         waves_count_m1 = waves_count - 1;
@@ -2436,9 +2452,9 @@ fflush(stdout);
                         free_samples(&impulses, impulses_count);
 
 #ifdef WITH_SOUNDPIPE
-                        impulses_count = load_samples(sp, &impulses, fas_impulses_path, fas_sample_rate, fas_samplerate_converter_type, 0, 0);
+                        impulses_count = load_samples(sp, &impulses, fas_impulses_path, fas_sample_rate, fas_samplerate_converter_type, 0);
 #else
-                        impulses_count = load_samples(&impulses, fas_impulses_path, fas_sample_rate, fas_samplerate_converter_type, 0, 0);
+                        impulses_count = load_samples(&impulses, fas_impulses_path, fas_sample_rate, fas_samplerate_converter_type, 0);
 #endif
                         impulses_count_m1 = impulses_count - 1;
 
@@ -2459,13 +2475,13 @@ fflush(stdout);
                         free_samples(&samples, samples_count);
 
 #ifdef WITH_SOUNDPIPE
-                        samples_count = load_samples(sp, &samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type, 1, 0);
+                        samples_count = load_samples(sp, &samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type, 1);
 #else
-                        samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type, 1, 0);
+                        samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type, 1);
 #endif
                         samples_count_m1 = samples_count - 1;
 
-                        curr_synth.grains = createGrains(&samples, samples_count, usd->synth_h, curr_synth.settings->base_frequency, curr_synth.settings->octave, fas_sample_rate, frame_data_count, fas_granular_max_density);
+                        curr_synth.grains = createGrains(&samples, samples_count, usd->synth_h, curr_synth.settings->base_frequency, curr_synth.settings->octave, fas_sample_rate, frame_data_count * FAS_MAX_INSTRUMENTS, fas_granular_max_density);
 
                         audioPlay();
                     } else if (action_type[0] == FAS_ACTION_NOTE_RESET) { // RE-TRIGGER note
@@ -3041,27 +3057,27 @@ int main(int argc, char **argv)
         time(&stream_load_begin);
 
 #ifdef WITH_SOUNDPIPE
-        impulses_count = load_samples(sp, &impulses, fas_impulses_path, fas_sample_rate, fas_samplerate_converter_type, 0, 0);
+        impulses_count = load_samples(sp, &impulses, fas_impulses_path, fas_sample_rate, fas_samplerate_converter_type, 0);
 #else
-        impulses_count = load_samples(&impulses, fas_impulses_path, fas_sample_rate, fas_samplerate_converter_type, 0, 0);
+        impulses_count = load_samples(&impulses, fas_impulses_path, fas_sample_rate, fas_samplerate_converter_type, 0);
 #endif
         if (impulses_count > 0) {
             impulses_count_m1 = impulses_count - 1;
         }
 
 #ifdef WITH_SOUNDPIPE
-        waves_count = load_samples(sp, &waves, fas_waves_path, fas_sample_rate, fas_samplerate_converter_type, 0, 1);
+        waves_count = load_samples(sp, &waves, fas_waves_path, fas_sample_rate, fas_samplerate_converter_type, 0);
 #else
-        waves_count = load_samples(&waves, fas_waves_path, fas_sample_rate, fas_samplerate_converter_type, 0, 1);
+        waves_count = load_samples(&waves, fas_waves_path, fas_sample_rate, fas_samplerate_converter_type, 0);
 #endif
         if (waves_count > 0) {
             waves_count_m1 = waves_count - 1;
         }
 
 #ifdef WITH_SOUNDPIPE
-        samples_count = load_samples(sp, &samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type, 1, 0);
+        samples_count = load_samples(sp, &samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type, 1);
 #else
-        samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type, 1, 0);
+        samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type, 1);
 #endif
         if (samples_count > 0) {
             samples_count_m1 = samples_count - 1;
@@ -3444,6 +3460,14 @@ int main(int argc, char **argv)
         goto quit;
     }
 
+    dummy_notes = calloc(frame_data_count, sizeof(struct note));
+    if (dummy_notes == NULL) {
+        fprintf(stderr, "note data structure alloc. error.\n");
+        goto quit;
+    }
+
+    curr_notes = dummy_notes;
+
     initCommandsPool();
 
     fflush(stdout);
@@ -3578,6 +3602,10 @@ quit:
 
     if (fsc) {
         free(fsc);
+    }
+
+    if (dummy_notes) {
+        free(dummy_notes);
     }
 
     if (synth_commands_queue_element) {

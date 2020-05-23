@@ -162,8 +162,7 @@ unsigned int load_samples(
         char *directory, 
         unsigned int samplerate, 
         int converter_type, 
-        int pitch_detection, 
-        int octave_map) {
+        int pitch_detection) {
     unsigned int f = 0;
 
     unsigned int samples_count = 0;
@@ -196,7 +195,6 @@ unsigned int load_samples(
 
     double folder_pitch = 0;
 
-    //while (dir.has_next) {
     for (f = 0; f <= dir.n_files; f++) {
         if (f == dir.n_files) {
             if (first_dir->name != NULL) {

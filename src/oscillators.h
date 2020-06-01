@@ -79,7 +79,7 @@
 
     /**
      * create an oscillator bank of N oscillators with a frequencies map defined by f(y) = base_frequency * (2 ^ (y / (n / octaves)))
-     * each oscillators in the bank may have additional per channels parameters (frame_data_count is the total number of channels)
+     * each oscillators in the bank may have additional per instrument parameters defined by frame_data_count
      **/
     extern struct oscillator *createOscillatorsBank(
 #ifdef WITH_SOUNDPIPE

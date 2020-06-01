@@ -1,7 +1,7 @@
-Fragment : Additive/Spectral/Granular/Subtractive/PM/PD/Wavetable/Physical modelling synthesizer
+Fragment Audio Server
 =====
 
-Raw synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based and pixels-based collaborative synthesizer](https://www.fsynth.com)
+Oscillator bank / spectral synthesizer built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth), a [web-based collaborative & graphical audio synthesizer](https://www.fsynth.com)
 
 This program should compile on most platforms!
 
@@ -52,13 +52,13 @@ Fragment Audio Server (FAS) is a high performance pixels-based graphical audio s
 
 One can see this as a limitless bank of generators / filters.
 
-The versatility of its sound engine allow a wide variety of synthesis methods to produce sounds:
+The versatility of its sound engine allow a wide variety of synthesis methods (aka instruments) to produce sounds:
 
 * additive / spectral with per partial effects (bitcrush, phase distorsion, waveshaping, fold, convolve)
 * phase modulation (PM/FM)
 * granular (asynchronous / synchronous)
 * subtractive synthesis
-* physical modelling (Karplus-strong, droplet)
+* physical modelling (models : Karplus-strong, droplet)
 * wavetable synthesis
 
 There is a second type of synthesis methods (or modifiers) which use any synthesis methods from above as input:
@@ -69,7 +69,7 @@ There is a second type of synthesis methods (or modifiers) which use any synthes
 * modal synthesis (resonant filter bank)
 * phase distorsion
 
-There is also a third method which can do both; modify or synthesize sounds :
+There is a third method which can do both; modify or synthesize sounds :
 
 * spectral (via STFT)
 
@@ -77,17 +77,19 @@ There is also the [Faust](https://faust.grame.fr/) option which allow to import 
 
 Other type of synthesis (Linear Arithmetic Synthesis, Vector synthesis, Walsh, stacked waves etc.) may be supported out of the box easily by a combination of the methods above.
 
-There is also input channels which just play input audio so amplitude envelope, effects or second synthesis type can be applied.
+There is also an input instrument which just play input audio so amplitude envelope, effects or second synthesis type can be applied.
 
-There is also a modulation channel which can be used to modulate fx.
+There is also a modulation instrument which can be used to modulate fx or instruments.
 
-All the synthesis methods can be used at the same time by using different output channels, there is no limit on the number of output channels.
+Multiple instruments can be used at the same time targeting different output channels, the maximum number of instruments can be changed and there is no limits on the number of output channels.
 
 FAS is focused on **real-time performances**, being **cross-platform** and **pixels-based**.
 
 This project was built for the [Fragment Synthesizer](https://github.com/grz0zrg/fsynth) client, a [web-based graphical audio / spectral collaborative synthesizer](https://www.fsynth.com)
 
 The most pixels-adapted synthesis methods are (in order) additive/spectral, wavetable, granular/PM/Physical modelling; re-synthesis is possible with all of them.
+
+Requirement : by default this synth require ~1 Gb RAM (~2 Gb RAM to be safe) which enable a maximum of 24 instruments with a frames queue size of 3, the memory requirement can be lowered greatly by lowering the amount of instruments or the frame queue size parameter (a frame queue size of 1 would divide the requirement by two but would potentially introduce hiccups).
 
 ### Pixels-based
 
@@ -96,35 +98,35 @@ Unlike other synthesizers, the notes data format understood by FAS is entirely p
 - **8-bit RGBA**
 - **32-bit float RGBA**
 
-The RGBA data collected is 1px wide with an user-defined height, the height is mapped to frequencies with an user-defined logarithmic frequency map.
+The RGBA data collected is 1px wide with an user-defined height, the height is mapped to frequencies with an user-defined logarithmic frequency map. Multiple 1px slices are defined as separate instruments.
 
-FAS collect the RGBA data over WebSocket at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time by adding sine waves + noise together (additive synthesis), subtractive synthesis, wavetable synthesis, by interpreting the data for granular synthesis (synchronous and asynchronous) or through phase modulation (PM), physical modelling and many other means.
+FAS collect the slices RGBA data over WebSocket (streaming) at an user-defined rate (commonly 60 or 120 Hz), convert the RGBA data to a suitable internal data structure and produce sounds in real-time.
 
 It can be said that FAS/Fragment is a generic image-synth (also called graphical audio synthesizer): any RGBA images may be used to produce an infinite variety of sounds by streaming bitmap data to FAS.
 
-Red and Green value generally map to amplitude envelope while Blue and Alpha value map to specific parameters of the chosen synthesis type.
+Each note events carry amplitude level (stereo) in RED and GREEN component plus additional synthesis parameters in BLUE and ALPHA channels.
 
 With a light wrapper its architecture can also be used as a generic synth right out of the box; just deal with RGBA notes.
 
-As a fun side note FAS can be considered as a basis to build a [DAW](https://en.wikipedia.org/wiki/Digital_audio_workstation) due to architecture similarities. However it lack support for some concepts such as 'instruments'.
+As a fun side note FAS can be considered as a basis to build a simple [DAW](https://en.wikipedia.org/wiki/Digital_audio_workstation) due to architecture similarities.
 
 ### Specifications
 
 Here is some architectural specifications as if it were made by a synth. manufacturer :
 
 * polyphonic; unlimited number of voices (depend on input data height parameter)
-* multitimbral; unlimited number of timbres / parts with **dedicated stereo output**
+* multitimbral; unlimited number of timbres / parts / instruments with **configurable output channel**
 * distributed architecture; more than one instance can run on same machine / a network with independent processing of voice / part, example : [FAS relay](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
-* driven by pixels data over the wire; this synth has about no limitations and is typically used with a client that implement higher order features like MIDI / OSC such as [Fragment client](https://github.com/grz0zrg/fsynth)
+* driven by pixels data over the wire; this synth can be used as a basis for other softwares and has about no limitations as-is, it is typically used with a client that implement higher order features like MIDI such as [Fragment client](https://github.com/grz0zrg/fsynth)
+ * envelopes ? has it all due to stream based architecture, you can build any types (ADSR etc.) with any interpolation scheme (linear / exp etc.)
 * multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation, spectral, filters bank, phase distorsion...
 * allow to extend the sound engine at runtime with user-defined generators and effects written with [Faust](https://faust.grame.fr/) DSP specification language  
-* high quality stereophonic audio with low latency
-* fully microtonal / spectral
+* high quality stereophonic audio with low latency and multiple input / output (with Jack)
+* fully microtonal / spectral (oscillator-bank concept for every instruments)
 * unlimited effects slot per part (24 by default but adaptable); reverb, convolution, comb, delay, chorus, flanger... 25 high quality effects type provided by Soundpipe are available, you can also choose to add your own effects chain since every part have dedicated stereo output
 * per partial slot effect for additive synthesis
 * per voice filtering for subtractive synthesis with one multi mode filter
- * per voice effects is limited by RGBA note data (so it is quite low actually with only one multi mode filter per voice), this is one serious limitation but there is no reason this limitation can't go over with slight adjustements (dropping bitmap data / allowing layers), allowing more layers would provide unlimited effects slot per voice / unlimited modulation options but would stress data rate limit and thus increase demands on network speed / processing... maybe in the future!
-* envelopes ? has it all due to stream based architecture, you can build any types (ADSR etc.) with any interpolation scheme (linear / exp etc.)
+ * per voice effects is limited by RGBA note data, this may be seen as a limitation since only one multi mode filter per voice is allowed
 * highly optimized real-time architecture; run on low-power embedded hardware such as Raspberry
 * events resolution can be defined as you wish (60 Hz but you can go above that through a parameter)
 * cross-platform; run this about anywhere !
@@ -135,32 +137,23 @@ Note : "Unlimited" is actually an architectural term, in real conditions it is l
 
 Additive synthesis is a mean to generate sounds by adding sine waves together, it is an extremely powerful type of sound synthesis able to reproduce any waveforms in theory.
 
-When compiled with `PARTIAL_FX` defined there is a fx slot available **per partial** with following effects available (only stereophonic, monophonic may work but fx parameters may not):
+When compiled with `PARTIAL_FX` defined there is a fx slot available **per partial**, the effect type must be provided as an integer value from the BLUE component, the following effects are available :
 
-* none
-* bitcrush (Bitdepth / Sampling rate : B component [0, 1] / A component [0, 1])
-* phase distorsion (Amount : A component [0, 1] where 0.5 is origin)
-* tanh waveshaping (Wave 1 / Wave 2 : B component [0, 1] / A component [0, 1))
-* signal foldover (A component [0, ...))
-* noise (B added white noise factor to sine wave phase, maximum defined by command-line parameter)
-* convolver (A component integer part; Note : require huge amount of processing power with even low amount of partials / long impulse)
+* 0: none
+* 1: bitcrush (Bitdepth / Sampling rate : B component [0, 1] / A component [0, 1])
+* 2: phase distorsion (Amount : A component [0, 1] where 0.5 is origin)
+* 3: tanh waveshaping (Wave 1 / Wave 2 : B component [0, 1] / A component [0, 1))
+* 4: signal foldover (A component [0, ...))
+* 5: noise (B added white noise factor to sine wave phase, maximum defined by command-line parameter)
+* 6: convolver (A component integer part; Note : require huge amount of processing power with even low amount of partials / long impulse)
 
 Any combination of these can be applied to each partials with real-time parameters change. This feature may allow to easily add character to the additive sound.
 
-Partials effects can be disabled to speed up additive synthesis (or if FAS doesn't make use of Soundpipe).
+Partials effects can be disabled to speed up additive synthesis (or if FAS doesn't use the Soundpipe library).
 
 Additive synthesis use either magic circle algorithm or a wavetable, speed depend on architecture, magic circle algorithm is recommended. (note : noise is not available with magic circle)
 
 #### RGBA interpretation
-
-##### Monophonic
-
-| Components | Interpretations                |
-| ---------: | :----------------------------- |
-|          R | unused                         |
-|          G | unused                         |
-|          B | unused                         |
-|          A | Amplitude value of the channel |
 
 ##### Stereophonic
 
@@ -169,7 +162,7 @@ Additive synthesis use either magic circle algorithm or a wavetable, speed depen
 |          R | Amplitude value of the LEFT channel      |
 |          G | Amplitude value of the RIGHT channel     |
 |          B | see above |
-|          A | see above                                   |
+|          A | see above |
 
 ### Granular synthesis
 
@@ -184,8 +177,6 @@ Granular synthesis implementation is less optimal than additive synthesis but ha
 The granular synthesis algorithm is also prototyped in JavaScript (one channel only) and can be tried step by step in a browser by opening the `lab/granular/algorithm.html`
 
 All granular synthesis parameters excluding density and envelope type can be changed in real-time without issues.
-
-**Note** : Monophonic mode granular synthesis is not implemented.
 
 #### Window type
 
@@ -204,8 +195,6 @@ The grains window/envelope type is defined as a channel dependent settings, FAS 
 
 Granular synthesis with grain start index of 0 and min/max duration of 1/1 can be used to trigger samples as-is like a regular sampler, samples are loaded from the `grains` folder.
 
-**Note** : Monophonic mode sampler is not implemented.
-
 ### Subtractive synthesis
 
 Subtractive synthesis start from harmonically rich waveforms which are then filtered.
@@ -222,8 +211,6 @@ There is three type of band-limited waveforms : sawtooth, square, triangle
 
 There is also a noise waveform and additional brownian / pink noise with Soundpipe.
 
-This type of synthesis may improve gradually with more waveforms and more filters.
-
 #### RGBA interpretation
 
 | Components | Interpretations                          |
@@ -232,8 +219,6 @@ This type of synthesis may improve gradually with more waveforms and more filter
 |          G | Amplitude value of the RIGHT channel     |
 |          B | filter cutoff multiplier; the cutoff is set to the fundamental frequency, 1.0 = cutoff at fundamental frequency |
 |          A | filter resonance [0, 1] & waveform selection on integral part (0.x, 1.x, 2.x etc) |
-
-**Note** : Monophonic mode subtractive synthesis is not implemented.
 
 ### PM synthesis
 
@@ -258,11 +243,9 @@ The typical index of modulation of standard FM synths can be computed by doing :
 |          B | Fractionnal part : Modulator amplitude, Integer part : Modulator feedback level [0,65536) |
 |          A | Modulator frequency                    |
 
-**Note** : Monophonic mode PM synthesis is not implemented.
-
 ### Wavetable synthesis
 
-Wavetable synthesis is a sound synthesis technique that employs arbitrary periodic waveforms in the production of musical tones or notes.
+Wavetable synthesis is a sound synthesis technique that employ arbitrary periodic waveforms in the production of musical tones or notes.
 
 Wavetable synthesis use single cycle waveforms / samples loaded from the `waves` folder. Wave lookup is monophonic.
 
@@ -289,8 +272,6 @@ Note : FAS does not really have multiple 'wavetables' as it load every waves int
 |          B | Start wave selection on integral part & wavetable speed on fractional |
 |          A | End wave selection on integral part & wave interpolation on / off on fractional |
 
-**Note** : Monophonic mode Wavetable synthesis is not implemented.
-
 ### Spectral synthesis
 
 Spectral synthesis produce sounds by modifying (mode 0) any input channel / generate (mode 1) in frequency domain via a [Short-time Fourier transform](https://en.wikipedia.org/wiki/Short-time_Fourier_transform) with overlap add method.
@@ -301,9 +282,10 @@ To get the corresponding bin one can use this formula : `frequency / (sample_rat
 
 Channel settings are used to change spectral parameters :
 
- * p0 : source channel
- * p1 : window size (power of two; 32 up to 1024)
+ * p0 : source channel / instrument
+ * p1 : window size (power of two; 32 up to 1024; might introduce a delay)
  * p2 : mode (0 or 1)
+ * p3 : source mode (0 or 1 for instrument)
 
 Mode is a parameter which select how the frequency domain changes will be applied
 
@@ -323,13 +305,11 @@ While the actual implementation work nicely it may change in the future to incor
 |          B | Phase factor of the LEFT channel                             |
 |          A | Phase factor of the RIGHT channel                            |
 
-**Note** : Monophonic mode spectral synthesis is not implemented.
-
 ### Physical modelling
 
 Physical modelling synthesis refers to sound synthesis methods in which the waveform of the sound to be generated is computed using a mathematical model, a set of equations and algorithms to simulate a physical source of sound, usually a musical instrument.
 
-Physical modelling in Fragment use Karplus-Strong string synthesis.
+Physical modelling in Fragment use models, Karplus-Strong string synthesis is implemented out of the box.
 
 Water droplet model is also available if compiled with Soundpipe.
 
@@ -352,19 +332,19 @@ Integral part of blue / alpha component correspond to the first / second resonan
 |          B | Noise wavetable cutoff lp filter / fractional part : stretching factor       |
 |          A | Noise wavetable res. lp filter / feedback amount with Soundpipe        |
 
-**Note** : Monophonic mode Physical modelling synthesis is not implemented.
-
 ### Bandpass synthesis
 
 Only available with Soundpipe.
 
-Specific type of synthesis which use a canvas-mapped bank of bandpass filters (second-order Butterworth), each activated filters use an user-defined channel as source.
+Specific type of synthesis which use a canvas-mapped bank of bandpass filters (second-order Butterworth), each activated filters use an user-defined channel or instrument as source.
 
 It can be used with rich form of synthesis (subtractive etc.) as a spectrum sculpt tool (vocoding etc.)
 
 Bandwidth can be adjusted individually through alpha channel value which is a factor of current bank gap.
 
-As a speed example ~256 filters can be enabled at the same time with ~6 subtractive oscillators as input on an i7 6700 with a single FAS instance (96000kHz)
+As a speed example ~300 filters can be enabled at the same time with ~6 subtractive oscillators as input on an i7 6700 with a single FAS instance (96000kHz)
+
+Fractional part of the blue channel can be used to target a channel (> 0) or an instrument (= 0)
 
 #### RGBA interpretation
 
@@ -372,10 +352,8 @@ As a speed example ~256 filters can be enabled at the same time with ~6 subtract
 | ---------: | :------------------------------------- |
 |          R | Amplitude value of the input LEFT channel    |
 |          G | Amplitude value of the input RIGHT channel   |
-|          B | integral part : source channel index   |
+|          B | integral part : source channel / instrument index   |
 |          A | bandwidth factor : a value of 1 mean a bandwidth of current bank above + below gap |
-
-**Note** : Monophonic mode is not implemented.
 
 ### Formant synthesis
 
@@ -394,13 +372,13 @@ It is similar to bandpass mode with a different algorithm.
 |          B | integral part : source channel index / fractional part : Impulse response attack time (in seconds)       |
 |          A | Impulse reponse decay time (in seconds)        |
 
-**Note** : Monophonic mode is not implemented.
-
 ### Phase Distorsion synthesis
 
 Only available with Soundpipe.
 
-Specific type of synthesis which use an user-defined source channel as input and produce waveform distorsion as output.
+Specific type of synthesis which use an user-defined source channel or instrument as input and produce waveform distorsion as output.
+
+Fractional part of the blue channel can be used to target a channel (> 0) or an instrument (= 0)
 
 #### RGBA interpretation
 
@@ -408,16 +386,14 @@ Specific type of synthesis which use an user-defined source channel as input and
 | ---------: | :------------------------------------- |
 |          R | Amplitude value of the input LEFT channel    |
 |          G | Amplitude value of the input RIGHT channel   |
-|          B | integral part : source channel index       |
+|          B | integral part : source channel / instrument index       |
 |          A | Amount of distorsion [-1, 1]        |
-
-**Note** : Monophonic mode is not implemented.
 
 ### String resonator synthesis
 
 Only available with Soundpipe.
 
-Specific type of synthesis which use a canvas-mapped bank of string resonator, each activated filters use an user-defined channel as source. It produce sounds similar to physical modelling / modal synthesis.
+Specific type of synthesis which use a canvas-mapped bank of string resonator, each activated filters use an user-defined channel or instrument as source. It produce sounds similar to physical modelling / modal synthesis.
 
 A list of frequencies for several instruments are available [here](http://www.csounds.com/manual/html/MiscModalFreq.html)
 
@@ -425,22 +401,22 @@ A high feedback gain will create a slower decay and a more pronounced resonance.
 
 As an easy first step a noisy sound such as one produced with subtractive synthesis may be used.
 
+Fractional part of the blue channel can be used to target a channel (> 0) or an instrument (= 0)
+
 #### RGBA interpretation
 
 | Components | Interpretations                        |
 | ---------: | :------------------------------------- |
 |          R | Amplitude value of the input LEFT channel    |
 |          G | Amplitude value of the input RIGHT channel   |
-|          B | integral part : source channel index       |
+|          B | integral part : source channel / instrument index       |
 |          A | feedback gain; typically > 0.9        |
-
-**Note** : Monophonic mode is not implemented.
 
 ### Modal synthesis
 
 Only available with Soundpipe.
 
-Specific type of synthesis which use a canvas-mapped bank of resonant filters, each activated resonant filters use an user-defined channel as source. It produce sounds similar to physical modelling.
+Specific type of synthesis which use a canvas-mapped bank of resonant filters, each activated resonant filters use an user-defined channel or instrument as source. It produce sounds similar to physical modelling.
 
 A list of frequencies for several instruments are available [here](http://www.csounds.com/manual/html/MiscModalFreq.html)
 
@@ -450,16 +426,16 @@ As an easy first step a noisy sound such as one produced with subtractive synthe
 
 Note : Due to stabilization filter bank frequency will be tresholded when it match that condition : (samplerate / filter_frequency) < pi
 
+Fractional part of the blue channel can be used to target a channel (> 0) or an instrument (= 0)
+
 #### RGBA interpretation
 
 | Components | Interpretations                        |
 | ---------: | :------------------------------------- |
 |          R | Amplitude value of the input LEFT channel    |
 |          G | Amplitude value of the input RIGHT channel   |
-|          B | integral part : source channel index       |
+|          B | integral part : source channel / instrument index       |
 |          A | Q factor of the resonant filter        |
-
-**Note** : Monophonic mode is not implemented.
 
 ### Input
 
@@ -474,21 +450,19 @@ This just play an input channel. Typically used in conjunction with formant / mo
 |          B | integral part : source channel index       |
 |          A | Unused        |
 
-**Note** : Monophonic mode is not implemented.
-
 ### Modulation
 
 This is a special type of synthesis which does not output any sounds.
 
-It is instead used to provide fx / channels settings modulation.
+It is instead used to provide fx / instrument modulation.
 
-Channel settings :
+Instrument settings :
 
 * p0 : modulation mode
   * 0 : Effects
-  * 1 : Channel settings
-* p1 : Target channel
-* p2 : Target fx slot or channel parameter
+  * 1 : Instrument settings
+* p1 : Target channel or instrument
+* p2 : Target fx slot or instrument parameter
 * p3 : Target fx parameter (effects mode only)
 * p4 : Easing method (interpolation between values)
   * 0 : linear
@@ -504,7 +478,7 @@ Channel settings :
   * 27 to 29 : bounce ease in/out/in out
   * any others value : no interpolation
 
-This is provided as a shortcut solution to provide some more standalone modulation options (modulation can also be done flexibly through chn / fx synth commands), disadvantage is the usage of an output channel...
+This is provided as a shortcut solution to extend modulation options (modulation can also be done flexibly through instrument / fx synth commands), main disadvantage is the usage of an instrument slot which will increase the amount of data transmitted (thus bandwidth usage may increase and performance may degrade)
 
 Simple use case would be to modulate filters cutoff / resonance parameter or wavetable selection for FM/PM.
 
@@ -519,17 +493,15 @@ Note : Parameters which require re-allocation (eg. convolution file, delay comb 
 |          B | unused       |
 |          A | Modulation value / wave data        |
 
-**Note** : Monophonic mode is not implemented.
-
 ### Faust
 
 [Faust](https://faust.grame.fr/) is embedded (when compiled with `WITH_FAUST`) and allow to dynamically extend FAS bank generators and effects with custom one written with the Faust DSP specification language.
 
 Faust DSP focused language is simple and intuitive to learn and produce highly optimized effects and generators. Faust documentation is available [here](https://faust.grame.fr/doc/manual/index.html)
 
-FAS look and load any Faust DSP code (*.dsp) at startup in the `faust/generators` and `faust/effects` directories. FAS can also reload Faust code dynamically when the appropriate packet is received.
+FAS look and load any Faust DSP code (*.dsp) at startup in the `faust/generators` and `faust/effects` directories. FAS can also reload Faust code dynamically when the appropriate ACTION packet is received.
 
-All Faust DSP generators will be registered into the special synthesis type Faust, channel settings parameter 0 can then be used to switch between generators.
+All Faust DSP generators will be registered into the special instrument type Faust, instrument settings parameter 0 can then be used to switch between generators, generators with two inputs also work in this case the blue integer part will be used to select the source channel / instrument and its fractional part to switch between channel (> 0) / instrument mode.
 
 All Faust DSP effects will be registered into the special effect type Faust, the first effect parameter can then be used to switch between effects.
 
@@ -558,7 +530,7 @@ Those can be usefull to detect note-on events thus acting as trigger (when both 
 * `fs_pr` : PREVIOUS RED
 * `fs_pg` : PREVIOUS GREEN
 
-Channel data :
+Instrument data :
 
 * `fs_p0` : parameter 1
 * `fs_p1` : parameter 2
@@ -611,7 +583,7 @@ Convolution effect use impulses response which are audio files loaded from the `
 
 ### Performances
 
-This program is tailored for performances, it is memory intensive (about 512mb is needed without samples, about 1 Gb with few samples), all real-time things are pre-allocated or pre-computed with zero real-time allocations.
+This program is tailored for performances, it is memory intensive (about 512mb is needed without samples and 8 instruments max, about 1 Gb with few samples, about 2.5 Gb with samples and 32 instruments max, memory requirement will have a major increase when FAS_MAX_INSTRUMENTS constant and frame queue size command line argument is increased), all real-time things are pre-allocated or pre-computed with zero real-time allocations.
 
 FAS should be compiled with Soundpipe for best performance / high quality algorithms; for example subtractive moog filter see 3x speed improvement compared to the standalone algorithm.
 
@@ -619,9 +591,9 @@ FAS should also be compiled with Faust which may provide high quality / performa
 
 A fast and reliable Gigabit connection is recommended in order to process frames data from the network correctly.
 
-Whole bank height RGBA data is sent as-is by clients and this data is transformed when received so there may be lots of data to transfer, this is by design to not add additional processing on the client side, if needed data size can be reduced by using gzip compression. (command-line parameter) This is ok actually because data is bound to channels but in the future it may be better to transform the data on the client especially when instruments (aka synthesis methods) are no more bounds to physical channels.
+Whole bank height RGBA data for each used instruments is sent as-is by clients and this data is transformed when received so there may be lots of data to transfer, this is by design to not add additional processing on the client side, it is recommended to use gzip compression to reduce data size. (command-line parameter) Maybe the transform should happen on the client side to get rid of heavy bandwidth requirements...
 
-Poor network transfer rate limit the number of channels / the frequency resolution (frame height) / number of events to process per seconds, a Gigabit connection is good enough for most usage, for example with a theorical data rate limit of 125MB/s and without packets compression (`deflate` argument) it would allow a configuration of 8 stereo channels with 1000px height slices float data at 60 fps without issues and beyond that (2000px / 240fps or 16 stereo channels / 1000 / 240fps), 8-bit data could also be used to go beyond that limit through Gigabit. This can go further with packets compression at the price of processing time.
+Poor network transfer rate limit the number of instruments / the frequency resolution (frame height) / number of events to process per seconds, a Gigabit connection is good enough for most usage, for example with a theorical data rate limit of 125MB/s and without packets compression (`deflate` argument) it would allow a configuration of 8 instruments with 1000px height slices float data at 60 fps without issues and beyond that (2000px / 240fps or 16 instruments / 1000 / 240fps), 8-bit data could also be used to go beyond that limit through Gigabit. This can go further with packets compression at the price of processing time.
 
 #### Raspberry PI
 
@@ -639,9 +611,9 @@ This need a relay program which will link each server instances with the client 
 
 A directly usable implementation with NodeJS of a distributed synthesis relay can be found [here](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
 
-Note : Synthesis methods that require another channel as input may not work correctly yet, this require a minor 'group' update to the relay program which will group related data. (WIP)
-
 This feature was successfully used with cheap small boards clusters of [NapoPI NEO 2](https://www.friendlyarm.com/index.php?route=product/product&product_id=180) and [NetJack](https://github.com/jackaudio/jackaudio.github.com/wiki/WalkThrough_User_NetJack2) in a setup with 10 quad-core ARM boards + i7 (48 cores) running, linked to the NetJack driver, it is important that the relay program run on a powerfull board with (most importantly) a good Gigabit Ethernet controller to reduce latency issues.
+
+Note : All instruments which use input instrument or channel are computed on each instances, this probably kill any performance gain when using alot of these instruments.
 
 #### Frames drop
 
@@ -655,7 +627,7 @@ Only one client is supported at the moment, the server will refuse any more conn
 
 ### What is sent
 
-The server send the CPU load of the stream at regular interval (adjustable) to the client (unsigned 32 bits integer type).
+The server send the CPU load of the stream as a percentage at regular interval (adjustable) to the client (unsigned 32 bits integer type).
 
 ### Offline rendering (WIP)
 
@@ -665,8 +637,7 @@ FAS support real-time rendering of the pixels data, the pixels data is compresse
 
 The ongoing development is to add support for offline rendering, improve Faust integration / add more Faust *.dsp.
 
-There is also minor architectural / cleanup work to do. Instrument / channel separation may be a major feature in the future as it would be a more flexible / efficient approach, this require minor work but may need major work on clients.
-
+There is also minor architectural / cleanup work to do.
 There is also continuous work to do on improving analysis / synthesis algorithms.
 
 ### OSC
@@ -699,16 +670,16 @@ The audio thread contain its own synth. data structure defined globally as `curr
 RGBA frames coming from the network are converted into a notes list (an array) which just tell which oscillator from the oscillator bank will be enabled during the *note time*.
 Once processed the notes list is made available to the audio thread by pushing it into a lock-free ring buffer which ensure thread safety.
 
-A free list data structure is used for efficient notes data reuse; the program use a pre-allocated pool of notes buffer.
+A free list data structure is used for efficient notes data reuse; the program use a pre-allocated pool of notes buffer. This is actually the most memory hungry part because all is pre-allocated and the allocation size depend on slice height times FAS_MAX_INSTRUMENT parameter times note structure times frames queue size parameter... could probably be optimized by reducing note structure size as there is alot of pre-defined stuff made for convenience and readability.
 
 The audio thread make the decision to consume notes data at audio sample level based on a computed *note time* which is defined by the FPS parameter, once a note is consumed it is pushed back to the notes pool.
 
 When notes data are not available the audio thread will continue with the latest one during the next *note time*, this ensure smooth audio but may introduce some delay.
 When notes data are not available from some amount of time defined by the max drop parameter the audio will simply stop abruptely, this may indicate performance issues.
 
-Most audio output critical changes use linear interpolation to ensure smooth audio in all conditions. A linear interpolation smooth factor can be applied to sharpen the transitions.
+Most audio output critical changes use linear interpolation to ensure smooth audio in all conditions, this interpolation is computed once per audio frame and occur in-between note events. A linear interpolation smooth factor can be applied to sharpen the transitions.
 
-Sound synthesis is processed with minimal computation / branching, values which depend on note parameters change are pre-computed per-channel / oscillator in a dedicated processing block outside synthesis block, notes change and associated parameters happen at sample accurate note time level defined by the FPS parameter.
+Sound synthesis is processed with minimal computation / branching, values which depend on note parameters change are pre-computed per-instrument / oscillator in a dedicated processing block outside synthesis block, notes change and associated parameters happen at sample accurate note time level defined by the FPS parameter.
 
 There is a generic thread-safe (altough not really lock-free) commands queue for synth. parameters change (gain, etc.) which is used to pass data from the network thread to the audio callback.
 
@@ -730,7 +701,7 @@ This program is regularly checked with Valgrind and should be free of memory lea
 
 ## Packets description
 
-To communicate with FAS with a custom client, there is only five type of packets to handle, the **first byte of the packet is the packet identifier**, below is the expected data for each packets
+To communicate with FAS with a custom client, there is only six type of packets to handle, the **first byte of the packet is the packet identifier**, below is the expected data for each packets
 
 **Note** : synth settings packet must be sent before sending any frames, otherwise the received frames are ignored.
 
@@ -747,10 +718,10 @@ struct _synth_settings {
 Frame data, packet identifier 1 (real-time) :
 ```c
 struct _frame_data {
-    unsigned int channels; // channels count
-    unsigned int monophonic; // 0 = stereo, 1 = mono
-    // Note : the expected data length is computed by : (4 * (_synth_settings.data_type * sizeof(float)) * _synth_settings.h) * (fas_output_channels / 2)
-    // Example with one output channel (L/R) and a 8-bit image with height of 400 pixels : (4 * sizeof(unsigned char) * 400)
+    unsigned int instruments; // instruments count
+    // Note : the expected data length is computed by : (4 * (_synth_settings.data_type * sizeof(float)) * _synth_settings.h) * FAS_MAX_INSTRUMENTS
+    // Note : expected data length is the maximum amount of data which can be received, generally only the used instruments data will be sent
+    // Example of amount of data with one instrument used (L/R) and a 8-bit image with height of 400 pixels : (4 * sizeof(unsigned char) * 400)
     void *rgba_data;
 };
 ```
@@ -769,27 +740,7 @@ struct _cmd_chn_settings {
     unsigned int chn; // target channel
     
     // target parameter
-    //  0 : synthesis method, mapping can be found in constants.h (FAS_ADDITIVE etc.)
-    //  1 : wether this channel is muted or not, a muted channel will not output any sounds but is still available as an input, this is useful for methods that use an input channel as source
-    //  2 : parameter
-    //        Granular : granular envelope type for this channel (there is 13 types of envelopes)
-    //        Subtractive : filter type  (require Soundpipe)
-    //        Physical modeling : Physical model type (require Soundpipe)
-    //        Spectral : input channel
-    //        Faust : Generator ID
-    //  3 : parameter
-    //        Granular : grain duration (min. bound)
-    //        Spectral : window size
-    //        Faust : fs_p0
-    //  4 : parameter
-    //        Granular : grain spread (max. bound)
-    //        Spectral : mode
-    //        Faust : fs_p1
-    //  5 : parameter
-    //        Granular : grain spread
-    //        Faust : fs_p2
-    //  6 : parameter
-    //        Faust : fs_p3
+    //  0 : wether this channel is muted or not, a muted channel will not output any sounds but is still available as an input, this is useful for methods that use an input channel as source
     unsigned int target;
 
     double value; // target value
@@ -807,6 +758,41 @@ struct _cmd_chn_fx_settings {
 };
 ```
 
+Instrument settings, packet identifier 6 (real-time) :
+
+```c
+struct _cmd_instrument_settings {
+    unsigned int instrument; // target instrument
+    
+    // target parameter
+    //  0 : synthesis method, mapping can be found in constants.h (FAS_ADDITIVE etc.)
+    //  1 : wether this instrument is muted or not, a muted instrument will not output any sounds but is still available as an input, this is useful for methods that use an input instrument as source
+    //  2 : parameter
+    //        Granular : granular envelope type for this instrument (there is 13 types of envelopes)
+    //        Subtractive : filter type  (require Soundpipe)
+    //        Physical modeling : Physical model type (require Soundpipe)
+    //        Spectral : input channel
+    //        Faust : Generator ID
+    //  3 : parameter
+    //        Granular : grain duration (min. bound)
+    //        Spectral : window size
+    //        Faust : fs_p0
+    //  4 : parameter
+    //        Granular : grain spread (max. bound)
+    //        Spectral : mode
+    //        Faust : fs_p1
+    //  5 : parameter
+    //        Granular : grain spread
+    //        Faust : fs_p2
+    //        Spectral : source mode
+    //  6 : parameter
+    //        Faust : fs_p3
+    unsigned int target;
+
+    double value; // target value
+};
+```
+
 Note : Some effect parameters may actually need an effect initialization which will pause audio for a short amount of time. Example : Convolution impulse index; delay max del; comb filter loop time
 
 Server actions, packet identifier 5 (audio may be paused for a short amount of time on any reload actions otherwise it is real-time):
@@ -814,7 +800,7 @@ Server actions, packet identifier 5 (audio may be paused for a short amount of t
 ```c
 struct _synth_action {
     // 0 : reload samples in the grains folder
-    // 1 : note re-trigger (to reinitialize oscillators state on note-off, mostly used for Karplus-Strong)
+    // 1 : note re-trigger (to reinitialize oscillators state on note-off, mostly used for Karplus-Strong / Wavetable, real-time)
     // 2 : reload Faust generators
     // 3 : reload Faust effects
     // 4 : pause audio
@@ -822,7 +808,7 @@ struct _synth_action {
     // 6 : reload waves
     // 7 : reload impulses
     unsigned char type;
-    unsigned int chn; // only for re-trigger action; target chn
+    unsigned int instrument; // only for re-trigger action; target instrument
     unsigned int note; // only for re-trigger action; target note (height y index)
 };
 ```
@@ -966,7 +952,7 @@ Usage: fas [list_of_parameters]
  * --input_device -1 **PortAudio audio input device index or full name (informations about audio devices are displayed when the app. start)**
  * --output_channels 2 **stereo pair**
  * --input_channels 2 **stereo pair**
- * --frames_queue_size 7 **important parameter, if you increase this too much the audio might be delayed**
+ * --frames_queue_size 3 **important parameter, if you increase this too much the audio might be delayed and the memory requirement used by FAS will increase**
  * --commands_queue_size 512 **should be a positive integer power of 2**
  * --stream_load_send_delay 2 **FAS will send the stream CPU load every two seconds**
  * --samplerate_conv_type -1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time, this settings can be ignored most of the time since FAS do real-time resampling, -1 skip the resampling step**

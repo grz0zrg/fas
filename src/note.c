@@ -4,10 +4,10 @@
 
 #include "note.h"
 
-// fill the notes buffer for each output channels
+// fill the notes buffer for instruments
 // data argument is the raw RGBA values received with the channels count indicated as the first entry
 void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsigned int max_density, 
-                    unsigned int channels, unsigned int data_frame_size, struct note *note_buffer,
+                    unsigned int instruments, unsigned int data_frame_size, struct note *note_buffer,
                     unsigned int h, size_t data_length, void *prev_data, void *data) {
     FAS_FLOAT pvl = 0, pvr = 0, pl, pr, pb, pa, l, r;
     unsigned int i, j, frame_data_index = 8;
@@ -18,10 +18,6 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
 
     unsigned int note_i = 0;
 
-    static unsigned int monophonic[1];
-
-    memcpy(&monophonic, &((char *) data)[4], sizeof(monophonic));
-
     if (data_frame_size == sizeof(float)) {
         inv_full_brightness = 1.;
 
@@ -30,12 +26,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
         data_length /= data_frame_size;
     }
 
-    if ((*monophonic) == 1) {
-        li = 3;
-        ri = 3;
-    }
-
-    for (j = 0; j < channels; j += 1) {
+    for (j = 0; j < instruments; j += 1) {
         note_osc_index = index;
         index += 1;
         osc_count = 0;
@@ -180,11 +171,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
         note_buffer[note_osc_index].osc_index = osc_count;
 
 #ifdef DEBUG_FRAME_DATA
-    if ((*monophonic) == 1) {
-        printf("Channel l/r (mono) %u : %i oscillators \n", (j + 1), osc_count);
-    } else {
-        printf("Channel l/r (stereo) %u : %i oscillators \n", (j + 1), osc_count);
-    }
+    printf("Instrument l/r (stereo) %u : %i oscillators \n", (j + 1), osc_count);
 #endif
     }
 }

@@ -26,6 +26,7 @@
     #define CHN_SETTINGS 3
     #define CHN_FX_SETTINGS 4
     #define ACTION 5
+    #define INSTRUMENT_SETTINGS 6
 
     // actions
     #define FAS_ACTION_SAMPLES_RELOAD 0
@@ -50,7 +51,7 @@
     #define FAS_FPS 60
     #define FAS_PORT 3003
     #define FAS_RX_BUFFER_SIZE 8192
-    #define FAS_FRAMES_QUEUE_SIZE 7
+    #define FAS_FRAMES_QUEUE_SIZE 3
     #define FAS_COMMANDS_QUEUE_SIZE 512
     #define FAS_OUTPUT_CHANNELS 2
     #define FAS_INPUT_CHANNELS 0
@@ -60,7 +61,7 @@
     #define FAS_OSC_OUT 0
     #define FAS_AUDIO 1
     #define FAS_SMOOTH_FACTOR 1.0
-    #define FAS_GRANULAR_MAX_DENSITY 128
+    #define FAS_GRANULAR_MAX_DENSITY 32
     #define FAS_STREAM_LOAD_SEND_DELAY 2
     #define FAS_MAX_DROP 60 // 1 second
     #define FAS_RENDER_WIDTH 4096
@@ -78,6 +79,7 @@
     #define FAS_CMD_CHN_SETTINGS 1
     #define FAS_CMD_NOTE_RESET 2
     #define FAS_CMD_CHN_FX_SETTINGS 3
+    #define FAS_CMD_INSTRUMENT_SETTINGS 4
 
     // audio thread states
     #define FAS_AUDIO_PLAY 0
@@ -178,6 +180,9 @@
     #define FX_18_LPF 22
     #define FX_TBVCF 23
     #define FX_FAUST 24
+
+    // max instruments
+    #define FAS_MAX_INSTRUMENTS 24
 
 #ifdef USE_DOUBLE
     #define FAS_FLOAT double

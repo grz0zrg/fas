@@ -24,22 +24,28 @@
         double fp[FAS_MAX_FX_PARAMETERS]; // fx parameters
     };
 
-    // channel settings
+    // channel settings / states
     struct _synth_chn_settings {
-        unsigned int synthesis_method;
         unsigned int muted;
-        int p0;
-        double p1;
-        double p2;
-        double p3;
-        double p4;
+
+        FAS_FLOAT output_l;
+        FAS_FLOAT output_r;
+
+        FAS_FLOAT last_sample_l;
+        FAS_FLOAT last_sample_r;
+
+        FAS_FLOAT last_chn_gain;
+        FAS_FLOAT curr_chn_gain;
+
+        unsigned int mute_state;
 
         // channel fx
         struct _synth_fx_settings fx[FAS_MAX_FX_SLOTS];
     };
 
-    // channels related states
-    struct _synth_chn_states {
+    // instruments related states
+    // was quickly hacked for spectral states but should probably go into _synth_instrument (just like some oscillators stuff also :P)
+    struct _synth_instrument_states {
         unsigned int position;
 
         // spectral related
@@ -52,6 +58,23 @@
         float *out[2];
 
         unsigned int hop_size;
+    };
+
+    // synth. instrument
+    struct _synth_instrument {
+        int type;
+        unsigned int muted;
+
+        unsigned int output_channel;
+
+        int p0;
+        double p1;
+        double p2;
+        double p3;
+        double p4;
+        
+        FAS_FLOAT last_sample_l;
+        FAS_FLOAT last_sample_r;
     };
 
     // synth. command
@@ -73,6 +96,8 @@
         struct grain *grains;
         // channels settings
         struct _synth_chn_settings *chn_settings;
+        // instruments settings
+        struct _synth_instrument instruments[FAS_MAX_INSTRUMENTS];
         
         int note;
         int chn;
@@ -104,8 +129,8 @@
         unsigned int frame_data_size;
 
         // user session related synth. data
-        double **synth_chn_settings;
         double ***synth_chn_fx_settings;
+        struct _synth_instrument instruments[FAS_MAX_INSTRUMENTS];
 
         struct oscillator *oscillators;
 

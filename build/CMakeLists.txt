@@ -48,6 +48,11 @@ add_executable(fas ${SRC} ${HEADERS})
 
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/modules)
 
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    add_definitions(-DDEBUG)
+    #add_definitions(-DDEBUG_FRAME_DATA)
+endif()
+
 if (LIBLFDS720)
     find_package(Liblfds720 MODULE REQUIRED)
     include_directories(${LIBLFDS720_INCLUDE_DIR})

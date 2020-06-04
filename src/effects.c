@@ -95,6 +95,9 @@ void createEffects(
 
             sp_phaser_create((sp_phaser **)&fx->phaser[j]);
             sp_phaser_init(spd, (sp_phaser *)fx->phaser[j]);
+
+            sp_panst_create((sp_panst **)&fx->panner[j]);
+            sp_panst_init(spd, (sp_panst *)fx->panner[j]);
         }
 
         // no stereo support (so duplicate)
@@ -106,8 +109,8 @@ void createEffects(
                 sp_conv_create((sp_conv **)&fx->conv[j + k]);
                 sp_conv_init(spd, (sp_conv *)fx->conv[j + k], fx->ft_void, 256);
 
-                sp_vdelay_create((sp_vdelay **)&fx->vdelay[j + k]);
-                sp_vdelay_init(spd, (sp_vdelay *)fx->vdelay[j + k], 1.f);
+                sp_delay_create((sp_delay **)&fx->delay[j + k]);
+                sp_delay_init(spd, (sp_delay *)fx->delay[j + k], 1.f);
 
                 sp_smoothdelay_create((sp_smoothdelay **)&fx->sdelay[j + k]);
                 sp_smoothdelay_init(spd, (sp_smoothdelay *)fx->sdelay[j + k], 1.f, 1024);
@@ -148,6 +151,18 @@ void createEffects(
                 sp_pareq_create((sp_pareq **)&fx->pareq[j + k]);
                 sp_pareq_init(spd, (sp_pareq *)fx->pareq[j + k]);
 
+                sp_fold_create((sp_fold **)&fx->fold[j + k]);
+                sp_fold_init(spd, (sp_fold *)fx->fold[j + k]);
+
+                sp_dcblock_create((sp_dcblock **)&fx->dcblock[j + k]);
+                sp_dcblock_init(spd, (sp_dcblock *)fx->dcblock[j + k]);
+
+                sp_lpc_create((sp_lpc **)&fx->lpc[j + k]);
+                sp_lpc_init(spd, (sp_lpc *)fx->lpc[j + k], 512);
+
+                sp_waveset_create((sp_waveset **)&fx->wset[j + k]);
+                sp_waveset_init(spd, (sp_waveset *)fx->wset[j + k], 1);
+
                 sp_moogladder_create((sp_moogladder **)&fx->mooglp[j + k]);
                 sp_moogladder_init(spd, (sp_moogladder *)fx->mooglp[j + k]);
 
@@ -179,14 +194,37 @@ void updateEffectParameter(
     FAS_FLOAT value) {
     unsigned int k = 0;
 
+    unsigned int slot2 = slot * 2;
+
     struct _synth_fx_settings *fx = &chns->fx[slot];
 
 #ifdef WITH_SOUNDPIPE
-    if (fx->fx_id == FX_CONV) {
-        if (target == 4) {
-            fxs->dry[slot] = value;
+    if (fx->fx_id == FX_DELAY) {
+        sp_delay *delay_l = (sp_delay *)fxs->delay[slot2];
+        sp_delay *delay_r = (sp_delay *)fxs->delay[slot2 + 1];
+        
+        if (target == 3) {
+            delay_l->feedback = value;
         } else if (target == 5) {
-            fxs->wet[slot] = value;
+            delay_r->feedback = value;
+        } else if (target == 6) {
+            fxs->dry[slot2] = value;
+        } else if (target == 7) {
+            fxs->wet[slot2] = value;
+        } else if (target == 8) {
+            fxs->dry[slot2 + 1] = value;
+        } else if (target == 9) {
+            fxs->wet[slot2 + 1] = value;
+        }
+    } else if (fx->fx_id == FX_CONV) {
+        if (target == 6) {
+            fxs->dry[slot2] = value;
+        } else if (target == 7) {
+            fxs->wet[slot2] = value;
+        } else if (target == 8) {
+            fxs->dry[slot2 + 1] = value;
+        } else if (target == 9) {
+            fxs->wet[slot2 + 1] = value;
         }
     } else if (fx->fx_id == FX_ZITAREV) {
         sp_zitarev *zita = (sp_zitarev *)fxs->zitarev[slot];
@@ -292,6 +330,48 @@ void updateEffectParameter(
 
             return;
         }
+    } else if (fx->fx_id == FX_COMB) {
+        if (target == 3) {
+            sp_comb *comb = (sp_comb *)fxs->comb[slot2];
+
+            comb->revtime = value;
+        } else if (target == 5) {
+            sp_comb *comb = (sp_comb *)fxs->comb[slot2 + 1];
+
+            comb->revtime = value;
+        } else if (target == 7) {
+            fxs->dry[slot2] = value;
+        } else if (target == 8) {
+            fxs->wet[slot2] = value;
+        } else if (target == 9) {
+            fxs->dry[slot2 + 1] = value;
+        } else if (target == 10) {
+            fxs->wet[slot2 + 1] = value;
+        }
+    } else if (fx->fx_id == FX_AUTOWAH) {
+        sp_autowah *autowah_l = (sp_autowah *)fxs->autowah[slot2];
+        sp_autowah *autowah_r = (sp_autowah *)fxs->autowah[slot2 + 1];
+
+        if (target == 2) {
+            *autowah_l->level = value;
+        } else if (target == 3) {
+            *autowah_l->wah = value;
+        } else if (target == 4) {
+            *autowah_l->mix = value;
+        } else if (target == 5) {
+            *autowah_r->level = value;
+        } else if (target == 6) {
+            *autowah_r->wah = value;
+        } else if (target == 7) {
+            *autowah_r->mix = value;
+        }
+    } else if (fx->fx_id == FX_PANNER) {
+        sp_panst *panner = (sp_panst *)fxs->panner[slot];
+        if (target == 2) {
+            panner->type = value;
+        } else if (target == 3) {
+            panner->pan = value;
+        }
     }
 #endif
 #ifdef WITH_FAUST
@@ -353,41 +433,17 @@ void updateEffectParameter(
     }
 #endif
 
-    unsigned int slot2 = slot * 2;
-    // stereo parameters
+    // stereo fx (computed as stereo but parameters are the same for both channels)
     for (k = 0; k < 2; k += 1) {
         unsigned int slot_index = slot2 + k;
 #ifdef WITH_SOUNDPIPE
-        if (fx->fx_id == FX_VDELAY) {
-            sp_vdelay *vdelay = (sp_vdelay *)fxs->vdelay[slot_index];
-            
-            if (target == 3) {
-                vdelay->del = value;
-            }
-        } else if (fx->fx_id == FX_SMOOTH_DELAY) {
+        if (fx->fx_id == FX_SMOOTH_DELAY) {
             sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[slot_index];
 
             if (target == 4) {
                 sdelay->feedback = value;
             } else if (target == 5) {
                 sdelay->del = value;
-            }
-        } else if (fx->fx_id == FX_COMB) {
-            sp_comb *comb = (sp_comb *)fxs->comb[slot_index];
-
-            if (target == 3) {
-
-                comb->revtime = value;
-            }
-        } else if (fx->fx_id == FX_AUTOWAH) {
-            sp_autowah *autowah = (sp_autowah *)fxs->autowah[slot_index];
-
-            if (target == 2) {
-                *autowah->level = value;
-            } else if (target == 3) {
-                *autowah->wah = value;
-            } else if (target == 4) {
-                *autowah->mix = value;
             }
         } else if (fx->fx_id == FX_BITCRUSH) {
             sp_bitcrush *bitcrush = (sp_bitcrush *)fxs->bitcrush[slot_index];
@@ -396,6 +452,10 @@ void updateEffectParameter(
                 bitcrush->bitdepth = value;
             } else if (target == 3) {
                 bitcrush->srate = value;
+            } else if (target == 4) {
+                fxs->dry[slot_index] = value;
+            } else if (target == 5) {
+                fxs->wet[slot_index] = value;
             }
         } else if (fx->fx_id == FX_DISTORSION) {
             sp_dist *dist = (sp_dist *)fxs->dist[slot_index];
@@ -408,6 +468,10 @@ void updateEffectParameter(
                 dist->shape1 = value;
             } else if (target == 5) {
                 dist->shape2 = value;
+            } else if (target == 6) {
+                fxs->dry[slot_index] = value;
+            } else if (target == 7) {
+                fxs->wet[slot_index] = value;
             }
         } else if (fx->fx_id == FX_SATURATOR) {
             sp_saturator *saturator = (sp_saturator *)fxs->saturator[slot_index];
@@ -416,6 +480,10 @@ void updateEffectParameter(
                 saturator->drive = value;
             } else if (target == 3) {
                 saturator->dcoffset = value;
+            } else if (target == 4) {
+                fxs->dry[slot_index] = value;
+            } else if (target == 5) {
+                fxs->wet[slot_index] = value;
             }
         } else if (fx->fx_id == FX_COMPRESSOR) {
             sp_compressor *compressor = (sp_compressor *)fxs->compressor[slot_index];
@@ -438,12 +506,20 @@ void updateEffectParameter(
                 peaklimit->rel = value;
             } else if (target == 4) {
                 peaklimit->thresh = value;
+            } else if (target == 5) {
+                fxs->dry[slot_index] = value;
+            } else if (target == 6) {
+                fxs->wet[slot_index] = value;
             }
         } else if (fx->fx_id == FX_CLIP) {
             sp_clip *clip = (sp_clip *)fxs->clip[slot_index];
 
             if (target == 2) {
                 clip->lim = value;
+            } else if (target == 3) {
+                fxs->dry[slot_index] = value;
+            } else if (target == 4) {
+                fxs->wet[slot_index] = value;
             }
         } else if (fx->fx_id == FX_B_LOWPASS) {
             sp_butlp *blp = (sp_butlp *)fxs->butlp[slot_index];
@@ -521,6 +597,18 @@ void updateEffectParameter(
             } else if (target == 4) {
                 lpf18->dist = value;
             }
+        } else if (fx->fx_id == FX_FOLD) {
+            sp_fold *fold = (sp_fold *)fxs->fold[slot_index];
+            
+            if (target == 2) {
+                fold->incr = value;
+            }
+        } else if (fx->fx_id == FX_WAVESET) {
+            sp_waveset *wset = (sp_waveset *)fxs->wset[slot_index];
+            
+            if (target == 3) {
+                wset->rep = value;
+            }
         } else if (fx->fx_id == FX_TBVCF) {
             sp_tbvcf *tbvcf = (sp_tbvcf *)fxs->tbvcf[slot_index];
             
@@ -545,6 +633,7 @@ void resetConvolution(
     struct sample *impulses,
     unsigned int impulses_count,
     unsigned int slot,
+    unsigned int lr,
     FAS_FLOAT v1,
     FAS_FLOAT v2
 ) {
@@ -554,15 +643,12 @@ void resetConvolution(
         imp_ftbl = smp->ftbl;
     }
 
-    unsigned int k = 0;
-    for (k = 0; k < 2; k += 1) {
-        unsigned int slot_index = slot * 2 + k;
+    unsigned int slot_index = slot * 2 + lr;
 
-        sp_conv_destroy((sp_conv **)&fxs->conv[slot_index]);
-        sp_conv_create((sp_conv **)&fxs->conv[slot_index]);
+    sp_conv_destroy((sp_conv **)&fxs->conv[slot_index]);
+    sp_conv_create((sp_conv **)&fxs->conv[slot_index]);
 
-        sp_conv_init(sp, (sp_conv *)fxs->conv[slot_index], imp_ftbl, v2);
-    }
+    sp_conv_init(sp, (sp_conv *)fxs->conv[slot_index], imp_ftbl, v2);
 }
 
 void resetDelays(
@@ -570,32 +656,37 @@ void resetDelays(
     struct _synth_fx *fxs,
     unsigned int slot,
     unsigned int type,
+    unsigned int lr,
     FAS_FLOAT v1,
     FAS_FLOAT v2,
     FAS_FLOAT v3,
     FAS_FLOAT v4
 ) {
-    unsigned int k = 0;
-    for (k = 0; k < 2; k += 1) {
-        unsigned int slot_index = slot * 2 + k;
+    if (type == 0) {
+        unsigned int slot_index = slot * 2 + lr;
 
-        if (type == 0) {
-            sp_vdelay_destroy((sp_vdelay **)&fxs->vdelay[slot_index]);
-            sp_vdelay_create((sp_vdelay **)&fxs->vdelay[slot_index]);
+        sp_delay_destroy((sp_delay **)&fxs->delay[slot_index]);
+        sp_delay_create((sp_delay **)&fxs->delay[slot_index]);
 
-            sp_vdelay_init(sp, (sp_vdelay *)fxs->vdelay[slot_index], v1);
+        sp_delay_init(sp, (sp_delay *)fxs->delay[slot_index], v1);
 
-            sp_vdelay *vdelay = (sp_vdelay *)fxs->vdelay[slot_index];
-            vdelay->del = v2;
-        } else if (type == 1) {
-            sp_smoothdelay_destroy((sp_smoothdelay **)&fxs->sdelay[slot_index]);
-            sp_smoothdelay_create((sp_smoothdelay **)&fxs->sdelay[slot_index]);
+        sp_delay *delay = (sp_delay *)fxs->delay[slot_index];
+        delay->feedback = v2;
+    } else {
+        unsigned int k = 0;
+        for (k = 0; k < 2; k += 1) {
+            unsigned int slot_index = slot * 2 + k;
 
-            sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[slot_index], v1, v2);
+            if (type == 1) {
+                sp_smoothdelay_destroy((sp_smoothdelay **)&fxs->sdelay[slot_index]);
+                sp_smoothdelay_create((sp_smoothdelay **)&fxs->sdelay[slot_index]);
 
-            sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[slot_index];
-            sdelay->feedback = v3;
-            sdelay->del = v4;
+                sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[slot_index], v1, v2);
+
+                sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[slot_index];
+                sdelay->feedback = v3;
+                sdelay->del = v4;
+            }
         }
     }
 }
@@ -604,20 +695,52 @@ void resetComb(
     sp_data *sp,
     struct _synth_fx *fxs,
     unsigned int slot,
+    unsigned int lr,
     FAS_FLOAT v1,
     FAS_FLOAT v2
+) {
+    unsigned int slot_index = slot * 2 + lr;
+
+    sp_comb_destroy((sp_comb **)&fxs->comb[slot_index]);
+    sp_comb_create((sp_comb **)&fxs->comb[slot_index]);
+
+    sp_comb_init(sp, (sp_comb *)fxs->comb[slot_index], v1);
+
+    sp_comb *comb = (sp_comb *)fxs->comb[slot_index];
+    comb->revtime = v2;
+}
+
+void resetLpc(
+    sp_data *sp,
+    struct _synth_fx *fxs,
+    unsigned int slot,
+    FAS_FLOAT v1
 ) {
     unsigned int k = 0;
     for (k = 0; k < 2; k += 1) {
         unsigned int slot_index = slot * 2 + k;
 
-        sp_comb_destroy((sp_comb **)&fxs->comb[slot_index]);
-        sp_comb_create((sp_comb **)&fxs->comb[slot_index]);
+        sp_lpc_destroy((sp_lpc **)&fxs->lpc[slot_index]);
+        sp_lpc_create((sp_lpc **)&fxs->lpc[slot_index]);
 
-        sp_comb_init(sp, (sp_comb *)fxs->comb[slot_index], v1);
+        sp_lpc_init(sp, (sp_lpc *)fxs->lpc[slot_index], v1);
+    }
+}
 
-        sp_comb *comb = (sp_comb *)fxs->comb[slot_index];
-        comb->revtime = v2;
+void resetWaveset(
+    sp_data *sp,
+    struct _synth_fx *fxs,
+    unsigned int slot,
+    FAS_FLOAT v1
+) {
+    unsigned int k = 0;
+    for (k = 0; k < 2; k += 1) {
+        unsigned int slot_index = slot * 2 + k;
+
+        sp_waveset_destroy((sp_waveset **)&fxs->wset[slot_index]);
+        sp_waveset_create((sp_waveset **)&fxs->wset[slot_index]);
+
+        sp_waveset_init(sp, (sp_waveset *)fxs->wset[slot_index], v1);
     }
 }
 #endif
@@ -641,7 +764,8 @@ void resetConvolutions(
 
 #ifdef WITH_SOUNDPIPE
         if (fx->fx_id == FX_CONV) {
-            resetConvolution(sp, fxs, impulses, impulses_count, f, fx->fp[0], fx->fp[1]);
+            resetConvolution(sp, fxs, impulses, impulses_count, f, 0, fx->fp[0], fx->fp[1]);
+            resetConvolution(sp, fxs, impulses, impulses_count, f, 1, fx->fp[2], fx->fp[3]);
         }
 #endif
 
@@ -698,13 +822,14 @@ void freeEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
             sp_revsc_destroy((sp_revsc **)&fx->revsc[j]);
 
             sp_phaser_destroy((sp_phaser **)&fx->phaser[j]);
+            sp_panst_destroy((sp_panst **)&fx->panner[j]);
         }
 
         for (j = 0; j < FAS_MAX_FX_SLOTS * 2; j += 2) {
             for (k = 0; k < 2; k += 1) {
                 sp_autowah_destroy((sp_autowah **)&fx->autowah[j + k]);
                 sp_conv_destroy((sp_conv **)&fx->conv[j + k]);
-                sp_vdelay_destroy((sp_vdelay **)&fx->vdelay[j + k]);
+                sp_delay_destroy((sp_delay **)&fx->delay[j + k]);
                 sp_smoothdelay_destroy((sp_smoothdelay **)&fx->sdelay[j + k]);
                 sp_comb_destroy((sp_comb **)&fx->comb[j + k]);
                 sp_bitcrush_destroy((sp_bitcrush **)&fx->bitcrush[j + k]);
@@ -723,6 +848,10 @@ void freeEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
                 sp_wpkorg35_destroy((sp_wpkorg35 **)&fx->korglp[j + k]);
                 sp_lpf18_destroy((sp_lpf18 **)&fx->lpf18[j + k]);
                 sp_tbvcf_destroy((sp_tbvcf **)&fx->tbvcf[j + k]);
+                sp_fold_destroy((sp_fold **)&fx->fold[j + k]);
+                sp_dcblock_destroy((sp_dcblock **)&fx->dcblock[j + k]);
+                sp_lpc_destroy((sp_lpc **)&fx->lpc[j + k]);
+                sp_waveset_destroy((sp_waveset **)&fx->wset[j + k]);
             }
         }
 #endif

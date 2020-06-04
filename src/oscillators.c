@@ -298,6 +298,10 @@ struct oscillator *createOscillatorsBank(
             sp_brown_create((sp_brown **)&osc->sp_gens[i][SP_BROWN_NOISE_GENERATOR]);
             sp_brown_init(spd, osc->sp_gens[i][SP_BROWN_NOISE_GENERATOR]);
 
+            SPFLOAT stiffness = frequency * 2.41 / 10;
+            sp_bar_create((sp_bar **)&osc->sp_gens[i][SP_BAR_GENERATOR]);
+            sp_bar_init(spd, osc->sp_gens[i][SP_BAR_GENERATOR], stiffness, 0.001f);
+
             sp_drip_create((sp_drip **)&osc->sp_gens[i][SP_DRIP_GENERATOR]);
             sp_drip_init(spd, osc->sp_gens[i][SP_DRIP_GENERATOR], 0.09f);
 
@@ -401,6 +405,7 @@ struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, un
             sp_noise_destroy((sp_noise **)&oscs[y].sp_gens[i][SP_WHITE_NOISE_GENERATOR]);
             sp_pinknoise_destroy((sp_pinknoise **)&oscs[y].sp_gens[i][SP_PINK_NOISE_GENERATOR]);
             sp_brown_destroy((sp_brown **)&oscs[y].sp_gens[i][SP_BROWN_NOISE_GENERATOR]);
+            sp_bar_destroy((sp_bar **)&oscs[y].sp_gens[i][SP_BAR_GENERATOR]);
             sp_drip_destroy((sp_drip **)&oscs[y].sp_gens[i][SP_DRIP_GENERATOR]);
             sp_pdhalf_destroy((sp_pdhalf **)&oscs[y].sp_gens[i][SP_PD_GENERATOR]);
             

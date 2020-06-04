@@ -113,7 +113,7 @@
 
     // Soundpipe
     #define SP_OSC_FILTERS 12 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
-    #define SP_OSC_GENS 6 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
+    #define SP_OSC_GENS 7 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
     #define SP_OSC_MODS 7 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!! (note : empty / pdhalf does count even if not allocated at the same place)
 
     // sp filters id
@@ -137,6 +137,7 @@
     #define SP_SQUARE_GENERATOR 3
     #define SP_DRIP_GENERATOR 4
     #define SP_PD_GENERATOR 5
+    #define SP_BAR_GENERATOR 6
 
     // sp mods id
     #define SP_EMPTY_MODS 0
@@ -161,7 +162,7 @@
     #define FX_AUTOWAH 3
     #define FX_PHASER 4
     #define FX_COMB 5
-    #define FX_VDELAY 6
+    #define FX_DELAY 6
     #define FX_SMOOTH_DELAY 7
     #define FX_BITCRUSH 8
     #define FX_DISTORSION 9
@@ -179,7 +180,12 @@
     #define FX_KORG_LPF 21
     #define FX_18_LPF 22
     #define FX_TBVCF 23
-    #define FX_FAUST 24
+    #define FX_FOLD 24
+    #define FX_DC_BLOCK 25
+    #define FX_LPC 26
+    #define FX_WAVESET 27
+    #define FX_PANNER 28
+    #define FX_FAUST 29
 
     // max instruments
     #define FAS_MAX_INSTRUMENTS 24

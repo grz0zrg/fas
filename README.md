@@ -123,10 +123,10 @@ Here is some architectural specifications as if it were made by a synth. manufac
 * allow to extend the sound engine at runtime with user-defined generators and effects written with [Faust](https://faust.grame.fr/) DSP specification language  
 * high quality stereophonic audio with low latency and multiple input / output (with Jack)
 * fully microtonal / spectral (oscillator-bank concept for every instruments)
-* unlimited effects slot per part (24 by default but adaptable); reverb, convolution, comb, delay, chorus, flanger... 25 high quality effects type provided by Soundpipe are available, you can also choose to add your own effects chain since every part have dedicated stereo output
+* unlimited effects slot per part (24 by default but adaptable); reverb, convolution, comb, delay, filters, phaser... 30 high quality effects type provided by Soundpipe are available with most of them stereophonic, you can also choose to add your own effects chain since every part have dedicated stereo output
 * per partial slot effect for additive synthesis
 * per voice filtering for subtractive synthesis with one multi mode filter
- * per voice effects is limited by RGBA note data, this may be seen as a limitation since only one multi mode filter per voice is allowed
+  * per voice effects is limited by RGBA note data, this may be seen as a limitation since only one multi mode filter per voice is allowed
 * highly optimized real-time architecture; run on low-power embedded hardware such as Raspberry
 * events resolution can be defined as you wish (60 Hz but you can go above that through a parameter)
 * cross-platform; run this about anywhere !
@@ -311,7 +311,7 @@ Physical modelling synthesis refers to sound synthesis methods in which the wave
 
 Physical modelling in Fragment use models, Karplus-Strong string synthesis is implemented out of the box.
 
-Water droplet model is also available if compiled with Soundpipe.
+Water droplet and bar model is also available if compiled with Soundpipe.
 
 #### Karplus-Strong
 
@@ -323,7 +323,11 @@ This is a fast method which generate pleasant string-like sounds.
 
 Integral part of blue / alpha component correspond to the first / second resonant frequency (main resonant frequency is tuned to current vertical pixel position), fractional part of blue component correspond to damping factor and amount of energy to add back for the alpha component.
 
-#### RGBA interpretation
+#### Metal bar
+
+Approximate metal bar being struck, integral part of blue component correspond to decay, integral part of alpha component correspond to strike spatial width (normalized into [0,1000] range), fractional part of the blue component is the scanning spped of the output location, fractional part of the alpha component is the position along bar that strike occurs.
+
+#### RGBA interpretation (Karplus-Strong)
 
 | Components | Interpretations                        |
 | ---------: | :------------------------------------- |
@@ -581,6 +585,8 @@ This synthesizer support unlimited (user-defined maximum at compile time) number
 
 Convolution effect use impulses response which are audio files loaded from the `impulses` folder (mono / stereo), free high quality convolution samples from real world places can be found [here](https://openairlib.net/).
 
+Most effects are stereophonic with dry/wet controls, some may still appear with monophonic settings because their parameters are not yet mapped for stereo but they are still computed in stereo, most delay / reverb parameters are available in stereo which is usefull to build effects such as stereo width (stereo widening) which are a combination of different reverb / delay effect with different parameters for L/R channels.
+
 ### Performances
 
 This program is tailored for performances, it is memory intensive (about 512mb is needed without samples and 8 instruments max, about 1 Gb with few samples, about 2.5 Gb with samples and 32 instruments max, memory requirement will have a major increase when FAS_MAX_INSTRUMENTS constant and frame queue size command line argument is increased), all real-time things are pre-allocated or pre-computed with zero real-time allocations.
@@ -752,11 +758,17 @@ Synth channels fx settings, packet identifier 4 (real-time) :
 ```c
 struct _cmd_chn_fx_settings {
     unsigned int chn; // target channel
-    unsigned int slot; // target fx slot
-    unsigned int target; // target parameter
+    unsigned int slot; // target fx slot (up to FAS_MAX_FX_SLOTS found in constants.h)
+    // target parameter
+    // 0 : fx id, a value of -1 indicate the end of the fx chain, mapping can be found in constants.h (FX_CONV etc.)
+    // 1 : bypass fx
+    // 2 to up to FAS_MAX_FX_PARAMETERS found in constants.h : fx parameters (mapping is not yet documented but can be found easily in updateEffectParameter function of effects.c, non-realtime parameters can also be found in other functions)
+    unsigned int target;
     double value; // target value
 };
 ```
+
+Note : The fx chain is handled linearly and must be managed by the client, creation of a fx slot is done by sending the fx id slot value the sending the stop slot value (which will have a fx id value of -1), deletion of a slot is handled automatically when an existing slot receive a fx id value of -1 then all slots after that value will be shifted down the chain by 1.
 
 Instrument settings, packet identifier 6 (real-time) :
 
@@ -956,8 +968,6 @@ Usage: fas [list_of_parameters]
  * --commands_queue_size 512 **should be a positive integer power of 2**
  * --stream_load_send_delay 2 **FAS will send the stream CPU load every two seconds**
  * --samplerate_conv_type -1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time, this settings can be ignored most of the time since FAS do real-time resampling, -1 skip the resampling step**
-
-Self-signed certificates are provided in `misc` folder in case you compile/run it with SSL. (Note: This is useless for many reasons and HTTP should _**ALWAYS**_ be the prefered protocol for online Fragment application, this is explained in [this issue](https://github.com/grz0zrg/fas/issues/1).)
 
 **You can stop the application by pressing any keys while it is running on Windows or by sending SIGINT (Ctrl+C etc.) under Unix systems.**
 

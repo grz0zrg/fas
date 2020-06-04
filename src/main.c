@@ -682,7 +682,22 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
 #ifdef WITH_SOUNDPIPE
-                    if (model_type == 1) {
+                    if (model_type == 2) {
+                        FAS_FLOAT trigger_l = ((n->previous_volume_l <= 0) || osc->triggered[k]) ? 1.f : 0.f;
+                        FAS_FLOAT trigger_r = ((n->previous_volume_r <= 0) || osc->triggered[k]) ? 1.f : 0.f;
+                        FAS_FLOAT bar_out_l = 0.;
+                        FAS_FLOAT bar_out_r = 0.;
+
+                        sp_bar_compute(sp, (sp_bar *)osc->sp_gens[k][SP_BAR_GENERATOR], &trigger_l, &bar_out_l);
+                        sp_bar_compute(sp, (sp_bar *)osc->sp_gens[k][SP_BAR_GENERATOR], &trigger_r, &bar_out_r);
+
+                        output_l += vl * bar_out_l;
+                        output_r += vr * bar_out_r;
+
+                        if (osc->triggered[k]) {
+                            osc->triggered[k] = 0;
+                        }
+                    } else if (model_type == 1) {
                         FAS_FLOAT trigger_l = ((n->previous_volume_l <= 0) || osc->triggered[k]) ? 1.f : 0.f;
                         FAS_FLOAT trigger_r = ((n->previous_volume_r <= 0) || osc->triggered[k]) ? 1.f : 0.f;
                         FAS_FLOAT drip_out_l = 0.;
@@ -1210,8 +1225,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     sp_conv_compute(sp, (sp_conv *)fx->conv[j], &insl, &outsl);
                     sp_conv_compute(sp, (sp_conv *)fx->conv[j + 1], &insr, &outsr);
 
-                    chn_settings->output_l = chn_settings->output_l * fx->dry[d] + outsl * fx->wet[d];
-                    chn_settings->output_r = chn_settings->output_r * fx->dry[d] + outsr * fx->wet[d];
+                    chn_settings->output_l = chn_settings->output_l * fx->dry[j] + outsl * fx->wet[j];
+                    chn_settings->output_r = chn_settings->output_r * fx->dry[j + 1] + outsr * fx->wet[j + 1];
 #endif
                 } else if (fx_id == FX_ZITAREV) {
 #ifdef WITH_SOUNDPIPE
@@ -1230,12 +1245,19 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #ifdef WITH_SOUNDPIPE
                     sp_phaser_compute(sp, (sp_phaser *)fx->phaser[d], &chn_settings->output_l, &chn_settings->output_r, &chn_settings->output_l, &chn_settings->output_r);
 #endif
-                } else if (fx_id == FX_VDELAY) {
+                } else if (fx_id == FX_DELAY) {
 #ifdef WITH_SOUNDPIPE
                     FAS_FLOAT insl = chn_settings->output_l;
                     FAS_FLOAT insr = chn_settings->output_r;
-                    sp_vdelay_compute(sp, (sp_vdelay *)fx->vdelay[j], &insl, &chn_settings->output_l);
-                    sp_vdelay_compute(sp, (sp_vdelay *)fx->vdelay[j + 1], &insr, &chn_settings->output_r);
+
+                    FAS_FLOAT outsl = 0;
+                    FAS_FLOAT outsr = 0;
+                    
+                    sp_delay_compute(sp, (sp_delay *)fx->delay[j], &insl, &outsl);
+                    sp_delay_compute(sp, (sp_delay *)fx->delay[j + 1], &insr, &outsr);
+
+                    chn_settings->output_l = chn_settings->output_l * fx->dry[j] + outsl * fx->wet[j];
+                    chn_settings->output_r = chn_settings->output_r * fx->dry[j + 1] + outsr * fx->wet[j + 1];
 #endif
                 } else if (fx_id == FX_SMOOTH_DELAY) {
 #ifdef WITH_SOUNDPIPE
@@ -1246,23 +1268,59 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #endif
                 } else if (fx_id == FX_COMB) {
 #ifdef WITH_SOUNDPIPE
-                    sp_comb_compute(sp, (sp_comb *)fx->comb[j], &chn_settings->output_l, &chn_settings->output_l);
-                    sp_comb_compute(sp, (sp_comb *)fx->comb[j + 1], &chn_settings->output_r, &chn_settings->output_r);
+                    FAS_FLOAT insl = chn_settings->output_l;
+                    FAS_FLOAT insr = chn_settings->output_r;
+
+                    FAS_FLOAT outsl = 0;
+                    FAS_FLOAT outsr = 0;
+
+                    sp_comb_compute(sp, (sp_comb *)fx->comb[j], &insl, &outsl);
+                    sp_comb_compute(sp, (sp_comb *)fx->comb[j + 1], &insr, &outsl);
+
+                    chn_settings->output_l = chn_settings->output_l * fx->dry[j] + outsl * fx->wet[j];
+                    chn_settings->output_r = chn_settings->output_r * fx->dry[j + 1] + outsr * fx->wet[j + 1];
 #endif
                 } else if (fx_id == FX_BITCRUSH) {
 #ifdef WITH_SOUNDPIPE
-                    sp_bitcrush_compute(sp, (sp_bitcrush *)fx->bitcrush[j], &chn_settings->output_l, &chn_settings->output_l);
-                    sp_bitcrush_compute(sp, (sp_bitcrush *)fx->bitcrush[j + 1], &chn_settings->output_r, &chn_settings->output_r);
+                    FAS_FLOAT insl = chn_settings->output_l;
+                    FAS_FLOAT insr = chn_settings->output_r;
+
+                    FAS_FLOAT outsl = 0;
+                    FAS_FLOAT outsr = 0;
+
+                    sp_bitcrush_compute(sp, (sp_bitcrush *)fx->bitcrush[j], &insl, &outsl);
+                    sp_bitcrush_compute(sp, (sp_bitcrush *)fx->bitcrush[j + 1], &insr, &outsr);
+
+                    chn_settings->output_l = chn_settings->output_l * fx->dry[j] + outsl * fx->wet[j];
+                    chn_settings->output_r = chn_settings->output_r * fx->dry[j + 1] + outsr * fx->wet[j + 1];
 #endif
                 } else if (fx_id == FX_DISTORSION) {
 #ifdef WITH_SOUNDPIPE
-                    sp_dist_compute(sp, (sp_dist *)fx->dist[j], &chn_settings->output_l, &chn_settings->output_l);
-                    sp_dist_compute(sp, (sp_dist *)fx->dist[j + 1], &chn_settings->output_r, &chn_settings->output_r);
+                    FAS_FLOAT insl = chn_settings->output_l;
+                    FAS_FLOAT insr = chn_settings->output_r;
+
+                    FAS_FLOAT outsl = 0;
+                    FAS_FLOAT outsr = 0;
+
+                    sp_dist_compute(sp, (sp_dist *)fx->dist[j], &insl, &outsl);
+                    sp_dist_compute(sp, (sp_dist *)fx->dist[j + 1], &insr, &outsr);
+
+                    chn_settings->output_l = chn_settings->output_l * fx->dry[j] + outsl * fx->wet[j];
+                    chn_settings->output_r = chn_settings->output_r * fx->dry[j + 1] + outsr * fx->wet[j + 1];
 #endif
                 } else if (fx_id == FX_SATURATOR) {
 #ifdef WITH_SOUNDPIPE
-                    sp_saturator_compute(sp, (sp_saturator *)fx->saturator[j], &chn_settings->output_l, &chn_settings->output_l);
-                    sp_saturator_compute(sp, (sp_saturator *)fx->saturator[j + 1], &chn_settings->output_r, &chn_settings->output_r);
+                    FAS_FLOAT insl = chn_settings->output_l;
+                    FAS_FLOAT insr = chn_settings->output_r;
+
+                    FAS_FLOAT outsl = 0;
+                    FAS_FLOAT outsr = 0;
+
+                    sp_saturator_compute(sp, (sp_saturator *)fx->saturator[j], &insl, &outsl);
+                    sp_saturator_compute(sp, (sp_saturator *)fx->saturator[j + 1], &insr, &outsr);
+
+                    chn_settings->output_l = chn_settings->output_l * fx->dry[j] + outsl * fx->wet[j];
+                    chn_settings->output_r = chn_settings->output_r * fx->dry[j + 1] + outsr * fx->wet[j + 1];
 #endif
                 } else if (fx_id == FX_COMPRESSOR) {
 #ifdef WITH_SOUNDPIPE
@@ -1271,13 +1329,31 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #endif
                 } else if (fx_id == FX_PEAK_LIMITER) {
 #ifdef WITH_SOUNDPIPE
-                    sp_peaklim_compute(sp, (sp_peaklim *)fx->peaklimit[j], &chn_settings->output_l, &chn_settings->output_l);
-                    sp_peaklim_compute(sp, (sp_peaklim *)fx->peaklimit[j + 1], &chn_settings->output_r, &chn_settings->output_r);
+                    FAS_FLOAT insl = chn_settings->output_l;
+                    FAS_FLOAT insr = chn_settings->output_r;
+
+                    FAS_FLOAT outsl = 0;
+                    FAS_FLOAT outsr = 0;
+
+                    sp_peaklim_compute(sp, (sp_peaklim *)fx->peaklimit[j], &insl, &outsl);
+                    sp_peaklim_compute(sp, (sp_peaklim *)fx->peaklimit[j + 1], &insr, &outsr);
+
+                    chn_settings->output_l = chn_settings->output_l * fx->dry[j] + outsl * fx->wet[j];
+                    chn_settings->output_r = chn_settings->output_r * fx->dry[j + 1] + outsr * fx->wet[j + 1];
 #endif
                 } else if (fx_id == FX_CLIP) {
 #ifdef WITH_SOUNDPIPE
-                    sp_clip_compute(sp, (sp_clip *)fx->clip[j], &chn_settings->output_l, &chn_settings->output_l);
-                    sp_clip_compute(sp, (sp_clip *)fx->clip[j + 1], &chn_settings->output_r, &chn_settings->output_r);
+                    FAS_FLOAT insl = chn_settings->output_l;
+                    FAS_FLOAT insr = chn_settings->output_r;
+
+                    FAS_FLOAT outsl = 0;
+                    FAS_FLOAT outsr = 0;
+
+                    sp_clip_compute(sp, (sp_clip *)fx->clip[j], &insl, &outsl);
+                    sp_clip_compute(sp, (sp_clip *)fx->clip[j + 1], &insr, &outsr);
+
+                    chn_settings->output_l = chn_settings->output_l * fx->dry[j] + outsl * fx->wet[j];
+                    chn_settings->output_r = chn_settings->output_r * fx->dry[j + 1] + outsr * fx->wet[j + 1];
 #endif
                 } else if (fx_id == FX_B_LOWPASS) {
 #ifdef WITH_SOUNDPIPE
@@ -1330,6 +1406,30 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     FAS_FLOAT insr = chn_settings->output_r;
                     sp_tbvcf_compute(sp, (sp_tbvcf *)fx->tbvcf[j], &insl, &chn_settings->output_l);
                     sp_tbvcf_compute(sp, (sp_tbvcf *)fx->tbvcf[j + 1], &insr, &chn_settings->output_r);
+#endif
+                } else if (fx_id == FX_FOLD) {
+#ifdef WITH_SOUNDPIPE
+                    sp_fold_compute(sp, (sp_fold *)fx->fold[j], &chn_settings->output_l, &chn_settings->output_l);
+                    sp_fold_compute(sp, (sp_fold *)fx->fold[j + 1], &chn_settings->output_r, &chn_settings->output_r);
+#endif
+                } else if (fx_id == FX_DC_BLOCK) {
+#ifdef WITH_SOUNDPIPE
+                    sp_dcblock_compute(sp, (sp_dcblock *)fx->dcblock[j], &chn_settings->output_l, &chn_settings->output_l);
+                    sp_dcblock_compute(sp, (sp_dcblock *)fx->dcblock[j + 1], &chn_settings->output_r, &chn_settings->output_r);
+#endif
+                } else if (fx_id == FX_LPC) {
+#ifdef WITH_SOUNDPIPE
+                    sp_lpc_compute(sp, (sp_lpc *)fx->lpc[j], &chn_settings->output_l, &chn_settings->output_l);
+                    sp_lpc_compute(sp, (sp_lpc *)fx->lpc[j + 1], &chn_settings->output_r, &chn_settings->output_r);
+#endif
+                } else if (fx_id == FX_WAVESET) {
+#ifdef WITH_SOUNDPIPE
+                    sp_waveset_compute(sp, (sp_waveset *)fx->wset[j], &chn_settings->output_l, &chn_settings->output_l);
+                    sp_waveset_compute(sp, (sp_waveset *)fx->wset[j + 1], &chn_settings->output_r, &chn_settings->output_r);
+#endif
+                } else if (fx_id == FX_PANNER) {
+#ifdef WITH_SOUNDPIPE
+                    sp_panst_compute(sp, (sp_panst *)fx->panner[d], &chn_settings->output_l, &chn_settings->output_r, &chn_settings->output_l, &chn_settings->output_r);
 #endif
                 } else if (fx_id == FX_FAUST) {
 #ifdef WITH_FAUST
@@ -1694,6 +1794,18 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 drip->shake_max = n->res;
                                 drip->freq1 = fmin(fabs(round(n->blue)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
                                 drip->freq2 = fmin(fabs(round(n->alpha)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
+                            } else if (model_type == 2) {
+                                double bint_part;
+                                FAS_FLOAT blue_frac_part = modf(fabs(n->blue), &bint_part);
+
+                                double aint_part;
+                                FAS_FLOAT alpha_frac_part = modf(fabs(n->alpha), &aint_part);
+
+                                sp_bar *bar = (sp_bar *)osc->sp_gens[k][SP_BAR_GENERATOR];
+                                bar->scan = blue_frac_part > 1;
+                                bar->pos = alpha_frac_part;
+                                bar->T30 = bint_part > 1 ? bint_part : 1;
+                                bar->wid = (aint_part > 1 ? aint_part : 1) / 1000;
                             }
 #endif
 
@@ -1701,9 +1813,9 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (FAS_FLOAT)fas_sample_rate);
 #endif
                             if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || osc->triggered[k] == 1) {
-                                karplusTrigger(k, osc, n);
+                                if (model_type == 0) {
+                                    karplusTrigger(k, osc, n);
 
-                                if (model_type == 1) {
                                     osc->triggered[k] = 0;
                                 }
                             }
@@ -2566,16 +2678,22 @@ if (remaining_payload != 0) {
                     unsigned int curr_fx_id = usd->synth_chn_fx_settings[chn][fx_slot][0];
 
 #ifdef WITH_SOUNDPIPE
-                    if ((curr_fx_id == FX_CONV && (target == 2 || target == 3)) ||
-                        (curr_fx_id == FX_VDELAY && target == 2) ||
+                    if ((curr_fx_id == FX_CONV && (target == 2 || target == 3 || target == 4 || target == 5)) ||
+                        (curr_fx_id == FX_DELAY && (target == 2 || target == 4)) ||
                         (curr_fx_id == FX_SMOOTH_DELAY && (target == 2 || target == 3)) ||
-                        (curr_fx_id == FX_COMB && target == 2)) {
+                        (curr_fx_id == FX_COMB && (target == 2 || target == 4)) &&
+                        (curr_fx_id == FX_LPC && target == 2) &&
+                        (curr_fx_id == FX_WAVESET && target == 2)) {
                         audioPause();
 
                         double fp0 = usd->synth_chn_fx_settings[chn][fx_slot][2];
                         double fp1 = usd->synth_chn_fx_settings[chn][fx_slot][3];
                         double fp2 = usd->synth_chn_fx_settings[chn][fx_slot][4];
                         double fp3 = usd->synth_chn_fx_settings[chn][fx_slot][5];
+                        double fp4 = usd->synth_chn_fx_settings[chn][fx_slot][6];
+                        double fp5 = usd->synth_chn_fx_settings[chn][fx_slot][7];
+                        double fp6 = usd->synth_chn_fx_settings[chn][fx_slot][8];
+                        double fp7 = usd->synth_chn_fx_settings[chn][fx_slot][9];
 
                         if (target == 2) {
                             if (fp0 <= 0 && curr_fx_id != FX_CONV) {
@@ -2585,25 +2703,63 @@ if (remaining_payload != 0) {
                             if (fp1 <= 0 && curr_fx_id == FX_CONV) {
                                 fp1 = usd->synth_chn_fx_settings[chn][fx_slot][3] = 2048;
                             }
-                        } 
-
-                        if (curr_fx_id == FX_CONV) {
-                            if (target == 3) {
-                                if (isPowerOfTwo(value) == 0) {
-                                    value = 4096;
-                                }
-
-                                fp1 = usd->synth_chn_fx_settings[chn][fx_slot][target] = value;
+                        } else if (target == 4) {
+                            if (fp2 <= 0 && curr_fx_id != FX_CONV) {
+                                fp2 = usd->synth_chn_fx_settings[chn][fx_slot][target] = 1;
                             }
 
-                            resetConvolution(sp, synth_fx[chn], impulses, impulses_count, fx_slot, fp0, fp1);
-                        } else if (curr_fx_id == FX_VDELAY) {
-                            resetDelays(sp, synth_fx[chn], fx_slot, 0, fp0, fp1, fp2, fp3);
-                        } else if (curr_fx_id == FX_SMOOTH_DELAY) {
-                            resetDelays(sp, synth_fx[chn], fx_slot, 1, fp0, fp1, fp2, fp3);
-                        } else if (curr_fx_id == FX_COMB) {
-                            resetComb(sp, synth_fx[chn], fx_slot, fp0, fp1);
+                            if (fp3 <= 0 && curr_fx_id == FX_CONV) {
+                                fp3 = usd->synth_chn_fx_settings[chn][fx_slot][5] = 2048;
+                            }
                         }
+
+                        if (curr_fx_id == FX_CONV) {
+                            if (target == 2 || target == 3) {
+                                if (target == 3) {
+                                    if (isPowerOfTwo(value) == 0) {
+                                        value = 4096;
+                                    }
+
+                                    fp1 = usd->synth_chn_fx_settings[chn][fx_slot][target] = value;
+                                }
+
+                                resetConvolution(sp, synth_fx[chn], impulses, impulses_count, fx_slot, 0, fp0, fp1);
+                            } else if (target == 4 || target == 5) {
+                                if (target == 5) {
+                                    if (isPowerOfTwo(value) == 0) {
+                                        value = 4096;
+                                    }
+
+                                    fp3 = usd->synth_chn_fx_settings[chn][fx_slot][target] = value;
+                                }
+
+                                resetConvolution(sp, synth_fx[chn], impulses, impulses_count, fx_slot, 1, fp2, fp3);
+                            }
+                        } else if (curr_fx_id == FX_DELAY) {
+                            if (target == 2) {
+                                resetDelays(sp, synth_fx[chn], fx_slot, 0, 0, fp0, fp1, 0, 0);
+                            } else if (target == 4) {
+                                resetDelays(sp, synth_fx[chn], fx_slot, 0, 1, fp2, fp3, 0, 0);
+                            }
+                        } else if (curr_fx_id == FX_SMOOTH_DELAY) {
+                            resetDelays(sp, synth_fx[chn], fx_slot, 1, 0, fp0, fp1, fp2, fp3);
+                            resetDelays(sp, synth_fx[chn], fx_slot, 1, 1, fp0, fp1, fp2, fp3);
+                        } else if (curr_fx_id == FX_COMB) {
+                            if (target == 2) {
+                                resetComb(sp, synth_fx[chn], fx_slot, 0, fp0, fp1);
+                            } else if (target == 4) {
+                                resetComb(sp, synth_fx[chn], fx_slot, 1, fp2, fp3);
+                            }
+                        } else if (curr_fx_id == FX_LPC) {
+                            if (target == 2) {
+                                resetLpc(sp, synth_fx[chn], fx_slot, fp0);
+                            }
+                        } else if (curr_fx_id == FX_WAVESET) {
+                            if (target == 2) {
+                                resetWaveset(sp, synth_fx[chn], fx_slot, fp0);
+                            }
+                        }
+
                         audioPlay();
                     }
 #endif

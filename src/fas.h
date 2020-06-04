@@ -293,7 +293,7 @@
             sp_noise_compute(sp, (sp_noise *)osc->sp_gens[instrument_index][SP_WHITE_NOISE_GENERATOR], NULL, &si);
 
             sp_streson *streson = (sp_streson *)osc->sp_filters[instrument_index][SP_STRES_FILTER_L];
-            streson->freq = osc->freq * n->cutoff;
+            streson->freq = fmin(osc->freq * n->cutoff, fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
             streson->fdbgain = (n->res > 1.f) ? 1.f : n->res;
             sp_streson_compute(sp, streson, &si, &so);
 

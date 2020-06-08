@@ -2894,7 +2894,7 @@ fflush(stdout);
                             freeFaustGenerators(&curr_synth.oscillators, curr_synth.bank_settings->h, FAS_MAX_INSTRUMENTS);
 
                             freeFaustFactories(fas_faust_gens);
-                            fas_faust_gens = createFaustFactories("./faust/generators");
+                            fas_faust_gens = createFaustFactories(fas_faust_gens_path);
 
                             createFaustGenerators(fas_faust_gens, curr_synth.oscillators, curr_synth.bank_settings->h, fas_sample_rate, FAS_MAX_INSTRUMENTS);
 
@@ -2906,7 +2906,7 @@ fflush(stdout);
                             freeFaustEffects(synth_fx, frame_data_count);
 
                             freeFaustFactories(fas_faust_effs);
-                            fas_faust_effs = createFaustFactories("./faust/effects");
+                            fas_faust_effs = createFaustFactories(fas_faust_effs_path);
 
                             createFaustEffects(fas_faust_effs, synth_fx, frame_data_count, fas_sample_rate);
 
@@ -3099,6 +3099,8 @@ int main(int argc, char **argv)
         { "render",                     required_argument, 0, 28 },
         { "render_width",               required_argument, 0, 29 },
         { "render_convert",             required_argument, 0, 30 },
+        { "faust_gens_dir",             required_argument, 0, 31 },
+        { "faust_effs_dir",             required_argument, 0, 32 },
         { 0, 0, 0, 0 }
     };
 
@@ -3206,6 +3208,12 @@ int main(int argc, char **argv)
             case 30:
                 fas_render_convert = optarg;
                 break;
+            case 31:
+                fas_faust_gens_path = optarg;
+                break;
+            case 32:
+                fas_faust_effs_path = optarg;
+                break;
             default: print_usage();
                 return EXIT_FAILURE;
         }
@@ -3283,6 +3291,56 @@ int main(int argc, char **argv)
         }
 #else
         fas_impulses_path = fas_default_impulses_path;
+#endif
+    }
+
+    if (fas_faust_gens_path == NULL) {
+#ifdef __unix__
+        struct stat s;
+        int err = stat(fas_install_default_faust_gens_path, &s);
+        if (err == -1) {
+            if (ENOENT == errno) {
+                fas_faust_gens_path = fas_default_faust_gens_path;
+            } else {
+                fprintf(stderr, "stat() error while checking for '%s' directory.\n", fas_install_default_faust_gens_path);
+                return EXIT_FAILURE;
+            }
+        } else {
+            if (S_ISDIR(s.st_mode)) {
+                fas_faust_gens_path = fas_install_default_faust_gens_path;
+                printf("'%s' directory detected, default faust generators directory.\n", fas_install_default_faust_gens_path);
+            } else {
+                printf("'%s' is not a directory, defaulting to non-install faust generators path.\n", fas_install_default_faust_gens_path);
+                fas_faust_gens_path = fas_default_faust_gens_path;
+            }
+        }
+#else
+        fas_faust_gens_path = fas_default_faust_gens_path;
+#endif
+    }
+
+    if (fas_faust_effs_path == NULL) {
+#ifdef __unix__
+        struct stat s;
+        int err = stat(fas_install_default_faust_effs_path, &s);
+        if (err == -1) {
+            if (ENOENT == errno) {
+                fas_faust_effs_path = fas_default_faust_effs_path;
+            } else {
+                fprintf(stderr, "stat() error while checking for '%s' directory.\n", fas_install_default_faust_effs_path);
+                return EXIT_FAILURE;
+            }
+        } else {
+            if (S_ISDIR(s.st_mode)) {
+                fas_faust_effs_path = fas_install_default_faust_effs_path;
+                printf("'%s' directory detected, default faust effects directory.\n", fas_install_default_faust_effs_path);
+            } else {
+                printf("'%s' is not a directory, defaulting to non-install faust effects path.\n", fas_install_default_faust_effs_path);
+                fas_faust_effs_path = fas_default_faust_effs_path;
+            }
+        }
+#else
+        fas_faust_effs_path = fas_default_faust_effs_path;
 #endif
     }
 

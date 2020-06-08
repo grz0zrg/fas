@@ -115,6 +115,12 @@
     char *fas_default_impulses_path = "./impulses/";
     char *fas_install_default_impulses_path = "/usr/local/share/fragment/impulses/";
 
+    char *fas_default_faust_gens_path = "./faust/generators";
+    char *fas_install_default_faust_gens_path = "/usr/local/share/fragment/faust/generators";
+
+    char *fas_default_faust_effs_path = "./faust/effects";
+    char *fas_install_default_faust_effs_path = "/usr/local/share/fragment/faust/effects";
+
     // program settings with associated default value
     unsigned int fas_sample_rate = FAS_SAMPLE_RATE;
     int fas_frames_per_buffer = FAS_FRAMES_PER_BUFFER;
@@ -152,6 +158,8 @@
     char *fas_grains_path = NULL;
     char *fas_waves_path = NULL;
     char *fas_impulses_path = NULL;
+    char *fas_faust_gens_path = NULL;
+    char *fas_faust_effs_path = NULL;
 
     unsigned int fas_drop_counter = 0;
 

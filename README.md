@@ -579,6 +579,8 @@ Each samples loaded from the `grains` directory are processed, one of the most i
 
 The `waves` directory should only contain single cycle waveforms, the pitch is automatically detected from the sample length / samplerate informations.
 
+Supported file formats are available [here](http://www.mega-nerd.com/libsndfile/) (libsndfile)
+
 ### Effects
 
 This synthesizer support unlimited (user-defined maximum at compile time) number of effects chain per channels with bypass support, all effects (phaser, comb, reverb, delay...) come from the Soundpipe library which is thus required for effects usage.
@@ -917,7 +919,9 @@ Once all dependencies are installed one can run `cmake` followed by `make` in th
 
 FAS can then be installed with `sudo make install` in the build directory
 
-FAS will load grains / waves / impules first by checking `/usr/local/share/fragment/` default install path (specifically `grains` `waves` `impulses` directories) and when they are not available will look into the binary directory.
+FAS will load grains / waves / impulses first by checking `/usr/local/share/fragment/` default install path (specifically `grains` `waves` `impulses` directories) and when they are not available will look into the binary directory.
+
+FAS will load Faust files first by checking `/usr/local/share/fragment/` default install path (specifically `faust/generators` `faust/effects` directories) and when they are not available will look into the binary directory.
 
 Recommended launch parameters with HiFiBerry DAC+ :
     ./fas --frames_queue_size 63 --sample_rate 48000 --device 2
@@ -967,6 +971,8 @@ Usage: fas [list_of_parameters]
  * --granular_max_density 128 **this control how dense grains can be (maximum)**
  * --waves_dir ./waves/
  * --impulses_dir ./impulses/
+ * --faust_gens_dir ./faust/generators
+ * --faust_effs_dir ./faust/effects
  * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**
  * --iface 127.0.0.1 **the listening address**

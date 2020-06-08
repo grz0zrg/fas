@@ -26,6 +26,8 @@ void print_usage() {
     printf("  --grains_dir ./grains/\n");
     printf("  --waves_dir ./waves/\n");
     printf("  --impulses_dir ./impulses/\n");
+    printf("  --faust_gens_dir ./faust/generators/\n");
+    printf("  --faust_effs_dir ./faust/effects/\n");
     printf("  --granular_max_density %u\n", FAS_GRANULAR_MAX_DENSITY);
     printf("  --stream_load_send_delay %u\n", FAS_STREAM_LOAD_SEND_DELAY);
     printf("  --input_channels %u\n", FAS_INPUT_CHANNELS);

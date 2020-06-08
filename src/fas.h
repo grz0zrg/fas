@@ -124,7 +124,6 @@
     unsigned int fas_wavetable_size_m1 = FAS_WAVETABLE_SIZE - 1;
     unsigned int fas_noise_wavetable_size = 65536; // noise wavetable size shouldn't change because its lookup wrap is optimized (using a 16-bit index)
     unsigned int fas_audio = FAS_AUDIO;
-    unsigned int fas_fps = FAS_FPS;
     unsigned int fas_port = FAS_PORT;
     unsigned int fas_rx_buffer_size = FAS_RX_BUFFER_SIZE;
     unsigned int fas_frames_queue_size = FAS_FRAMES_QUEUE_SIZE;
@@ -374,24 +373,24 @@
     void freeSynth(struct _synth **s) {
         struct _synth *synth = *s;
         if (synth) {
-            if (synth->oscillators && synth->settings) {
-                synth->oscillators = freeOscillatorsBank(&synth->oscillators, synth->settings->h, FAS_MAX_INSTRUMENTS);
+            if (synth->oscillators && synth->bank_settings) {
+                synth->oscillators = freeOscillatorsBank(&synth->oscillators, synth->bank_settings->h, FAS_MAX_INSTRUMENTS);
             }
 
             if (synth->grains) {
-                freeGrains(&synth->grains, samples_count, FAS_MAX_INSTRUMENTS, synth->settings->h, fas_granular_max_density);
+                freeGrains(&synth->grains, samples_count, FAS_MAX_INSTRUMENTS, synth->bank_settings->h, fas_granular_max_density);
             }
 
             if (synth->chn_settings) {
                 free(synth->chn_settings);
             }
 
-            if (synth->settings) {
-                free(synth->settings);
+            if (synth->bank_settings) {
+                free(synth->bank_settings);
             }
 
-            if (synth->gain) {
-                free(synth->gain);
+            if (synth->settings) {
+                free(synth->settings);
             }
 
             free(synth);
@@ -496,6 +495,12 @@
         } else {
             return f;
         }
+    }
+
+    void fpsChange(uint32_t fps) {
+        note_time = 1 / (FAS_FLOAT)fps;
+        note_time_samples = round(note_time * fas_sample_rate);
+        lerp_t_step = 1 / note_time_samples;
     }
 
     #define _MAX(a,b) ((a) > (b) ? a : b)

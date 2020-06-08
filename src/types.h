@@ -5,15 +5,16 @@
 
     #include "constants.h"
 
-    struct _synth_settings {
+    struct _bank_settings {
         unsigned int h;
         unsigned int octave;
         unsigned int data_type;
         double base_frequency;
     };
 
-    struct _synth_gain {
+    struct _synth_settings {
         double gain_lr;
+        unsigned int fps;
     };
 
     // fx settings
@@ -86,10 +87,10 @@
 
     // synth. data
     struct _synth {
+        // bank settings
+        struct _bank_settings *bank_settings;
         // synth settings
         struct _synth_settings *settings;
-        // gain settings
-        struct _synth_gain *gain;
         // oscillators bank
         struct oscillator *oscillators;
         // granular synthesis grains data

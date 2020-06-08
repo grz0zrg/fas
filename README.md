@@ -128,7 +128,7 @@ Here is some architectural specifications as if it were made by a synth. manufac
 * per voice filtering for subtractive synthesis with one multi mode filter
   * per voice effects is limited by RGBA note data, this may be seen as a limitation since only one multi mode filter per voice is allowed
 * highly optimized real-time architecture; run on low-power embedded hardware such as Raspberry
-* events resolution can be defined as you wish (60 Hz but you can go above that through a parameter)
+* events resolution can be defined as you wish and can be changed dynamically (typically display refresh rate; 60 Hz but you can go above that through a real-time parameter)
 * cross-platform; run this about anywhere !
 
 Note : "Unlimited" is actually an architectural term, in real conditions it is limited by the available processing power, amount of memory available, frequency resolution is also limited by slice height so it may be out of tune with low resolution! (just like analog but still more precise!)
@@ -168,7 +168,7 @@ Additive synthesis use either magic circle algorithm or a wavetable, speed depen
 
 Granular synthesis is a mean to generate sounds by using small grains of sounds blended together and forming a continuous stream.
 
-FAS grains source are audio files (.wav, .flac or any formats supported by [libsndfile](https://github.com/erikd/libsndfile)) automatically loaded into memory from the "grains" folder by default.
+FAS grains source are audio files (.wav, .flac or any formats supported by [libsndfile](https://github.com/erikd/libsndfile)) automatically loaded into memory from the "grains" directory by default.
 
 Both asynchronous and synchronous granular synthesis is implemented and can be used at the same time.
 
@@ -193,7 +193,7 @@ The grains window/envelope type is defined as a channel dependent settings, FAS 
 
 ### Sampler
 
-Granular synthesis with grain start index of 0 and min/max duration of 1/1 can be used to trigger samples as-is like a regular sampler, samples are loaded from the `grains` folder.
+Granular synthesis with grain start index of 0 and min/max duration of 1/1 can be used to trigger samples as-is like a regular sampler, samples are loaded from the `grains` directory.
 
 ### Subtractive synthesis
 
@@ -226,7 +226,7 @@ Phase modulation (PM) is a mean to generate sounds by modulating the phase of an
 
 PM synthesis in Fragment use a simple algorithm with one carrier and one modulator with filtered feedback.
 
-Carrier and modulator oscillator can be a sine wave or an arbitrary wavetable (from `waves` folder) set by p0 and p1 channel settings parameter. (with -1 indicating the bundled sine wavetable)
+Carrier and modulator oscillator can be a sine wave or an arbitrary wavetable (from `waves` directory) set by p0 and p1 channel settings parameter. (with -1 indicating the bundled sine wavetable)
 
 Modulator amplitude and frequency can be set with B and A channel, modulator feedback amount can be set with integral part of B channel.
 
@@ -247,7 +247,7 @@ The typical index of modulation of standard FM synths can be computed by doing :
 
 Wavetable synthesis is a sound synthesis technique that employ arbitrary periodic waveforms in the production of musical tones or notes.
 
-Wavetable synthesis use single cycle waveforms / samples loaded from the `waves` folder. Wave lookup is monophonic.
+Wavetable synthesis use single cycle waveforms / samples loaded from the `waves` directory. Wave lookup is monophonic.
 
 The implementation is similar to PPG synths with linear interpolation (sampling & wave change) but no oversampling. (may alias)
 
@@ -261,7 +261,7 @@ Every note-on trigger a wavetable reset from current settings (wavetable positio
 
 Wavetable synthesis is fast and provide rich sounds.
 
-Note : FAS does not really have multiple 'wavetables' as it load every waves into a big continuous wavetable but the different wavetables are ordered (by folder then by filename) when loaded so that each loaded waves are contiguous.
+Note : FAS does not really have multiple 'wavetables' as it load every waves into a big continuous wavetable but the different wavetables are ordered (by directory then by filename) when loaded so that each loaded waves are contiguous.
 
 #### RGBA interpretation
 
@@ -571,19 +571,19 @@ Note : Faust DSP code cannot be used to extend available synthesis methods which
 
 ### Samples map
 
-Each samples loaded from the `grains` folder are processed, one of the most important process is the sample pitch mapping, this process try to gather informations or guess the sample pitch to map it correctly onto the user-defined image height, the guessing algorithm is in order :
+Each samples loaded from the `grains` directory are processed, one of the most important process is the sample pitch mapping, this process try to gather informations or guess the sample pitch to map it correctly onto the user-defined image height, the guessing algorithm is in order :
 
 1. from the filename, the filename should contain a specific pattern which indicate the sample pitch such as `A#4` or an exact frequency between "#" character such as `flute_#440#.wav`
-2. same as above but with file path (note : may take the first pattern found on nested folders with multiple patterns)
+2. same as above but with file path (note : may take the first pattern found on nested directories with multiple patterns)
 3. with Yin pitch detection algorithm, this method work ok most of the time but can be inaccurate, depend on the sample content and yin parameters which are actually fixed right now, only awailable when compiled with `WITH_AUBIO`
 
-The `waves` folder should only contain single cycle waveforms, the pitch is automatically detected from the sample length / samplerate informations.
+The `waves` directory should only contain single cycle waveforms, the pitch is automatically detected from the sample length / samplerate informations.
 
 ### Effects
 
 This synthesizer support unlimited (user-defined maximum at compile time) number of effects chain per channels with bypass support, all effects (phaser, comb, reverb, delay...) come from the Soundpipe library which is thus required for effects usage.
 
-Convolution effect use impulses response which are audio files loaded from the `impulses` folder (mono / stereo), free high quality convolution samples from real world places can be found [here](https://openairlib.net/).
+Convolution effect use impulses response which are audio files loaded from the `impulses` directory (mono / stereo), free high quality convolution samples from real world places can be found [here](https://openairlib.net/).
 
 Most effects are stereophonic with dry/wet controls, some may still appear with monophonic settings because their parameters are not yet mapped for stereo but they are still computed in stereo, most delay / reverb parameters are available in stereo which is usefull to build effects such as stereo width (stereo widening) which are a combination of different reverb / delay effect with different parameters for L/R channels.
 
@@ -637,7 +637,7 @@ The server send the CPU load of the stream as a percentage at regular interval (
 
 ### Offline rendering (WIP)
 
-FAS support real-time rendering of the pixels data, the pixels data is compressed on-the-fly into a single file, FAS can then do offline processing and be used again to convert the pixels data into an audio .flac file, this ensure professional quality audio output.
+TODO
 
 ### Future
 
@@ -678,14 +678,14 @@ Once processed the notes list is made available to the audio thread by pushing i
 
 A free list data structure is used for efficient notes data reuse; the program use a pre-allocated pool of notes buffer. This is actually the most memory hungry part because all is pre-allocated and the allocation size depend on slice height times FAS_MAX_INSTRUMENT parameter times note structure times frames queue size parameter... could probably be optimized by reducing note structure size as there is alot of pre-defined stuff made for convenience and readability.
 
-The audio thread make the decision to consume notes data at audio sample level based on a computed *note time* which is defined by the FPS parameter, once a note is consumed it is pushed back to the notes pool.
+The audio thread make the decision to consume notes data at audio sample level based on a computed *note time* which is defined by the FPS parameter configurable from synth. settings, once a note is consumed it is pushed back to the notes pool.
 
 When notes data are not available the audio thread will continue with the latest one during the next *note time*, this ensure smooth audio but may introduce some delay.
 When notes data are not available from some amount of time defined by the max drop parameter the audio will simply stop abruptely, this may indicate performance issues.
 
 Most audio output critical changes use linear interpolation to ensure smooth audio in all conditions, this interpolation is computed once per audio frame and occur in-between note events. A linear interpolation smooth factor can be applied to sharpen the transitions.
 
-Sound synthesis is processed with minimal computation / branching, values which depend on note parameters change are pre-computed per-instrument / oscillator in a dedicated processing block outside synthesis block, notes change and associated parameters happen at sample accurate note time level defined by the FPS parameter.
+Sound synthesis is processed with minimal computation / branching, values which depend on note parameters change are pre-computed per-instrument / oscillator in a dedicated processing block outside synthesis block, notes change and associated parameters happen at sample accurate note time level defined by the FPS parameter configurable from synth. settings.
 
 There is a generic thread-safe (altough not really lock-free) commands queue for synth. parameters change (gain, etc.) which is used to pass data from the network thread to the audio callback.
 
@@ -707,13 +707,15 @@ This program is regularly checked with Valgrind and should be free of memory lea
 
 ## Packets description
 
-To communicate with FAS with a custom client, there is only six type of packets to handle, the **first byte of the packet is the packet identifier**, below is the expected data for each packets
+To communicate with FAS with a custom client, there is only six type of packets to handle, the **first byte of the packet is the packet identifier** with 7 bytes padding, below is the expected data for each packets
 
-**Note** : synth settings packet must be sent before sending any frames, otherwise the received frames are ignored.
+**Note** : bank settings packet must be sent before sending any frames, otherwise the received frames are ignored. Bank settings packet is a mandatory packet before producing any sounds.
 
-Synth settings, packet identifier 0 (audio may be paused for a short amount of time):
+**Note** : When using a custom client incoming packets data can be debugged by compiling FAS in debug mode, all packets / data changes are printed on standard output.
+
+Bank settings, packet identifier 0 (audio may be paused for a short amount of time):
 ```c
-struct _synth_settings {
+struct _bank_settings {
     unsigned int h; // image/slice height
     unsigned int octave; // octaves count
     unsigned int data_type; // the frame data type, 0 = 8-bit, 1 = float
@@ -725,6 +727,7 @@ Frame data, packet identifier 1 (real-time) :
 ```c
 struct _frame_data {
     unsigned int instruments; // instruments count
+    unsigned int padding; // 4 bytes padding
     // Note : the expected data length is computed by : (4 * (_synth_settings.data_type * sizeof(float)) * _synth_settings.h) * FAS_MAX_INSTRUMENTS
     // Note : expected data length is the maximum amount of data which can be received, generally only the used instruments data will be sent
     // Example of amount of data with one instrument used (L/R) and a 8-bit image with height of 400 pixels : (4 * sizeof(unsigned char) * 400)
@@ -732,10 +735,17 @@ struct _frame_data {
 };
 ```
 
-Synth gain, packet identifier 2 (real-time) :
+Synth settings, packet identifier 2 (real-time):
+
 ```c
-struct _synth_gain {
-    double gain_lr;
+struct _cmd_synth_settings {
+  // target parameter
+  // 0 : the rate at which events are processed (roughly correspond to the data stream rate / monitor refresh rate aka FPS, default to 60)
+  // 1 : synth stereo gain [0, 1), default to 0.05
+  unsigned int target;
+  unsigned int padding; // 4 bytes padding
+
+  double value; // target value
 };
 ```
 
@@ -764,11 +774,12 @@ struct _cmd_chn_fx_settings {
     // 1 : bypass fx
     // 2 to up to FAS_MAX_FX_PARAMETERS found in constants.h : fx parameters (mapping is not yet documented but can be found easily in updateEffectParameter function of effects.c, non-realtime parameters can also be found in other functions)
     unsigned int target;
+    unsigned int padding; // 4 bytes padding
     double value; // target value
 };
 ```
 
-Note : The fx chain is handled linearly and must be managed by the client, creation of a fx slot is done by sending the fx id slot value the sending the stop slot value (which will have a fx id value of -1), deletion of a slot is handled automatically when an existing slot receive a fx id value of -1 then all slots after that value will be shifted down the chain by 1.
+Note : The fx chain is handled linearly and must be managed by the client, creation of a fx slot is done by sending the fx id slot value then sending the stop slot value (which will have a fx id value of -1), deletion of a slot is handled automatically when an existing slot receive a fx id value of -1 then all slots after that value will be shifted down the chain by 1.
 
 Instrument settings, packet identifier 6 (real-time) :
 
@@ -811,7 +822,7 @@ Server actions, packet identifier 5 (audio may be paused for a short amount of t
 
 ```c
 struct _synth_action {
-    // 0 : reload samples in the grains folder
+    // 0 : reload samples in the grains directory
     // 1 : note re-trigger (to reinitialize oscillators state on note-off, mostly used for Karplus-Strong / Wavetable, real-time)
     // 2 : reload Faust generators
     // 3 : reload Faust effects
@@ -819,7 +830,7 @@ struct _synth_action {
     // 5 : resume audio
     // 6 : reload waves
     // 7 : reload impulses
-    unsigned char type;
+    unsigned char type; // + 7 bytes padding
     unsigned int instrument; // only for re-trigger action; target instrument
     unsigned int note; // only for re-trigger action; target note (height y index)
 };
@@ -891,7 +902,7 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux with PortAudio :
 
 Some dependencies can also be installed through the operating system packages manager. (may have some issues with deflate option and some libwebsockets packages, this is resolved by compiling libwebsockets 2.2.x)
 
-On ARM64 you must use liblfds 7.2.0 (by passing `-DLIBLFDS720` to cmake) which is provided in the lib folder, this is a not yet released version and potentially unstable for anything else, it is only provided to provide FAS under ARM64 platforms and is not guaranteed to work for anything else.
+On ARM64 you must use liblfds 7.2.0 (by passing `-DLIBLFDS720` to cmake) which is provided in the lib directory, this is a not yet released version and potentially unstable for anything else, it is only provided to provide FAS under ARM64 platforms and is not guaranteed to work for anything else.
 
 To compile liblfds720 (ARM64 only):
 
@@ -906,7 +917,7 @@ Once all dependencies are installed one can run `cmake` followed by `make` in th
 
 FAS can then be installed with `sudo make install` in the build directory
 
-FAS will load grains / waves / impules first by checking `/usr/local/share/fragment/` default install path (specifically `grains` `waves` `impulses` folders) and when they are not available will look into the binary directory.
+FAS will load grains / waves / impules first by checking `/usr/local/share/fragment/` default install path (specifically `grains` `waves` `impulses` directories) and when they are not available will look into the binary directory.
 
 Recommended launch parameters with HiFiBerry DAC+ :
     ./fas --frames_queue_size 63 --sample_rate 48000 --device 2
@@ -943,7 +954,6 @@ Usage: fas [list_of_parameters]
  * --noise_amount 0.1 **the maximum amount of sinewaves band-limited noise (wavetables only)**
  * --frames 512 **audio buffer size**
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
- * --fps 60 **data stream rate, client monitor Hz usually, you can experiment with this but this may have strange effects**
  * --smooth_factor 1.0 **this is the samples interpolation factor between frames, a high value will sharpen sounds attack / transitions (just like if the stream rate / FPS was higher), a low value will smooth it (audio will become muddy)**
  * --ssl 0
  * --deflate 0 **network data compression (add additional processing)**
@@ -953,10 +963,10 @@ Usage: fas [list_of_parameters]
  * --osc_out 0 **you can enable OSC output of notes by setting this argument to 1**
  * --osc_addr 127.0.0.1 **the OSC server address**
  * --osc_port 57120 **the OSC server port**
- * --grains_folder ./grains/
+ * --grains_dir ./grains/
  * --granular_max_density 128 **this control how dense grains can be (maximum)**
- * --waves_folder ./waves/
- * --impulses_folder ./impulses/
+ * --waves_dir ./waves/
+ * --impulses_dir ./impulses/
  * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**
  * --iface 127.0.0.1 **the listening address**

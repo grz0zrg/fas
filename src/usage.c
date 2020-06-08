@@ -9,7 +9,6 @@ void print_usage() {
     printf("  --noise_amount %f\n", FAS_NOISE_AMOUNT);
     //printf("  --wavetable %u\n", FAS_WAVETABLE);
     printf("  --smooth_factor %f\n", FAS_SMOOTH_FACTOR);
-    printf("  --fps %u\n", FAS_FPS);
     printf("  --ssl %u\n", FAS_SSL);
     printf("  --deflate %u\n", FAS_DEFLATE);
     printf("  --rx_buffer_size %u\n", FAS_RX_BUFFER_SIZE);
@@ -24,9 +23,9 @@ void print_usage() {
     printf("  --osc_out 0\n");
     printf("  --osc_addr 127.0.0.1\n");
     printf("  --osc_port 57120\n");
-    printf("  --grains_folder ./grains/\n");
-    printf("  --waves_folder ./waves/\n");
-    printf("  --impulses_folder ./impulses/\n");
+    printf("  --grains_dir ./grains/\n");
+    printf("  --waves_dir ./waves/\n");
+    printf("  --impulses_dir ./impulses/\n");
     printf("  --granular_max_density %u\n", FAS_GRANULAR_MAX_DENSITY);
     printf("  --stream_load_send_delay %u\n", FAS_STREAM_LOAD_SEND_DELAY);
     printf("  --input_channels %u\n", FAS_INPUT_CHANNELS);

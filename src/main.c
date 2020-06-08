@@ -24,13 +24,13 @@
 */
 
 /*
-    Additive/spectral/granular/Wavetable/PM and more synthesizer built for the Fragment Synthesizer, a web-based image-synth collaborative audio/visual synthesizer.
+    Oscillator-bank synthesizer built for the Fragment Synthesizer, a web-based image-synth collaborative audio/visual synthesizer.
 
-    This collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound in real-time for a smooth experience.
+    This collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound in real-time.
 
     Only one client is supported.
 
-    You can tweak this program by passing settings to its arguments, for help : fas --h
+    You can tweak this program : fas --h
 
     Can be used as a generic synthesizer if you feed it correctly!
 
@@ -52,13 +52,20 @@ void doSynthCommands() {
 
         struct _synth_command *synth_command = freelist_synth_command->data;
 
-        if (synth_command->type == FAS_CMD_GAIN_CHANGE) {
+        if (synth_command->type == FAS_CMD_SYNTH_SETTINGS) {
+            uint32_t target = synth_command->value[0];
+            FAS_FLOAT value = synth_command->value[1];
+
 #ifdef DEBUG
-    printf("CMD GAIN_CHANGE : %f\n", synth_command->value[0]);
+    printf("CMD SYNTH_SETTINGS : target %i value %f\n", target, value);
     fflush(stdout);
 #endif
-
-            curr_synth.gain->gain_lr = synth_command->value[0];
+            
+            if (target == 0 && value > 0) {
+                fpsChange(value);
+            } else if (target == 1) {
+                curr_synth.settings->gain_lr = synth_command->value[0];
+            }
         } else if (synth_command->type == FAS_CMD_CHN_SETTINGS) {
             uint32_t chn = synth_command->value[0];
             uint32_t target = synth_command->value[1];
@@ -242,7 +249,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
     // audio callback commands
     if (audio_thread_state == FAS_AUDIO_DO_PAUSE) {
-        last_gain_lr = curr_synth.gain->gain_lr;
+        last_gain_lr = curr_synth.settings->gain_lr;
 
         audio_thread_state = FAS_AUDIO_PAUSE;
     } else if (audio_thread_state == FAS_AUDIO_DO_PLAY) {
@@ -256,7 +263,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
         curr_notes = dummy_notes;
 
-        last_gain_lr = curr_synth.gain->gain_lr;
+        last_gain_lr = curr_synth.settings->gain_lr;
 
         audio_thread_state = FAS_AUDIO_PAUSE;
     }
@@ -506,7 +513,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                     unsigned int grain_index = n->osc_index * samples_count + n->psmp_index;
-                    unsigned int si = curr_synth.settings->h * samples_count;
+                    unsigned int si = curr_synth.bank_settings->h * samples_count;
 
                     struct grain *gr = &curr_synth.grains[grain_index];
 
@@ -1458,11 +1465,11 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
             FAS_FLOAT chn_gain = chn_settings->last_chn_gain + (chn_settings->curr_chn_gain - chn_settings->last_chn_gain) * curr_synth.lerp_t;
 
 #ifdef INTERLEAVED_SAMPLE_FORMAT
-            *audio_out++ = chn_settings->output_l * chn_gain * curr_synth.gain->gain_lr;
-            *audio_out++ = chn_settings->output_r * chn_gain * curr_synth.gain->gain_lr;
+            *audio_out++ = chn_settings->output_l * chn_gain * curr_synth.settings->gain_lr;
+            *audio_out++ = chn_settings->output_r * chn_gain * curr_synth.settings->gain_lr;
 #else
-            *outputBuffer[k * 2]++ = chn_settings->output_l * chn_gain * curr_synth.gain->gain_lr;
-            *outputBuffer[(k * 2) + 1]++ = chn_settings->output_r * chn_gain * curr_synth.gain->gain_lr;
+            *outputBuffer[k * 2]++ = chn_settings->output_l * chn_gain * curr_synth.settings->gain_lr;
+            *outputBuffer[(k * 2) + 1]++ = chn_settings->output_r * chn_gain * curr_synth.settings->gain_lr;
 #endif
 
             chn_settings->output_l = 0;
@@ -1591,7 +1598,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             // reset granular envelope; force grains creation
                             if (n->smp_index != n->psmp_index) {
                                 unsigned int grain_index = n->osc_index * samples_count + n->smp_index;
-                                unsigned int si = curr_synth.settings->h * samples_count;
+                                unsigned int si = curr_synth.bank_settings->h * samples_count;
 
                                 struct grain *gr = &curr_synth.grains[grain_index];
 
@@ -1605,7 +1612,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
                                 unsigned int grain_index = n->osc_index * samples_count + n->smp_index;
                                 unsigned int pgrain_index = n->osc_index * samples_count + n->psmp_index;
-                                unsigned int si = curr_synth.settings->h * samples_count;
+                                unsigned int si = curr_synth.bank_settings->h * samples_count;
 
                                 struct grain *gr = &curr_synth.grains[grain_index];
                                 struct grain *gr2 = &curr_synth.grains[pgrain_index];
@@ -2321,18 +2328,18 @@ if (remaining_payload != 0) {
     fflush(stdout);
 #endif
 
-                if (pid == SYNTH_SETTINGS) {
+                if (pid == BANK_SETTINGS) {
                     audioFlushThenPause();
 
                     // flush all waiting data
                     clearQueues();
 
                     // copy new settings
-                    memcpy(curr_synth.settings, &((char *) usd->packet)[PACKET_HEADER_LENGTH], sizeof(struct _synth_settings));
+                    memcpy(curr_synth.bank_settings, &((char *) usd->packet)[PACKET_HEADER_LENGTH], sizeof(struct _bank_settings));
 
 #ifdef DEBUG
-    printf("SYNTH_SETTINGS : %u, %u, %u, %f\n", curr_synth.settings->h,
-        curr_synth.settings->octave, curr_synth.settings->data_type, curr_synth.settings->base_frequency);
+    printf("BANK_SETTINGS : %u, %u, %u, %f\n", curr_synth.bank_settings->h,
+        curr_synth.bank_settings->octave, curr_synth.bank_settings->data_type, curr_synth.bank_settings->base_frequency);
 #endif
 
                     // free grains & oscillator banks
@@ -2341,10 +2348,10 @@ if (remaining_payload != 0) {
                     curr_synth.oscillators = freeOscillatorsBank(&curr_synth.oscillators, usd->synth_h, FAS_MAX_INSTRUMENTS);
 
                     // pre-compute frames size (aka notes slice data)
-                    usd->frame_data_size = curr_synth.settings->data_type ? sizeof(float) : sizeof(unsigned char);
+                    usd->frame_data_size = curr_synth.bank_settings->data_type ? sizeof(float) : sizeof(unsigned char);
 
-                    usd->expected_frame_length = 4 * usd->frame_data_size * curr_synth.settings->h;
-                    usd->expected_max_frame_length = 4 * usd->frame_data_size * curr_synth.settings->h * FAS_MAX_INSTRUMENTS;
+                    usd->expected_frame_length = 4 * usd->frame_data_size * curr_synth.bank_settings->h;
+                    usd->expected_max_frame_length = 4 * usd->frame_data_size * curr_synth.bank_settings->h * FAS_MAX_INSTRUMENTS;
                     size_t max_frame_data_len = usd->expected_frame_length * FAS_MAX_INSTRUMENTS + sizeof(unsigned int);
 
                     // free frames data state
@@ -2357,7 +2364,7 @@ if (remaining_payload != 0) {
                     usd->frame_data = calloc(max_frame_data_len, usd->frame_data_size);
                     usd->prev_frame_data = calloc(max_frame_data_len, usd->frame_data_size);
                     if (usd->prev_frame_data == NULL || usd->frame_data == NULL) {
-                        printf("SYNTH_SETTINGS : frame_data / prev_frame_data calloc failed.");
+                        printf("BANK_SETTINGS : frame_data / prev_frame_data calloc failed.");
 
                         free(usd->frame_data);
                         free(usd->prev_frame_data);
@@ -2367,7 +2374,7 @@ if (remaining_payload != 0) {
 
                     usd->oscillators = freeOscillatorsBank(&usd->oscillators, usd->synth_h, FAS_MAX_INSTRUMENTS);
 
-                    usd->synth_h = curr_synth.settings->h;
+                    usd->synth_h = curr_synth.bank_settings->h;
 
                     setHeight(usd->synth_h);
 
@@ -2378,30 +2385,30 @@ if (remaining_payload != 0) {
 #ifdef WITH_SOUNDPIPE
                         sp,
 #endif
-                        curr_synth.settings->h,
-                        curr_synth.settings->base_frequency, curr_synth.settings->octave, fas_sample_rate, fas_wavetable_size, FAS_MAX_INSTRUMENTS);
+                        curr_synth.bank_settings->h,
+                        curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, fas_wavetable_size, FAS_MAX_INSTRUMENTS);
 #endif
 
                    curr_synth.oscillators = createOscillatorsBank(
 #ifdef WITH_SOUNDPIPE
                         sp,
 #endif
-                        curr_synth.settings->h,
-                        curr_synth.settings->base_frequency, curr_synth.settings->octave, fas_sample_rate, fas_wavetable_size, FAS_MAX_INSTRUMENTS);
+                        curr_synth.bank_settings->h,
+                        curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, fas_wavetable_size, FAS_MAX_INSTRUMENTS);
                         
 #ifdef WITH_FAUST
 
                     createFaustGenerators(
                         fas_faust_gens,
                         curr_synth.oscillators,
-                        curr_synth.settings->h,
+                        curr_synth.bank_settings->h,
                         fas_sample_rate,
                         FAS_MAX_INSTRUMENTS
                     );
 #endif
 
                     // pre-compute grains data
-                    curr_synth.grains = createGrains(&samples, samples_count, usd->synth_h, curr_synth.settings->base_frequency, curr_synth.settings->octave, fas_sample_rate, FAS_MAX_INSTRUMENTS, fas_granular_max_density);
+                    curr_synth.grains = createGrains(&samples, samples_count, usd->synth_h, curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, FAS_MAX_INSTRUMENTS, fas_granular_max_density);
 
                     //initRender(usd->synth_h);
 
@@ -2522,23 +2529,30 @@ if (remaining_payload != 0) {
 
                         time(&stream_load_begin);
                     }
-                } else if (pid == GAIN_CHANGE) {
+                } else if (pid == SYNTH_SETTINGS) {
+                    uint32_t target = 0;
+                    double value = 0;
+
                     struct _freelist_synth_commands *freelist_synth_command = getSynthCommandFreelist();
                     if (freelist_synth_command == NULL) {
 #ifdef DEBUG
-                        printf("Skipping gain change, commands pool is empty.\n");
+                        printf("Skipping synth settings change, commands pool is empty.\n");
                         fflush(stdout);
 #endif
 
                         goto free_packet;
                     }
 
-                    freelist_synth_command->data->type = FAS_CMD_GAIN_CHANGE;
-                    memcpy(&freelist_synth_command->data->value[0], &((char *) usd->packet)[PACKET_HEADER_LENGTH], 8);
+                    freelist_synth_command->data->type = FAS_CMD_SYNTH_SETTINGS;
+                    memcpy(&target, &((char *) usd->packet)[PACKET_HEADER_LENGTH], sizeof(target));
+                    memcpy(&value, &((char *) usd->packet)[PACKET_HEADER_LENGTH + 8], sizeof(value));
+
+                    freelist_synth_command->data->value[0] = target;
+                    freelist_synth_command->data->value[1] = value;
 
                     if (lfds720_queue_bss_enqueue(&synth_commands_queue_state, NULL, (void *)freelist_synth_command) == 0) {
 #ifdef DEBUG
-                        printf("Skipping gain change, commands queue is full.\n");
+                        printf("Skipping synth settings change, commands queue is full.\n");
                         fflush(stdout);
 #endif
 
@@ -2680,7 +2694,7 @@ if (remaining_payload != 0) {
 #ifdef WITH_SOUNDPIPE
                     if ((curr_fx_id == FX_CONV && (target == 2 || target == 3 || target == 4 || target == 5)) ||
                         (curr_fx_id == FX_DELAY && (target == 2 || target == 4)) ||
-                        (curr_fx_id == FX_SMOOTH_DELAY && (target == 2 || target == 3)) ||
+                        (curr_fx_id == FX_SMOOTH_DELAY && (target == 2 || target == 3 || target == 6) || target == 7) ||
                         (curr_fx_id == FX_COMB && (target == 2 || target == 4)) &&
                         (curr_fx_id == FX_LPC && target == 2) &&
                         (curr_fx_id == FX_WAVESET && target == 2)) {
@@ -2742,8 +2756,11 @@ if (remaining_payload != 0) {
                                 resetDelays(sp, synth_fx[chn], fx_slot, 0, 1, fp2, fp3, 0, 0);
                             }
                         } else if (curr_fx_id == FX_SMOOTH_DELAY) {
-                            resetDelays(sp, synth_fx[chn], fx_slot, 1, 0, fp0, fp1, fp2, fp3);
-                            resetDelays(sp, synth_fx[chn], fx_slot, 1, 1, fp0, fp1, fp2, fp3);
+                            if (target == 2 || target == 3) {
+                                resetDelays(sp, synth_fx[chn], fx_slot, 1, 0, fp0, fp1, fp2, fp3);
+                            } else if (target == 6 || target == 7) {
+                                resetDelays(sp, synth_fx[chn], fx_slot, 1, 1, fp4, fp5, fp6, fp7);
+                            }
                         } else if (curr_fx_id == FX_COMB) {
                             if (target == 2) {
                                 resetComb(sp, synth_fx[chn], fx_slot, 0, fp0, fp1);
@@ -2835,7 +2852,7 @@ fflush(stdout);
 #endif
                         samples_count_m1 = samples_count - 1;
 
-                        curr_synth.grains = createGrains(&samples, samples_count, usd->synth_h, curr_synth.settings->base_frequency, curr_synth.settings->octave, fas_sample_rate, FAS_MAX_INSTRUMENTS, fas_granular_max_density);
+                        curr_synth.grains = createGrains(&samples, samples_count, usd->synth_h, curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, FAS_MAX_INSTRUMENTS, fas_granular_max_density);
 
                         audioPlay();
                     } else if (action_type[0] == FAS_ACTION_NOTE_RESET) { // RE-TRIGGER note
@@ -2874,12 +2891,12 @@ fflush(stdout);
                             audioFlushThenPause();
                             clearQueues();
 
-                            freeFaustGenerators(&curr_synth.oscillators, curr_synth.settings->h, FAS_MAX_INSTRUMENTS);
+                            freeFaustGenerators(&curr_synth.oscillators, curr_synth.bank_settings->h, FAS_MAX_INSTRUMENTS);
 
                             freeFaustFactories(fas_faust_gens);
                             fas_faust_gens = createFaustFactories("./faust/generators");
 
-                            createFaustGenerators(fas_faust_gens, curr_synth.oscillators, curr_synth.settings->h, fas_sample_rate, FAS_MAX_INSTRUMENTS);
+                            createFaustGenerators(fas_faust_gens, curr_synth.oscillators, curr_synth.bank_settings->h, fas_sample_rate, FAS_MAX_INSTRUMENTS);
 
                             audioPlay();
                     } else if (action_type[0] == FAS_ACTION_FAUST_EFFS) { // reload Faust effects
@@ -2940,7 +2957,7 @@ free_packet:
                 }
 
                 if (curr_synth.oscillators) {
-                    curr_synth.oscillators = freeOscillatorsBank(&curr_synth.oscillators, curr_synth.settings->h, FAS_MAX_INSTRUMENTS);
+                    curr_synth.oscillators = freeOscillatorsBank(&curr_synth.oscillators, curr_synth.bank_settings->h, FAS_MAX_INSTRUMENTS);
                 }
 
                 free(usd->prev_frame_data);
@@ -3055,35 +3072,33 @@ int main(int argc, char **argv)
         { "frames",                     required_argument, 0, 1 },
         { "wavetable",                  required_argument, 0, 2 },
         { "wavetable_size",             required_argument, 0, 3 },
-        { "fps",                        required_argument, 0, 4 },
-        { "deflate",                    required_argument, 0, 5 },
-        { "rx_buffer_size",             required_argument, 0, 6 },
-        { "port",                       required_argument, 0, 7 },
-        { "dummy",                      required_argument, 0, 8 },
-        { "frames_queue_size",          required_argument, 0, 9 },
-        { "commands_queue_size",        required_argument, 0, 10 },
-        { "ssl",                        required_argument, 0, 11 },
-        { "iface",                      required_argument, 0, 12 },
-        { "input_device",               required_argument, 0, 13 },
-        { "device",                     required_argument, 0, 14 },
-        { "output_channels",            required_argument, 0, 15 },
-        { "input_channels",             required_argument, 0, 16 },
-        { "i",                                no_argument, 0, 17 },
-        { "noise_amount",               required_argument, 0, 18 },
-        { "osc_out",                    required_argument, 0, 19 },
-        { "osc_addr",                   required_argument, 0, 20 },
-        { "osc_port",                   required_argument, 0, 21 },
-        { "grains_folder",              required_argument, 0, 22 },
-        { "waves_folder",               required_argument, 0, 23 },
-        { "impulses_folder",            required_argument, 0, 24 },
-        { "smooth_factor",              required_argument, 0, 25 },
-        { "granular_max_density",       required_argument, 0, 26 },
-        { "stream_load_send_delay",     required_argument, 0, 27 },
-        { "max_drop",                   required_argument, 0, 28 },
-        { "samplerate_conv_type",       required_argument, 0, 29 },
-        { "render",                     required_argument, 0, 30 },
-        { "render_width",               required_argument, 0, 31 },
-        { "render_convert",             required_argument, 0, 32 },
+        { "deflate",                    required_argument, 0, 4 },
+        { "rx_buffer_size",             required_argument, 0, 5 },
+        { "port",                       required_argument, 0, 6 },
+        { "frames_queue_size",          required_argument, 0, 7 },
+        { "commands_queue_size",        required_argument, 0, 8 },
+        { "ssl",                        required_argument, 0, 9 },
+        { "iface",                      required_argument, 0, 10 },
+        { "input_device",               required_argument, 0, 11 },
+        { "device",                     required_argument, 0, 12 },
+        { "output_channels",            required_argument, 0, 13 },
+        { "input_channels",             required_argument, 0, 14 },
+        { "i",                                no_argument, 0, 15 },
+        { "noise_amount",               required_argument, 0, 16 },
+        { "osc_out",                    required_argument, 0, 17 },
+        { "osc_addr",                   required_argument, 0, 18 },
+        { "osc_port",                   required_argument, 0, 19 },
+        { "grains_dir",                 required_argument, 0, 20 },
+        { "waves_dir",                  required_argument, 0, 21 },
+        { "impulses_dir",               required_argument, 0, 22 },
+        { "smooth_factor",              required_argument, 0, 23 },
+        { "granular_max_density",       required_argument, 0, 24 },
+        { "stream_load_send_delay",     required_argument, 0, 25 },
+        { "max_drop",                   required_argument, 0, 26 },
+        { "samplerate_conv_type",       required_argument, 0, 27 },
+        { "render",                     required_argument, 0, 28 },
+        { "render_width",               required_argument, 0, 29 },
+        { "render_convert",             required_argument, 0, 30 },
         { 0, 0, 0, 0 }
     };
 
@@ -3105,96 +3120,90 @@ int main(int argc, char **argv)
                 fas_wavetable_size = strtoul(optarg, NULL, 0);
                 break;
             case 4 :
-                fas_fps = strtoul(optarg, NULL, 0);
-                break;
-            case 5 :
                 fas_deflate = strtoul(optarg, NULL, 0);
                 break;
-            case 6 :
+            case 5 :
                 fas_rx_buffer_size = strtoul(optarg, NULL, 0);
                 break;
-            case 7 :
+            case 6 :
                 fas_port = strtoul(optarg, NULL, 0);
                 break;
-            case 8 :
-                // DUMMY
-                break;
-            case 9:
+            case 7:
                 fas_frames_queue_size = strtoul(optarg, NULL, 0);
                 break;
-            case 10:
+            case 8:
                 fas_commands_queue_size = strtoul(optarg, NULL, 0);
                 break;
-            case 11:
+            case 9:
                 fas_ssl = strtoul(optarg, NULL, 0);
                 break;
-            case 12:
+            case 10:
                 fas_iface = optarg;
                 break;
-            case 13:
+            case 11:
                 fas_input_audio_device = strtoul(optarg, NULL, 0);
                 if (fas_input_audio_device == 0) {
                     fas_input_audio_device_name = optarg;
                 }
                 break;
-            case 14:
+            case 12:
                 fas_audio_device = strtoul(optarg, NULL, 0);
                 if (fas_audio_device == 0) {
                     fas_audio_device_name = optarg;
                 }
                 break;
-            case 15:
+            case 13:
                 fas_output_channels = strtoul(optarg, NULL, 0);
                 break;
-            case 16:
+            case 14:
                 fas_input_channels = strtoul(optarg, NULL, 0);
                 break;
-            case 17:
+            case 15:
                 print_infos = 1;
                 break;
-            case 18:
+            case 16:
                 fas_noise_amount = strtof(optarg, NULL);
                 break;
-            case 19:
+            case 17:
                 fas_osc_out = strtoul(optarg, NULL, 0);
                 break;
-            case 20:
+            case 18:
                 fas_osc_addr = optarg;
                 break;
-            case 21:
+            case 19:
                 fas_osc_port = optarg;
                 break;
-            case 22:
+            case 20:
                 fas_grains_path = optarg;
                 break;
-            case 23:
+            case 21:
                 fas_waves_path = optarg;
                 break;
-            case 24:
+            case 22:
                 fas_impulses_path = optarg;
                 break;
-            case 25:
+            case 23:
                 fas_smooth_factor = strtod(optarg, NULL);
                 break;
-            case 26:
+            case 24:
                 fas_granular_max_density = strtoul(optarg, NULL, 0);
                 break;
-            case 27:
+            case 25:
                 fas_stream_load_send_delay = strtoul(optarg, NULL, 0);
                 break;
-            case 28:
+            case 26:
                 fas_max_drop = strtoul(optarg, NULL, 0);
                 break;
-            case 29:
+            case 27:
                 fas_samplerate_converter_type = strtol(optarg, NULL, 0);
                 break;
-            case 30:
+            case 28:
                 fas_render_target = optarg;
                 break;
-            case 31:
+            case 29:
                 fas_render_width = strtoul(optarg, NULL, 0);
                 break;
-            case 32:
+            case 30:
                 fas_render_convert = optarg;
                 break;
             default: print_usage();
@@ -3216,7 +3225,7 @@ int main(int argc, char **argv)
         } else {
             if (S_ISDIR(s.st_mode)) {
                 fas_grains_path = fas_install_default_grains_path;
-                printf("'%s' directory detected, default grains folder.\n", fas_install_default_grains_path);
+                printf("'%s' directory detected, default grains directory.\n", fas_install_default_grains_path);
             } else {
                 printf("'%s' is not a directory, defaulting to non-install grains path.\n", fas_install_default_grains_path);
                 fas_grains_path = fas_default_grains_path;
@@ -3241,7 +3250,7 @@ int main(int argc, char **argv)
         } else {
             if (S_ISDIR(s.st_mode)) {
                 fas_waves_path = fas_install_default_waves_path;
-                printf("'%s' directory detected, default waves folder.\n", fas_install_default_waves_path);
+                printf("'%s' directory detected, default waves directory.\n", fas_install_default_waves_path);
             } else {
                 printf("'%s' is not a directory, defaulting to non-install waves path.\n", fas_install_default_waves_path);
                 fas_waves_path = fas_default_waves_path;
@@ -3266,7 +3275,7 @@ int main(int argc, char **argv)
         } else {
             if (S_ISDIR(s.st_mode)) {
                 fas_impulses_path = fas_install_default_impulses_path;
-                printf("'%s' directory detected, default impulses folder.\n", fas_install_default_impulses_path);
+                printf("'%s' directory detected, default impulses directory.\n", fas_install_default_impulses_path);
             } else {
                 printf("'%s' is not a directory, defaulting to non-install impulses path.\n", fas_install_default_impulses_path);
                 fas_impulses_path = fas_default_impulses_path;
@@ -3290,12 +3299,6 @@ int main(int argc, char **argv)
     }
 
     fas_wavetable_size_m1 = fas_wavetable_size - 1;
-
-    if (fas_fps == 0) {
-        printf("Warning: fps program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_FPS);
-
-        fas_fps = FAS_FPS;
-    }
 
     if (fas_port == 0) {
         printf("Warning: port program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_PORT);
@@ -3433,11 +3436,6 @@ int main(int argc, char **argv)
         fas_faust_effs = createFaustFactories("./faust/effects");
 #endif
 
-        // fas setup
-        note_time = 1 / (FAS_FLOAT)fas_fps;
-        note_time_samples = round(note_time * fas_sample_rate);
-        lerp_t_step = 1 / note_time_samples;
-
         if (fas_wavetable) {
             fas_sine_wavetable = sine_wavetable_init(fas_wavetable_size);
             if (fas_sine_wavetable == NULL) {
@@ -3474,6 +3472,7 @@ int main(int argc, char **argv)
     curr_synth.oscillators = NULL;
     curr_synth.grains = NULL;
     curr_synth.settings = NULL;
+    curr_synth.bank_settings = NULL;
     curr_synth.chn_settings = NULL;
     curr_synth.lerp_t = 0;
 
@@ -3709,17 +3708,22 @@ int main(int argc, char **argv)
     }
 #endif
 
-    curr_synth.gain = (struct _synth_gain*)calloc(1, sizeof(struct _synth_gain));
-    if (!curr_synth.gain) {
-        fprintf(stderr, "curr_synth.gain calloc failed\n");
+    curr_synth.settings = (struct _synth_settings*)calloc(1, sizeof(struct _synth_settings));
+    if (!curr_synth.settings) {
+        fprintf(stderr, "curr_synth.settings calloc failed\n");
         fflush(stdout);
 
         goto error;
     }
 
-    curr_synth.settings = (struct _synth_settings*)calloc(1, sizeof(struct _synth_settings));
-    if (!curr_synth.settings) {
-        fprintf(stderr, "curr_synth.settings calloc failed\n");
+    curr_synth.settings->gain_lr = FAS_DEFAULT_GAIN;
+    curr_synth.settings->fps = FAS_DEFAULT_FPS;
+
+    fpsChange(FAS_DEFAULT_FPS);
+
+    curr_synth.bank_settings = (struct _bank_settings*)calloc(1, sizeof(struct _bank_settings));
+    if (!curr_synth.bank_settings) {
+        fprintf(stderr, "curr_synth.bank_settings calloc failed\n");
         fflush(stdout);
 
         goto error;
@@ -3886,16 +3890,16 @@ quit:
 
     // free synth
     if (curr_synth.oscillators) {
-        freeOscillatorsBank(&curr_synth.oscillators, curr_synth.settings->h, FAS_MAX_INSTRUMENTS);
-    }
-
-    free(curr_synth.gain);
-
-    if (curr_synth.grains) {
-        freeGrains(&curr_synth.grains, samples_count, FAS_MAX_INSTRUMENTS, curr_synth.settings->h, fas_granular_max_density);
+        freeOscillatorsBank(&curr_synth.oscillators, curr_synth.bank_settings->h, FAS_MAX_INSTRUMENTS);
     }
 
     free(curr_synth.settings);
+
+    if (curr_synth.grains) {
+        freeGrains(&curr_synth.grains, samples_count, FAS_MAX_INSTRUMENTS, curr_synth.bank_settings->h, fas_granular_max_density);
+    }
+
+    free(curr_synth.bank_settings);
     free(curr_synth.chn_settings);
     //
 

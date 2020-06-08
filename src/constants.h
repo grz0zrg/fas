@@ -20,9 +20,9 @@
     #define FRAME_HEADER_LENGTH 8
 
     // packets id
-    #define SYNTH_SETTINGS 0
+    #define BANK_SETTINGS 0
     #define FRAME_DATA 1
-    #define GAIN_CHANGE 2
+    #define SYNTH_SETTINGS 2
     #define CHN_SETTINGS 3
     #define CHN_FX_SETTINGS 4
     #define ACTION 5
@@ -48,7 +48,8 @@
     #define FAS_DEFLATE 0
     #define FAS_WAVETABLE 1
     #define FAS_WAVETABLE_SIZE 8192
-    #define FAS_FPS 60
+    #define FAS_DEFAULT_FPS 60
+    #define FAS_DEFAULT_GAIN 0.05
     #define FAS_PORT 3003
     #define FAS_RX_BUFFER_SIZE 8192
     #define FAS_FRAMES_QUEUE_SIZE 3
@@ -70,12 +71,12 @@
     #define FAS_FREQ_LIMIT_FACTOR 0.75 // ~36.0kHz for 96kHz sampling rate
 
     #define FAS_MAX_FX_SLOTS 24
-    #define FAS_MAX_FX_PARAMETERS 13
+    #define FAS_MAX_FX_PARAMETERS 14
 
     //#define FAS_USE_CUBIC_INTERP
 
     // synth commands
-    #define FAS_CMD_GAIN_CHANGE 0
+    #define FAS_CMD_SYNTH_SETTINGS 0
     #define FAS_CMD_CHN_SETTINGS 1
     #define FAS_CMD_NOTE_RESET 2
     #define FAS_CMD_CHN_FX_SETTINGS 3

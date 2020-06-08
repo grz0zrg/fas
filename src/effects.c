@@ -199,7 +199,20 @@ void updateEffectParameter(
     struct _synth_fx_settings *fx = &chns->fx[slot];
 
 #ifdef WITH_SOUNDPIPE
-    if (fx->fx_id == FX_DELAY) {
+    if (fx->fx_id == FX_SMOOTH_DELAY) {
+        sp_smoothdelay *sdelay_l = (sp_smoothdelay *)fxs->sdelay[slot2];
+        sp_smoothdelay *sdelay_r = (sp_smoothdelay *)fxs->sdelay[slot2 + 1];
+
+        if (target == 4) {
+            sdelay_l->feedback = value;
+        } else if (target == 5) {
+            sdelay_l->del = value;
+        } else if (target == 8) {
+            sdelay_r->feedback = value;
+        } else if (target == 9) {
+            sdelay_r->del = value;
+        }
+    } else if (fx->fx_id == FX_DELAY) {
         sp_delay *delay_l = (sp_delay *)fxs->delay[slot2];
         sp_delay *delay_r = (sp_delay *)fxs->delay[slot2 + 1];
         
@@ -437,15 +450,7 @@ void updateEffectParameter(
     for (k = 0; k < 2; k += 1) {
         unsigned int slot_index = slot2 + k;
 #ifdef WITH_SOUNDPIPE
-        if (fx->fx_id == FX_SMOOTH_DELAY) {
-            sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[slot_index];
-
-            if (target == 4) {
-                sdelay->feedback = value;
-            } else if (target == 5) {
-                sdelay->del = value;
-            }
-        } else if (fx->fx_id == FX_BITCRUSH) {
+        if (fx->fx_id == FX_BITCRUSH) {
             sp_bitcrush *bitcrush = (sp_bitcrush *)fxs->bitcrush[slot_index];
 
             if (target == 2) {
@@ -662,9 +667,9 @@ void resetDelays(
     FAS_FLOAT v3,
     FAS_FLOAT v4
 ) {
-    if (type == 0) {
-        unsigned int slot_index = slot * 2 + lr;
+    unsigned int slot_index = slot * 2 + lr;
 
+    if (type == 0) {
         sp_delay_destroy((sp_delay **)&fxs->delay[slot_index]);
         sp_delay_create((sp_delay **)&fxs->delay[slot_index]);
 
@@ -672,22 +677,15 @@ void resetDelays(
 
         sp_delay *delay = (sp_delay *)fxs->delay[slot_index];
         delay->feedback = v2;
-    } else {
-        unsigned int k = 0;
-        for (k = 0; k < 2; k += 1) {
-            unsigned int slot_index = slot * 2 + k;
+    } else if (type == 1) {
+        sp_smoothdelay_destroy((sp_smoothdelay **)&fxs->sdelay[slot_index]);
+        sp_smoothdelay_create((sp_smoothdelay **)&fxs->sdelay[slot_index]);
 
-            if (type == 1) {
-                sp_smoothdelay_destroy((sp_smoothdelay **)&fxs->sdelay[slot_index]);
-                sp_smoothdelay_create((sp_smoothdelay **)&fxs->sdelay[slot_index]);
+        sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[slot_index], v1, v2);
 
-                sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[slot_index], v1, v2);
-
-                sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[slot_index];
-                sdelay->feedback = v3;
-                sdelay->del = v4;
-            }
-        }
+        sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[slot_index];
+        sdelay->feedback = v3;
+        sdelay->del = v4;
     }
 }
 

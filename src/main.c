@@ -1481,7 +1481,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
         curr_synth.curr_sample += 1;
 
-        // process the next event
+        // compute the next event
         if (curr_synth.curr_sample >= note_time_samples) {
             lerp_t_step = 0;
 
@@ -1936,14 +1936,13 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #endif
             } else {
                 // allow some frame drop, hold the current note events to FAS_MAX_DROP if that happen
-                // ensure smooth audio in most situations (the only downside : it may sound delayed, the impact depend on how many frames are dropped)
+                // ensure smooth audio in most situations (the only downside : it may sound delayed, latency impact depend on how many frames are dropped)
                 fas_drop_counter += 1;
                 if (fas_drop_counter >= fas_max_drop) {
                     if (curr_notes != dummy_notes) {
                         LFDS720_FREELIST_N_SET_VALUE_IN_ELEMENT(curr_freelist_frames_data->fe, curr_freelist_frames_data);
                         lfds720_freelist_n_threadsafe_push(&freelist_frames, NULL, &curr_freelist_frames_data->fe);
                     }
-
                     curr_notes = dummy_notes;
 
                     note_buffer_len = 0;
@@ -2427,7 +2426,6 @@ if (remaining_payload != 0) {
     memcpy(&frame_data_length, &((char *) usd->packet)[PACKET_HEADER_LENGTH], sizeof(frame_data_length));
     printf("Number of instruments in the frame: %u\n", *frame_data_length);
 #endif
-
                     // drop frame packets when the audio thread is busy at doing something else than playing audio
                     if (audio_thread_state != FAS_AUDIO_PLAY) {
                         goto free_packet;
@@ -2444,6 +2442,29 @@ if (remaining_payload != 0) {
                         printf("Skipping a frame until a synth. settings change happen.\n");
                         fflush(stdout);
                         goto free_packet;
+                    }
+
+                    // compute latency between frames & treshold stream rate to avoid unecessary computations
+                    uint64_t nowtime = ns();
+                    double time_between_frames_ms = (double)(nowtime - frame_sync.lasttime) / 1000000UL;
+                    frame_sync.lasttime = nowtime;
+
+                    frame_sync.acc_time += time_between_frames_ms;
+                    if (frame_sync.acc_time < note_time * 1000) {
+#ifdef DEBUG_FRAME_DATA
+                        printf("Skipping a frame. (< treshold)\n");
+                        fflush(stdout);
+#endif
+                        goto free_packet;
+                    } else {
+#ifdef DEBUG_FRAME_DATA
+                        printf("Frame latency %fms\nFrame overall time %fms\n", time_between_frames_ms, frame_sync.acc_time);
+                        fflush(stdout);
+#endif
+
+                        frame_sync.acc_time = 0;
+
+                        curr_synth.curr_sample = 0;
                     }
 
 #ifdef DEBUG_FRAME_DATA
@@ -2511,21 +2532,23 @@ if (remaining_payload != 0) {
                         lfds720_freelist_n_threadsafe_push(&freelist_frames, NULL, &overwritten_notes->fe);
                     }
 
-                    // check & send stream load
+                    // check & send stream informations (load & latency)
                     time_t stream_load_end;
                     time(&stream_load_end);
                     double stream_load_time = difftime(stream_load_end,stream_load_begin);
-                    if (stream_load_time > fas_stream_load_send_delay) {
-                        static unsigned char p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int) * 2 + LWS_SEND_BUFFER_POST_PADDING];
+                    if (stream_load_time > fas_stream_infos_send_delay) {
+                        static unsigned char p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int) * 2 + sizeof(double) + LWS_SEND_BUFFER_POST_PADDING];
                         p_load[LWS_SEND_BUFFER_PRE_PADDING] = 0; // packet flag
                         p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int)] = 0;
+                        p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(double)] = 0;
 #ifdef WITH_JACK
                         int stream_load = cpu_load;
 #else
                         int stream_load = (int)(Pa_GetStreamCpuLoad(stream) * 100);
 #endif
                         memcpy(&p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int)], &stream_load, sizeof(int));
-                        lws_write(wsi, &p_load[LWS_SEND_BUFFER_PRE_PADDING], sizeof(int) * 2, LWS_WRITE_BINARY);
+                        memcpy(&p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int) * 2], &time_between_frames_ms, sizeof(double));
+                        lws_write(wsi, &p_load[LWS_SEND_BUFFER_PRE_PADDING], sizeof(int) * 2 + sizeof(double), LWS_WRITE_BINARY);
 
                         time(&stream_load_begin);
                     }
@@ -3093,7 +3116,7 @@ int main(int argc, char **argv)
         { "impulses_dir",               required_argument, 0, 22 },
         { "smooth_factor",              required_argument, 0, 23 },
         { "granular_max_density",       required_argument, 0, 24 },
-        { "stream_load_send_delay",     required_argument, 0, 25 },
+        { "stream_infos_send_delay",    required_argument, 0, 25 },
         { "max_drop",                   required_argument, 0, 26 },
         { "samplerate_conv_type",       required_argument, 0, 27 },
         { "render",                     required_argument, 0, 28 },
@@ -3191,7 +3214,7 @@ int main(int argc, char **argv)
                 fas_granular_max_density = strtoul(optarg, NULL, 0);
                 break;
             case 25:
-                fas_stream_load_send_delay = strtoul(optarg, NULL, 0);
+                fas_stream_infos_send_delay = strtoul(optarg, NULL, 0);
                 break;
             case 26:
                 fas_max_drop = strtoul(optarg, NULL, 0);
@@ -3418,10 +3441,10 @@ int main(int argc, char **argv)
         fas_noise_amount = FAS_GRANULAR_MAX_DENSITY;
     }
 
-    if (fas_stream_load_send_delay < 1.) {
-        printf("Warning: stream_load_send_delay program option argument is invalid, should be >= 1, the default value (%i) will be used.\n", FAS_STREAM_LOAD_SEND_DELAY);
+    if (fas_stream_infos_send_delay < 1.) {
+        printf("Warning: fas_stream_infos_send_delay program option argument is invalid, should be >= 1, the default value (%i) will be used.\n", FAS_STREAM_INFOS_SEND_DELAY);
 
-        fas_stream_load_send_delay = FAS_STREAM_LOAD_SEND_DELAY;
+        fas_stream_infos_send_delay = FAS_STREAM_INFOS_SEND_DELAY;
     }
 
     if (fas_max_drop <= 0) {

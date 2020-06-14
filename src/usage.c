@@ -29,7 +29,7 @@ void print_usage() {
     printf("  --faust_gens_dir ./faust/generators/\n");
     printf("  --faust_effs_dir ./faust/effects/\n");
     printf("  --granular_max_density %u\n", FAS_GRANULAR_MAX_DENSITY);
-    printf("  --stream_load_send_delay %u\n", FAS_STREAM_LOAD_SEND_DELAY);
+    printf("  --stream_infos_send_delay %u\n", FAS_STREAM_INFOS_SEND_DELAY);
     printf("  --input_channels %u\n", FAS_INPUT_CHANNELS);
     printf("  --output_channels %u\n", FAS_OUTPUT_CHANNELS);
     printf("  --frames_queue_size %u\n", FAS_FRAMES_QUEUE_SIZE);

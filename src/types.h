@@ -1,6 +1,8 @@
 #ifndef _FAS_TYPES_H_
 #define _FAS_TYPES_H_
 
+    #include <stdatomic.h>
+
     #include "afSTFT/afSTFTlib.h"
 
     #include "constants.h"
@@ -107,7 +109,7 @@
         FAS_FLOAT lerp_t;
 
         // track current note-level sample (boundary defined by FPS)
-        unsigned long curr_sample;
+        atomic_int curr_sample;
     } curr_synth;
 
     struct user_session_data {
@@ -137,4 +139,9 @@
 
         unsigned int synth_h;
     };
+
+    struct _frame_sync {
+        uint64_t lasttime;
+        double acc_time;
+    } frame_sync;
 #endif

@@ -93,6 +93,7 @@
     #include "filters.h"
     #include "note.h"
     #include "usage.h"
+    #include "time.h"
 
     struct _freelist_frames_data {
         struct lfds720_freelist_n_element fe;
@@ -140,7 +141,7 @@
     int fas_output_channels = FAS_OUTPUT_CHANNELS;
     unsigned int fas_granular_max_density = FAS_GRANULAR_MAX_DENSITY;
     unsigned int frame_data_count = FAS_OUTPUT_CHANNELS / 2;
-    unsigned int fas_stream_load_send_delay = FAS_STREAM_LOAD_SEND_DELAY;
+    unsigned int fas_stream_infos_send_delay = FAS_STREAM_INFOS_SEND_DELAY;
     unsigned int fas_max_drop = FAS_MAX_DROP;
     unsigned int fas_render_width = FAS_RENDER_WIDTH;
     int fas_samplerate_converter_type = -1; // SRC_SINC_MEDIUM_QUALITY
@@ -181,7 +182,7 @@
 
     FAS_FLOAT acb_time = 0.;
 
-    FAS_FLOAT note_time;
+    double note_time;
     FAS_FLOAT note_time_samples;
     FAS_FLOAT lerp_t_step;
 
@@ -506,7 +507,7 @@
     }
 
     void fpsChange(uint32_t fps) {
-        note_time = 1 / (FAS_FLOAT)fps;
+        note_time = 1.0 / (double)fps;
         note_time_samples = round(note_time * fas_sample_rate);
         lerp_t_step = 1 / note_time_samples;
     }

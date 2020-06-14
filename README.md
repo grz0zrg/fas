@@ -48,7 +48,7 @@ Table of Contents
 
 ## About
 
-Fragment Audio Server (FAS) is a high performance pixels-based graphical audio synthesizer implemented as a WebSocket server with the C language.
+Fragment Audio Server (FAS) is a high performance pixels-based graphical audio synthesizer implemented as a WebSocket server with the C language (C11).
 
 One can see this as a limitless bank of generators / filters.
 
@@ -145,7 +145,7 @@ When compiled with `PARTIAL_FX` defined there is a fx slot available **per parti
 * 3: tanh waveshaping (Wave 1 / Wave 2 : B component [0, 1] / A component [0, 1))
 * 4: signal foldover (A component [0, ...))
 * 5: noise (B added white noise factor to sine wave phase, maximum defined by command-line parameter)
-* 6: convolver (A component integer part; Note : require huge amount of processing power with even low amount of partials / long impulse)
+* 6: convolver (Impulse file : A component integer part; Note : require huge amount of processing power with even low amount of partials / long impulse)
 
 Any combination of these can be applied to each partials with real-time parameters change. This feature may allow to easily add character to the additive sound.
 
@@ -597,11 +597,13 @@ FAS should be compiled with Soundpipe for best performance / high quality algori
 
 FAS should also be compiled with Faust which may provide high quality / performance algorithms, using a huge number of generators and effects may vastly affect memory requirements however.
 
-A fast and reliable Gigabit connection is recommended in order to process frames data from the network correctly.
+A fast, reliable, low latency Gigabit connection is recommended.
 
-Whole bank height RGBA data for each used instruments is sent as-is by clients and this data is transformed when received so there may be lots of data to transfer, this is by design to not add additional processing on the client side, it is recommended to use gzip compression to reduce data size. (command-line parameter) Maybe the transform should happen on the client side to get rid of heavy bandwidth requirements...
+Whole bank height RGBA data for each used instruments is sent as-is by the client and this data is transformed when received so there may be lots of data to transfer, this is by design to not add additional processing on the client side, it is recommended to use gzip compression to reduce data size. (command-line parameter) Maybe the transform should happen on the client side to get rid of heavy bandwidth requirements...
 
-Poor network transfer rate limit the number of instruments / the frequency resolution (frame height) / number of events to process per seconds, a Gigabit connection is good enough for most usage, for example with a theorical data rate limit of 125MB/s and without packets compression (`deflate` argument) it would allow a configuration of 8 instruments with 1000px height slices float data at 60 fps without issues and beyond that (2000px / 240fps or 16 instruments / 1000 / 240fps), 8-bit data could also be used to go beyond that limit through Gigabit. This can go further with packets compression at the price of processing time.
+Poor network transfer rate limit the number of instruments / the frequency resolution (frame height) / number of events to process per seconds, a Gigabit connection is good enough for most usage, for example with a theorical data rate limit of 125MB/s and without packets compression (`deflate` argument) it allow a configuration of 8 instruments with 1000px height slices float data at 60 fps without issues and beyond that (2000px / 240fps or 16 instruments / 1000 / 240fps), 8-bit data could also be used to go beyond that limit through Gigabit. This can go further with packets compression at the price of processing time.
+
+Poor network latency may heavily limit the events rate especially if it is not on the same machine, can be solved by reducing data size or reducing amount of instruments / frame height / fps.
 
 #### Raspberry PI
 
@@ -635,7 +637,15 @@ Only one client is supported at the moment, the server will refuse any more conn
 
 ### What is sent
 
-The server send the CPU load of the stream as a percentage at regular interval (adjustable) to the client (unsigned 32 bits integer type).
+The server send the CPU load of the stream as a percentage at regular interval (adjustable) and stream latency (ms) to the client :
+
+```c
+struct _stream_infos {
+  int packet_id; // 0
+  int stream_load; // [0, 100]
+  double stream_latency; // ms
+}
+```
 
 ### Offline rendering (WIP)
 
@@ -677,6 +687,8 @@ The audio thread contain its own synth. data structure defined globally as `curr
 
 RGBA frames coming from the network are converted into a notes list (an array) which just tell which oscillator from the oscillator bank will be enabled during the *note time*.
 Once processed the notes list is made available to the audio thread by pushing it into a lock-free ring buffer which ensure thread safety.
+
+There is a simple "sync" mechanism which compute time between frames and accumulate it, skipping any frames below computed *note time* (computed from FPS parameter), this is a good enough solution but may have some small latency edge cases due to network latency.
 
 A free list data structure is used for efficient notes data reuse; the program use a pre-allocated pool of notes buffer. This is actually the most memory hungry part because all is pre-allocated and the allocation size depend on slice height times FAS_MAX_INSTRUMENT parameter times note structure times frames queue size parameter... could probably be optimized by reducing note structure size as there is alot of pre-defined stuff made for convenience and readability.
 
@@ -955,7 +967,7 @@ A wxWidget user-friendly launcher is also available [here](https://github.com/gr
 Usage: fas [list_of_parameters]
  * --i **print audio device infos**
  * --sample_rate 44100
- * --noise_amount 0.1 **the maximum amount of sinewaves band-limited noise (wavetables only)**
+ * --noise_amount 0.1 **the maximum amount of band-limited noise to add (wavetables only)**
  * --frames 512 **audio buffer size**
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
  * --smooth_factor 1.0 **this is the samples interpolation factor between frames, a high value will sharpen sounds attack / transitions (just like if the stream rate / FPS was higher), a low value will smooth it (audio will become muddy)**
@@ -980,9 +992,9 @@ Usage: fas [list_of_parameters]
  * --input_device -1 **PortAudio audio input device index or full name (informations about audio devices are displayed when the app. start)**
  * --output_channels 2 **stereo pair**
  * --input_channels 2 **stereo pair**
- * --frames_queue_size 3 **important parameter, if you increase this too much the audio might be delayed and the memory requirement used by FAS will increase**
+ * --frames_queue_size 3 **important parameter, if you increase this too much the audio might be delayed and the memory requirement will increase**
  * --commands_queue_size 512 **should be a positive integer power of 2**
- * --stream_load_send_delay 2 **FAS will send the stream CPU load every two seconds**
+ * --stream_infos_send_delay 2 **FAS will send the stream infos every two seconds**
  * --samplerate_conv_type -1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time, this settings can be ignored most of the time since FAS do real-time resampling, -1 skip the resampling step**
 
 **You can stop the application by pressing any keys while it is running on Windows or by sending SIGINT (Ctrl+C etc.) under Unix systems.**

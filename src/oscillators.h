@@ -86,7 +86,19 @@
         sp_data *spd,
 #endif
         unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int wavetable_size, unsigned int frame_data_count);
-        
+
+    struct oscillator *updateOscillatorBank(
+    #ifdef WITH_SOUNDPIPE
+        sp_data *spd,
+    #endif
+        struct oscillator **o,
+        unsigned int n,
+        unsigned int frame_data_count,
+        unsigned int sample_rate,
+        int target,
+        FAS_FLOAT value1,
+        FAS_FLOAT value2);
+
     extern struct oscillator *freeOscillatorsBank(struct oscillator **oscs, unsigned int n, unsigned int frame_data_count);
 
 #ifdef WITH_FAUST

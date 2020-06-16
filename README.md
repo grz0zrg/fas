@@ -323,9 +323,17 @@ This is a fast method which generate pleasant string-like sounds.
 
 Integral part of blue / alpha component correspond to the first / second resonant frequency (main resonant frequency is tuned to current vertical pixel position), fractional part of blue component correspond to damping factor and amount of energy to add back for the alpha component.
 
+Number of 'tubes' can be changed from instrument parameter 3.
+Period of time over which all sound is stopped can be changed from instrument parameter 4. (non-realtime)
+
 #### Metal bar
 
 Approximate metal bar being struck, integral part of blue component correspond to decay, integral part of alpha component correspond to strike spatial width (normalized into [0,1000] range), fractional part of the blue component is the scanning spped of the output location, fractional part of the alpha component is the position along bar that strike occurs.
+
+Boundary condition at left end of bar can be changed through intrument parameter 3. (non-realtime)
+Boundary condition at right end of bar can be changed through intrument parameter 4. (non-realtime)
+
+Normalized strike velocity can be changed from instrument parameter 5.
 
 #### RGBA interpretation (Karplus-Strong)
 
@@ -795,6 +803,8 @@ struct _cmd_chn_fx_settings {
 
 Note : The fx chain is handled linearly and must be managed by the client, creation of a fx slot is done by sending the fx id slot value then sending the stop slot value (which will have a fx id value of -1), deletion of a slot is handled automatically when an existing slot receive a fx id value of -1 then all slots after that value will be shifted down the chain by 1.
 
+Note : Some effect parameters may actually need an effect initialization which will pause audio for a short amount of time. Example : Convolution impulse index; delay max del; comb filter loop time
+
 Instrument settings, packet identifier 6 (real-time) :
 
 ```c
@@ -807,19 +817,24 @@ struct _cmd_instrument_settings {
     //  2 : parameter
     //        Granular : granular envelope type for this instrument (there is 13 types of envelopes)
     //        Subtractive : filter type  (require Soundpipe)
-    //        Physical modeling : Physical model type (require Soundpipe)
+    //        Physical modelling : Physical model type (require Soundpipe)
     //        Spectral : input channel
     //        Faust : Generator ID
     //  3 : parameter
     //        Granular : grain duration (min. bound)
     //        Spectral : window size
+    //        Physical modelling droplet : Number of tubes
+    //        Physical modelling bar : Boundary condition at left end of bar
     //        Faust : fs_p0
     //  4 : parameter
     //        Granular : grain spread (max. bound)
     //        Spectral : mode
+    //        Physical modelling droplet : deattack parameter
+    //        Physical modelling bar : Boundary condition at right end of bar
     //        Faust : fs_p1
     //  5 : parameter
     //        Granular : grain spread
+    //        Physical modelling bar : Normalized strike velocity
     //        Faust : fs_p2
     //        Spectral : source mode
     //  6 : parameter
@@ -830,7 +845,7 @@ struct _cmd_instrument_settings {
 };
 ```
 
-Note : Some effect parameters may actually need an effect initialization which will pause audio for a short amount of time. Example : Convolution impulse index; delay max del; comb filter loop time
+Note : Some instrument parameters may actually need an initialization which will pause audio for a short amount of time. Example : Spectral window size, Physical modelling drop deattack, Physical modelling bar boundary condition
 
 Server actions, packet identifier 5 (audio may be paused for a short amount of time on any reload actions otherwise it is real-time):
 

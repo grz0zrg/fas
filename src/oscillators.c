@@ -350,6 +350,71 @@ struct oscillator *createOscillatorsBank(
     return oscillators;
 }
 
+struct oscillator *updateOscillatorBank(
+#ifdef WITH_SOUNDPIPE
+    sp_data *spd,
+#endif
+    struct oscillator **o,
+    unsigned int n,
+    unsigned int frame_data_count,
+    unsigned int sample_rate,
+    int target,
+    FAS_FLOAT value1,
+    FAS_FLOAT value2) {
+    struct oscillator *oscs = *o;
+
+    if (oscs == NULL) {
+        return NULL;
+    }
+
+    FAS_FLOAT nyquist_limit = sample_rate / 2;
+
+    unsigned int y = 0, i = 0, k = 0, j = 0;
+    for (y = 0; y < n; y += 1) {
+        struct oscillator *osc = &oscs[n - 1 - y];
+        for (i = 0; i < frame_data_count; i += 1) {
+#ifdef WITH_SOUNDPIPE
+            if (target == 0) {
+                sp_drip_destroy((sp_drip **)&oscs[y].sp_gens[i][SP_DRIP_GENERATOR]);
+
+                sp_drip_create((sp_drip **)&osc->sp_gens[i][SP_DRIP_GENERATOR]);
+                sp_drip_init(spd, osc->sp_gens[i][SP_DRIP_GENERATOR], value1);
+
+                sp_drip *drip = (sp_drip *)osc->sp_gens[i][SP_DRIP_GENERATOR];
+                drip->amp = 1.f;
+                drip->freq = fmin(osc->freq, nyquist_limit * FAS_FREQ_LIMIT_FACTOR);
+            } else if (target == 1) {
+                sp_bar_destroy((sp_bar **)&oscs[y].sp_gens[i][SP_BAR_GENERATOR]);
+
+                SPFLOAT stiffness;
+                SPFLOAT imsec = 2.41;
+                if (value2 == 1) {
+                    if (value1 == 1) {
+                        imsec = 2.41;
+                    } else if (value1 == 2) {
+                        imsec = 3.825;
+                    } else {
+                        imsec = 2.88;
+                    }
+                } else {
+                    if (value1 == 1) {
+                        imsec = 3.825;
+                    } else if (value1 == 2) {
+                        imsec = 3.2;
+                    } else {
+                        imsec = 4.398;
+                    }
+                }
+                stiffness = osc->freq * imsec / 10;
+
+                sp_bar_create((sp_bar **)&osc->sp_gens[i][SP_BAR_GENERATOR]);
+                sp_bar_init(spd, osc->sp_gens[i][SP_BAR_GENERATOR], stiffness, 0.001f);
+            }
+#endif
+        }
+    }
+}
+
 struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, unsigned int frame_data_count) {
     struct oscillator *oscs = *o;
 

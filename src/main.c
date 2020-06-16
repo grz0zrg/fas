@@ -1282,7 +1282,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     FAS_FLOAT outsr = 0;
 
                     sp_comb_compute(sp, (sp_comb *)fx->comb[j], &insl, &outsl);
-                    sp_comb_compute(sp, (sp_comb *)fx->comb[j + 1], &insr, &outsl);
+                    sp_comb_compute(sp, (sp_comb *)fx->comb[j + 1], &insr, &outsr);
 
                     chn_settings->output_l = chn_settings->output_l * fx->dry[j] + outsl * fx->wet[j];
                     chn_settings->output_r = chn_settings->output_r * fx->dry[j + 1] + outsr * fx->wet[j + 1];
@@ -1801,6 +1801,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 drip->shake_max = n->res;
                                 drip->freq1 = fmin(fabs(round(n->blue)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
                                 drip->freq2 = fmin(fabs(round(n->alpha)), fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
+                                drip->num_tubes = instrument->p1;
                             } else if (model_type == 2) {
                                 double bint_part;
                                 FAS_FLOAT blue_frac_part = modf(fabs(n->blue), &bint_part);
@@ -1809,10 +1810,11 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 FAS_FLOAT alpha_frac_part = modf(fabs(n->alpha), &aint_part);
 
                                 sp_bar *bar = (sp_bar *)osc->sp_gens[k][SP_BAR_GENERATOR];
-                                bar->scan = blue_frac_part > 1;
+                                bar->scan = blue_frac_part;
                                 bar->pos = alpha_frac_part;
                                 bar->T30 = bint_part > 1 ? bint_part : 1;
                                 bar->wid = (aint_part > 1 ? aint_part : 1) / 1000;
+                                bar->vel = instrument->p3;
                             }
 #endif
 
@@ -2653,6 +2655,18 @@ if (remaining_payload != 0) {
                         usd->instruments[instrument].type = value;
                     }
 
+                    if (target == 3) {
+                        usd->instruments[instrument].p0 = value;
+                    }
+
+                    if (target == 4) {
+                        usd->instruments[instrument].p1 = value;
+                    }
+
+                    if (target == 5) {
+                        usd->instruments[instrument].p2 = value;
+                    }
+
                     // special case for synthesis type which require re-initialization for this parameter
                     if (target == 4 && usd->instruments[instrument].type == FAS_SPECTRAL) {
 #ifdef DEBUG
@@ -2662,6 +2676,51 @@ if (remaining_payload != 0) {
 
                         audioPause();
                         createInstrumentState(&fas_instrument_states[instrument], (uint32_t)value);
+                        audioPlay();
+                    } else if (target == 5 &&
+                        usd->instruments[instrument].p0 == 1 &&
+                        usd->instruments[instrument].type == FAS_PHYSICAL_MODELLING) {
+#ifdef DEBUG
+                        printf("Physical modelling droplet deattack change. (%f)\n", value);
+                        fflush(stdout);
+#endif
+
+                        audioPause();
+                        updateOscillatorBank(
+#ifdef WITH_SOUNDPIPE
+                            sp,
+#endif
+                            &usd->oscillators, usd->synth_h, FAS_MAX_INSTRUMENTS, fas_sample_rate, 0, value, 0);
+                        audioPlay();
+                    } else if (target == 4 &&
+                        usd->instruments[instrument].p0 == 2 &&
+                        usd->instruments[instrument].type == FAS_PHYSICAL_MODELLING) {
+#ifdef DEBUG
+                        printf("Physical modelling bar bcL change. (%f)\n", value);
+                        fflush(stdout);
+#endif
+
+                        audioPause();
+                        updateOscillatorBank(
+#ifdef WITH_SOUNDPIPE
+                            sp,
+#endif
+                            &usd->oscillators, usd->synth_h, FAS_MAX_INSTRUMENTS, fas_sample_rate, 1, value, usd->instruments[instrument].p2);
+                        audioPlay();
+                    } else if (target == 5 &&
+                        usd->instruments[instrument].p0 == 2 &&
+                        usd->instruments[instrument].type == FAS_PHYSICAL_MODELLING) {
+#ifdef DEBUG
+                        printf("Physical modelling bar bcR change. (%f)\n", value);
+                        fflush(stdout);
+#endif
+
+                        audioPause();
+                        updateOscillatorBank(
+#ifdef WITH_SOUNDPIPE
+                            sp,
+#endif
+                            &usd->oscillators, usd->synth_h, FAS_MAX_INSTRUMENTS, fas_sample_rate, 1, usd->instruments[instrument].p1, value);
                         audioPlay();
                     }
 

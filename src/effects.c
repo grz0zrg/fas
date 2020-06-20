@@ -352,13 +352,13 @@ void updateEffectParameter(
             sp_comb *comb = (sp_comb *)fxs->comb[slot2 + 1];
 
             comb->revtime = value;
-        } else if (target == 7) {
+        } else if (target == 6) {
             fxs->dry[slot2] = value;
-        } else if (target == 8) {
+        } else if (target == 7) {
             fxs->wet[slot2] = value;
-        } else if (target == 9) {
+        } else if (target == 8) {
             fxs->dry[slot2 + 1] = value;
-        } else if (target == 10) {
+        } else if (target == 9) {
             fxs->wet[slot2 + 1] = value;
         }
     } else if (fx->fx_id == FX_AUTOWAH) {

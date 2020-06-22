@@ -599,7 +599,7 @@ Most effects are stereophonic with dry/wet controls, some may still appear with 
 
 ### Performances
 
-This program is tailored for performances, it is memory intensive (about 512mb is needed without samples and 8 instruments max, about 1 Gb with few samples, about 2.5 Gb with samples and 32 instruments max, memory requirement will have a major increase when FAS_MAX_INSTRUMENTS constant and frame queue size command line argument is increased), all real-time things are pre-allocated or pre-computed with zero real-time allocations.
+This program is tailored for performances, it is memory intensive (about 512mb is needed without samples and 8 instruments max, about 1 Gb with few samples, about 2.5 Gb with samples and 32 instruments max, memory requirement will have a major increase when `max_instrument` and frame queue size command line argument is increased), all real-time things are pre-allocated or pre-computed with zero real-time allocations.
 
 FAS should be compiled with Soundpipe for best performance / high quality algorithms; for example subtractive moog filter see 3x speed improvement compared to the standalone algorithm.
 
@@ -698,7 +698,7 @@ Once processed the notes list is made available to the audio thread by pushing i
 
 There is a simple "sync" mechanism which compute time between frames and accumulate it, skipping any frames below computed *note time* (computed from FPS parameter), this is a good enough solution but may have some small latency edge cases due to network latency.
 
-A free list data structure is used for efficient notes data reuse; the program use a pre-allocated pool of notes buffer. This is actually the most memory hungry part because all is pre-allocated and the allocation size depend on slice height times FAS_MAX_INSTRUMENT parameter times note structure times frames queue size parameter... could probably be optimized by reducing note structure size as there is alot of pre-defined stuff made for convenience and readability.
+A free list data structure is used for efficient notes data reuse; the program use a pre-allocated pool of notes buffer. This is actually the most memory hungry part because all is pre-allocated and the allocation size depend on slice height times `fas_max_instruments` parameter times note structure times frames queue size parameter... could probably be optimized by reducing note structure size as there is alot of pre-defined stuff made for convenience and readability.
 
 The audio thread make the decision to consume notes data at audio sample level based on a computed *note time* which is defined by the FPS parameter configurable from synth. settings, once a note is consumed it is pushed back to the notes pool.
 
@@ -750,7 +750,7 @@ Frame data, packet identifier 1 (real-time) :
 struct _frame_data {
     unsigned int instruments; // instruments count
     unsigned int padding; // 4 bytes padding
-    // Note : the expected data length is computed by : (4 * (_synth_settings.data_type * sizeof(float)) * _synth_settings.h) * FAS_MAX_INSTRUMENTS
+    // Note : the expected data length is computed by : (4 * (_synth_settings.data_type * sizeof(float)) * _synth_settings.h) * fas_max_instruments
     // Note : expected data length is the maximum amount of data which can be received, generally only the used instruments data will be sent
     // Example of amount of data with one instrument used (L/R) and a 8-bit image with height of 400 pixels : (4 * sizeof(unsigned char) * 400)
     void *rgba_data;
@@ -814,30 +814,31 @@ struct _cmd_instrument_settings {
     // target parameter
     //  0 : synthesis method, mapping can be found in constants.h (FAS_ADDITIVE etc.)
     //  1 : wether this instrument is muted or not, a muted instrument will not output any sounds but is still available as an input, this is useful for methods that use an input instrument as source
-    //  2 : parameter
+    //  2 : Output channel
+    //  3 : parameter
     //        Granular : granular envelope type for this instrument (there is 13 types of envelopes)
     //        Subtractive : filter type  (require Soundpipe)
     //        Physical modelling : Physical model type (require Soundpipe)
     //        Spectral : input channel
     //        Faust : Generator ID
-    //  3 : parameter
+    //  4 : parameter
     //        Granular : grain duration (min. bound)
     //        Spectral : window size
     //        Physical modelling droplet : Number of tubes
     //        Physical modelling bar : Boundary condition at left end of bar
     //        Faust : fs_p0
-    //  4 : parameter
+    //  5 : parameter
     //        Granular : grain spread (max. bound)
     //        Spectral : mode
     //        Physical modelling droplet : deattack parameter
     //        Physical modelling bar : Boundary condition at right end of bar
     //        Faust : fs_p1
-    //  5 : parameter
+    //  6 : parameter
     //        Granular : grain spread
     //        Physical modelling bar : Normalized strike velocity
     //        Faust : fs_p2
     //        Spectral : source mode
-    //  6 : parameter
+    //  7 : parameter
     //        Faust : fs_p3
     unsigned int target;
 
@@ -986,6 +987,7 @@ Usage: fas [list_of_parameters]
  * --frames 512 **audio buffer size**
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
  * --smooth_factor 1.0 **this is the samples interpolation factor between frames, a high value will sharpen sounds attack / transitions (just like if the stream rate / FPS was higher), a low value will smooth it (audio will become muddy)**
+ * --max_instruments 24 **this is the maximum amount of instruments that can be used, may increase memory consumption significantly**
  * --ssl 0
  * --deflate 0 **network data compression (add additional processing)**
  * --max_drop 60 **this allow smooth audio in the case of frames drop, allow 60 frames drop by default which equal to approximately 1 sec.**
@@ -1007,7 +1009,7 @@ Usage: fas [list_of_parameters]
  * --input_device -1 **PortAudio audio input device index or full name (informations about audio devices are displayed when the app. start)**
  * --output_channels 2 **stereo pair**
  * --input_channels 2 **stereo pair**
- * --frames_queue_size 3 **important parameter, if you increase this too much the audio might be delayed and the memory requirement will increase**
+ * --frames_queue_size 3 **important parameter, if you increase this too much the audio might be delayed and the memory requirement will increase significantly**
  * --commands_queue_size 512 **should be a positive integer power of 2**
  * --stream_infos_send_delay 2 **FAS will send the stream infos every two seconds**
  * --samplerate_conv_type -1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time, this settings can be ignored most of the time since FAS do real-time resampling, -1 skip the resampling step**

@@ -100,7 +100,7 @@ void doSynthCommands() {
     printf("CMD INSTRUMENT_SETTINGS : instrument %i target %i value %f\n", instrument, target, value);
     fflush(stdout);
 #endif
-            if (instrument < FAS_MAX_INSTRUMENTS) {
+            if (instrument < fas_max_instruments) {
                 struct _synth_instrument *instrument_settings = &curr_synth.instruments[instrument];
                 if (target == 0) {
                     if (value == FAS_GRANULAR && samples_count == 0) {
@@ -310,7 +310,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
         note_buffer_len = 0;
         pv_note_buffer_len = 0;
 
-        for (k = 0; k < FAS_MAX_INSTRUMENTS; k += 1) {
+        for (k = 0; k < fas_max_instruments; k += 1) {
             pv_note_buffer_len += note_buffer_len;
             note_buffer_len = curr_notes[pv_note_buffer_len].osc_index;
             pv_note_buffer_len += 1;
@@ -875,7 +875,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         }
                     } else if (instrument->p0 == 1) {
                         // chn settings modulation
-                        int instrument_index = ((int)floor(instrument->p1)) % FAS_MAX_INSTRUMENTS;
+                        int instrument_index = ((int)floor(instrument->p1)) % fas_max_instruments;
                         int param = ((int)floor(instrument->p2)) % 6;
                         int easing_type = ((int)floor(instrument->p4)) % (FAS_EASING_COUNT + 1);
 
@@ -941,7 +941,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         il = input_chn_settings->last_sample_l * vl;
                         ir = input_chn_settings->last_sample_r * vr;
                     } else {
-                        int instrument_index = (int)bint % FAS_MAX_INSTRUMENTS;
+                        int instrument_index = (int)bint % fas_max_instruments;
                         struct _synth_instrument *instrument = &curr_synth.instruments[instrument_index];
 
                         il = instrument->last_sample_l * vl;
@@ -1009,7 +1009,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         il = input_chn_settings->last_sample_l * vl;
                         ir = input_chn_settings->last_sample_r * vr;
                     } else {
-                        int instrument_index = (int)bint % FAS_MAX_INSTRUMENTS;
+                        int instrument_index = (int)bint % fas_max_instruments;
                         struct _synth_instrument *instrument = &curr_synth.instruments[instrument_index];
 
                         il = instrument->last_sample_l * vl;
@@ -1047,7 +1047,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         il = input_chn_settings->last_sample_l * vl;
                         ir = input_chn_settings->last_sample_r * vr;
                     } else {
-                        int instrument_index = (int)bint % FAS_MAX_INSTRUMENTS;
+                        int instrument_index = (int)bint % fas_max_instruments;
                         struct _synth_instrument *instrument = &curr_synth.instruments[instrument_index];
 
                         il = instrument->last_sample_l * vl;
@@ -1085,7 +1085,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         il = input_chn_settings->last_sample_l * vl;
                         ir = input_chn_settings->last_sample_r * vr;
                     } else {
-                        int instrument_index = (int)bint % FAS_MAX_INSTRUMENTS;
+                        int instrument_index = (int)bint % fas_max_instruments;
                         struct _synth_instrument *instrument = &curr_synth.instruments[instrument_index];
 
                         il = instrument->last_sample_l * vl;
@@ -1157,7 +1157,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             il = input_chn_settings->last_sample_l * vl;
                             ir = input_chn_settings->last_sample_r * vr;
                         } else {
-                            int instrument_index = (int)bint % FAS_MAX_INSTRUMENTS;
+                            int instrument_index = (int)bint % fas_max_instruments;
                             struct _synth_instrument *instrument = &curr_synth.instruments[instrument_index];
 
                             il = instrument->last_sample_l * vl;
@@ -1538,7 +1538,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     }
                 }
 
-                for (k = 0; k < FAS_MAX_INSTRUMENTS; k += 1) {
+                for (k = 0; k < fas_max_instruments; k += 1) {
                     // preprocess notes
                     pv_note_buffer_len += note_buffer_len;
                     note_buffer_len = curr_notes[pv_note_buffer_len].osc_index;
@@ -2036,7 +2036,7 @@ void setHeight(unsigned int new_height) {
         free(freelist_frames_data->data);
     }
 
-    unsigned int nc = (new_height + 1) * FAS_MAX_INSTRUMENTS + sizeof(unsigned int);
+    unsigned int nc = (new_height + 1) * fas_max_instruments + sizeof(unsigned int);
 
     for (unsigned int i = 0; i < fas_frames_queue_size; i += 1) {
         ffd[i].data = malloc(sizeof(struct note) * nc);
@@ -2200,12 +2200,25 @@ void render(struct user_session_data *usd, void *data, unsigned int channels) {
     }
 }
 
+void freeUserSynthChnFxSettings(double ***synth_chn_fx_settings) {
+    size_t i, j;
+    if (synth_chn_fx_settings) {
+        for (i = 0; i < frame_data_count; i += 1) {
+            for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {
+                free(synth_chn_fx_settings[i][j]);
+            }
+            free(synth_chn_fx_settings[i]);
+        }
+        free(synth_chn_fx_settings);
+    }
+}
+
 int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
                         void *user, void *in, size_t len) {
     LFDS720_MISC_MAKE_VALID_ON_CURRENT_LOGICAL_CORE_INITS_COMPLETED_BEFORE_NOW_ON_ANY_OTHER_PHYSICAL_CORE;
 
     struct user_session_data *usd = (struct user_session_data *)user;
-    unsigned int n, m;
+    size_t n, m, i;
     unsigned char pid;
     int fd;
     int free_prev_data = 0;
@@ -2223,6 +2236,45 @@ int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
                 return -1;
             }
             
+            // initialize a local copy of synth channel fx settings with the total number of parameters of the _synth_fx_settings struct
+            usd->synth_chn_fx_settings = calloc(frame_data_count, sizeof(double **));
+            if (!usd->synth_chn_fx_settings) {
+                printf("synth_chn_fx_settings calloc failed, connection refused\n");
+                fflush(stdout);
+
+                return -1;
+            }
+
+            for (n = 0; n < frame_data_count; n += 1) {
+                usd->synth_chn_fx_settings[n] = calloc(FAS_MAX_FX_SLOTS, sizeof(double *));
+                if (!usd->synth_chn_fx_settings[n]) {
+                    for (i = 0; i < n; i += 1) {
+                        free(usd->synth_chn_fx_settings[i]);
+                        free(usd->synth_chn_fx_settings);
+
+                        printf("synth_chn_fx_settings[%lu] calloc failed, connection refused\n", n);
+                        fflush(stdout);
+
+                        return -1;
+                    }
+                }
+                for (m = 0; m < FAS_MAX_FX_SLOTS; m += 1) {
+                    usd->synth_chn_fx_settings[n][m] = calloc(FAS_MAX_FX_PARAMETERS, sizeof(double));
+                    // TODO : check calloc return value
+                }
+            }
+
+            // local instruments copy
+            usd->instruments = calloc(fas_max_instruments, sizeof(struct _synth_instrument));
+            if (!usd->instruments) {
+                freeUserSynthChnFxSettings(usd->synth_chn_fx_settings);
+
+                printf("instruments calloc failed, connection refused\n");
+                fflush(stdout);
+            
+                return -1;
+            }
+
             clients += 1;
 
             fd = lws_get_socket_fd(wsi);
@@ -2238,15 +2290,6 @@ int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
             usd->packet_skip = 0;
             usd->frame_data = NULL;
             usd->prev_frame_data = NULL;
-
-            // initialize a local copy of synth channel fx settings with the total number of parameters of the _synth_fx_settings struct
-            usd->synth_chn_fx_settings = calloc(frame_data_count, sizeof(double **));
-            for (n = 0; n < frame_data_count; n += 1) {
-                usd->synth_chn_fx_settings[n] = calloc(FAS_MAX_FX_SLOTS, sizeof(double *));
-                for (m = 0; m < FAS_MAX_FX_SLOTS; m += 1) {
-                    usd->synth_chn_fx_settings[n][m] = calloc(FAS_MAX_FX_PARAMETERS, sizeof(double));
-                }
-            }  
 
             usd->connected = 1;
 
@@ -2344,16 +2387,16 @@ if (remaining_payload != 0) {
 #endif
 
                     // free grains & oscillator banks
-                    freeGrains(&curr_synth.grains, samples_count, FAS_MAX_INSTRUMENTS, usd->synth_h, fas_granular_max_density);
+                    freeGrains(&curr_synth.grains, samples_count, fas_max_instruments, usd->synth_h, fas_granular_max_density);
 
-                    curr_synth.oscillators = freeOscillatorsBank(&curr_synth.oscillators, usd->synth_h, FAS_MAX_INSTRUMENTS);
+                    curr_synth.oscillators = freeOscillatorsBank(&curr_synth.oscillators, usd->synth_h, fas_max_instruments);
 
                     // pre-compute frames size (aka notes slice data)
                     usd->frame_data_size = curr_synth.bank_settings->data_type ? sizeof(float) : sizeof(unsigned char);
 
                     usd->expected_frame_length = 4 * usd->frame_data_size * curr_synth.bank_settings->h;
-                    usd->expected_max_frame_length = 4 * usd->frame_data_size * curr_synth.bank_settings->h * FAS_MAX_INSTRUMENTS;
-                    size_t max_frame_data_len = usd->expected_frame_length * FAS_MAX_INSTRUMENTS + sizeof(unsigned int);
+                    usd->expected_max_frame_length = 4 * usd->frame_data_size * curr_synth.bank_settings->h * fas_max_instruments;
+                    size_t max_frame_data_len = usd->expected_frame_length * fas_max_instruments + sizeof(unsigned int);
 
                     // free frames data state
                     free(usd->frame_data);
@@ -2373,7 +2416,7 @@ if (remaining_payload != 0) {
                         goto free_packet;
                     }
 
-                    usd->oscillators = freeOscillatorsBank(&usd->oscillators, usd->synth_h, FAS_MAX_INSTRUMENTS);
+                    usd->oscillators = freeOscillatorsBank(&usd->oscillators, usd->synth_h, fas_max_instruments);
 
                     usd->synth_h = curr_synth.bank_settings->h;
 
@@ -2387,7 +2430,7 @@ if (remaining_payload != 0) {
                         sp,
 #endif
                         curr_synth.bank_settings->h,
-                        curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, fas_wavetable_size, FAS_MAX_INSTRUMENTS);
+                        curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, fas_wavetable_size, fas_max_instruments);
 #endif
 
                    curr_synth.oscillators = createOscillatorsBank(
@@ -2395,7 +2438,7 @@ if (remaining_payload != 0) {
                         sp,
 #endif
                         curr_synth.bank_settings->h,
-                        curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, fas_wavetable_size, FAS_MAX_INSTRUMENTS);
+                        curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, fas_wavetable_size, fas_max_instruments);
                         
 #ifdef WITH_FAUST
 
@@ -2404,18 +2447,18 @@ if (remaining_payload != 0) {
                         curr_synth.oscillators,
                         curr_synth.bank_settings->h,
                         fas_sample_rate,
-                        FAS_MAX_INSTRUMENTS
+                        fas_max_instruments
                     );
 #endif
 
                     // pre-compute grains data
-                    curr_synth.grains = createGrains(&samples, samples_count, usd->synth_h, curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, FAS_MAX_INSTRUMENTS, fas_granular_max_density);
+                    curr_synth.grains = createGrains(&samples, samples_count, usd->synth_h, curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, fas_max_instruments, fas_granular_max_density);
 
                     //initRender(usd->synth_h);
 
                     initializeSynthChnSettings();
 
-                    for (int i = 0; i < FAS_MAX_INSTRUMENTS; i += 1) {
+                    for (i = 0; i < fas_max_instruments; i += 1) {
                         curr_synth.instruments[i].type = FAS_VOID;
                     }
 
@@ -2492,18 +2535,18 @@ if (remaining_payload != 0) {
                     unsigned int instruments[1];
                     memcpy(&instruments, &usd->packet[PACKET_HEADER_LENGTH], sizeof(instruments));
 
-                    if ((*instruments) >= FAS_MAX_INSTRUMENTS) {
+                    if ((*instruments) >= fas_max_instruments) {
 #ifdef DEBUG_FRAME_DATA
-                        printf("Frame instruments > Max instruments. (%i instrument ignored)\n", (*instruments) - FAS_MAX_INSTRUMENTS);
+                        printf("Frame instruments > Max instruments. (%i instrument ignored)\n", (*instruments) - fas_max_instruments);
                         fflush(stdout);
 #endif
 
-                        (*instruments) = FAS_MAX_INSTRUMENTS;
+                        (*instruments) = fas_max_instruments;
 
                         memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->expected_frame_length * (*instruments) - PACKET_HEADER_LENGTH);
-                    } else if ((*instruments) < FAS_MAX_INSTRUMENTS) {
+                    } else if ((*instruments) < fas_max_instruments) {
                         memcpy(usd->frame_data, &usd->packet[PACKET_HEADER_LENGTH], usd->packet_len - PACKET_HEADER_LENGTH);
-                        memset(&usd->frame_data[usd->expected_frame_length * (*instruments)], 0, usd->expected_frame_length * (FAS_MAX_INSTRUMENTS - (*instruments)));
+                        memset(&usd->frame_data[usd->expected_frame_length * (*instruments)], 0, usd->expected_frame_length * (fas_max_instruments - (*instruments)));
 #ifdef DEBUG_FRAME_DATA
                         printf("Frame instruments (%i) < Max instruments.\n", instruments[0]);
                         fflush(stdout);
@@ -2516,7 +2559,7 @@ if (remaining_payload != 0) {
 
                     freelist_frames_data = LFDS720_FREELIST_N_GET_VALUE_FROM_ELEMENT(*fe);
 
-                    memset(freelist_frames_data->data, 0, sizeof(struct note) * (usd->synth_h + 1) * FAS_MAX_INSTRUMENTS + sizeof(unsigned int));
+                    memset(freelist_frames_data->data, 0, sizeof(struct note) * (usd->synth_h + 1) * fas_max_instruments + sizeof(unsigned int));
 
                     fillNotesBuffer(samples_count_m1, waves_count_m1, fas_granular_max_density, (*instruments), usd->frame_data_size,
                                     freelist_frames_data->data, usd->synth_h, usd->expected_frame_length,
@@ -2629,9 +2672,9 @@ if (remaining_payload != 0) {
                     double value = 0;
 
                     memcpy(&instrument, &((char *) usd->packet)[PACKET_HEADER_LENGTH], sizeof(instrument));
-                    if (instrument >= FAS_MAX_INSTRUMENTS) {
+                    if (instrument >= fas_max_instruments) {
 #ifdef DEBUG
-                        printf("Skipping instrument settings change, instrument index >= FAS_MAX_INSTRUMENTS.\n");
+                        printf("Skipping instrument settings change, instrument index >= fas_max_instruments.\n");
                         fflush(stdout);
 #endif
                         goto free_packet;
@@ -2690,7 +2733,7 @@ if (remaining_payload != 0) {
 #ifdef WITH_SOUNDPIPE
                             sp,
 #endif
-                            &usd->oscillators, usd->synth_h, FAS_MAX_INSTRUMENTS, fas_sample_rate, 0, value, 0);
+                            &usd->oscillators, usd->synth_h, fas_max_instruments, fas_sample_rate, 0, value, 0);
                         audioPlay();
                     } else if (target == 4 &&
                         usd->instruments[instrument].p0 == 2 &&
@@ -2705,7 +2748,7 @@ if (remaining_payload != 0) {
 #ifdef WITH_SOUNDPIPE
                             sp,
 #endif
-                            &usd->oscillators, usd->synth_h, FAS_MAX_INSTRUMENTS, fas_sample_rate, 1, value, usd->instruments[instrument].p2);
+                            &usd->oscillators, usd->synth_h, fas_max_instruments, fas_sample_rate, 1, value, usd->instruments[instrument].p2);
                         audioPlay();
                     } else if (target == 5 &&
                         usd->instruments[instrument].p0 == 2 &&
@@ -2720,7 +2763,7 @@ if (remaining_payload != 0) {
 #ifdef WITH_SOUNDPIPE
                             sp,
 #endif
-                            &usd->oscillators, usd->synth_h, FAS_MAX_INSTRUMENTS, fas_sample_rate, 1, usd->instruments[instrument].p1, value);
+                            &usd->oscillators, usd->synth_h, fas_max_instruments, fas_sample_rate, 1, usd->instruments[instrument].p1, value);
                         audioPlay();
                     }
 
@@ -2923,7 +2966,7 @@ fflush(stdout);
                     } else if (action_type[0] == FAS_ACTION_SAMPLES_RELOAD) { // RELOAD SAMPLES
                         audioPause();
 
-                        freeGrains(&curr_synth.grains, samples_count, FAS_MAX_INSTRUMENTS, usd->synth_h, fas_granular_max_density);
+                        freeGrains(&curr_synth.grains, samples_count, fas_max_instruments, usd->synth_h, fas_granular_max_density);
 
                         free_samples(&samples, samples_count);
 
@@ -2934,7 +2977,7 @@ fflush(stdout);
 #endif
                         samples_count_m1 = samples_count - 1;
 
-                        curr_synth.grains = createGrains(&samples, samples_count, usd->synth_h, curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, FAS_MAX_INSTRUMENTS, fas_granular_max_density);
+                        curr_synth.grains = createGrains(&samples, samples_count, usd->synth_h, curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, fas_max_instruments, fas_granular_max_density);
 
                         audioPlay();
                     } else if (action_type[0] == FAS_ACTION_NOTE_RESET) { // RE-TRIGGER note
@@ -2973,12 +3016,12 @@ fflush(stdout);
                             audioFlushThenPause();
                             clearQueues();
 
-                            freeFaustGenerators(&curr_synth.oscillators, curr_synth.bank_settings->h, FAS_MAX_INSTRUMENTS);
+                            freeFaustGenerators(&curr_synth.oscillators, curr_synth.bank_settings->h, fas_max_instruments);
 
                             freeFaustFactories(fas_faust_gens);
                             fas_faust_gens = createFaustFactories(fas_faust_gens_path);
 
-                            createFaustGenerators(fas_faust_gens, curr_synth.oscillators, curr_synth.bank_settings->h, fas_sample_rate, FAS_MAX_INSTRUMENTS);
+                            createFaustGenerators(fas_faust_gens, curr_synth.oscillators, curr_synth.bank_settings->h, fas_sample_rate, fas_max_instruments);
 
                             audioPlay();
                     } else if (action_type[0] == FAS_ACTION_FAUST_EFFS) { // reload Faust effects
@@ -3021,25 +3064,20 @@ free_packet:
 
                 clearQueues();
 
-                size_t i, j;
-                if (usd->synth_chn_fx_settings) {
-                    for (i = 0; i < frame_data_count; i += 1) {
-                        for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {
-                            free(usd->synth_chn_fx_settings[i][j]);
-                        }
-                        free(usd->synth_chn_fx_settings[i]);
-                    }
-                    free(usd->synth_chn_fx_settings);
-                }
+                freeUserSynthChnFxSettings(usd->synth_chn_fx_settings);
 
                 usd->synth_chn_fx_settings = NULL;
 
+                free(usd->instruments);
+
+                usd->instruments = NULL;
+
                 if (usd->oscillators) {
-                    usd->oscillators = freeOscillatorsBank(&usd->oscillators, usd->synth_h, FAS_MAX_INSTRUMENTS);
+                    usd->oscillators = freeOscillatorsBank(&usd->oscillators, usd->synth_h, fas_max_instruments);
                 }
 
                 if (curr_synth.oscillators) {
-                    curr_synth.oscillators = freeOscillatorsBank(&curr_synth.oscillators, curr_synth.bank_settings->h, FAS_MAX_INSTRUMENTS);
+                    curr_synth.oscillators = freeOscillatorsBank(&curr_synth.oscillators, curr_synth.bank_settings->h, fas_max_instruments);
                 }
 
                 free(usd->prev_frame_data);
@@ -3183,6 +3221,7 @@ int main(int argc, char **argv)
         { "render_convert",             required_argument, 0, 30 },
         { "faust_gens_dir",             required_argument, 0, 31 },
         { "faust_effs_dir",             required_argument, 0, 32 },
+        { "max_instruments",            required_argument, 0, 33 },
         { 0, 0, 0, 0 }
     };
 
@@ -3295,6 +3334,9 @@ int main(int argc, char **argv)
                 break;
             case 32:
                 fas_faust_effs_path = optarg;
+                break;
+            case 33:
+                fas_max_instruments = strtoul(optarg, NULL, 0);
                 break;
             default: print_usage();
                 return EXIT_FAILURE;
@@ -3424,6 +3466,12 @@ int main(int argc, char **argv)
 #else
         fas_faust_effs_path = fas_default_faust_effs_path;
 #endif
+    }
+
+    if (fas_max_instruments == 0) {
+        printf("Warning: max_instruments program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_MAX_INSTRUMENTS);
+
+        fas_max_instruments = FAS_MAX_INSTRUMENTS;
     }
 
     if (fas_sample_rate == 0) {
@@ -3832,7 +3880,7 @@ int main(int argc, char **argv)
 
     frame_data_count = fas_output_channels / 2;
 
-    fas_instrument_states = createInstrumentsState(FAS_MAX_INSTRUMENTS);
+    fas_instrument_states = createInstrumentsState(fas_max_instruments);
 
 #ifndef WITH_JACK
     printf("\nPortAudio: Using device '%s' (%i) with %u output channels", Pa_GetDeviceInfo(outputParameters.device)->name, fas_sample_rate, fas_output_channels);
@@ -3847,6 +3895,14 @@ int main(int argc, char **argv)
         fas_frames_per_buffer = paFramesPerBufferUnspecified;
     }
 #endif
+
+    curr_synth.instruments = (struct _synth_instrument *)calloc(fas_max_instruments, sizeof(struct _synth_instrument));
+    if (!curr_synth.instruments) {
+        fprintf(stderr, "curr_synth.instruments calloc failed\n");
+        fflush(stdout);
+
+        goto error;  
+    }
 
     curr_synth.settings = (struct _synth_settings*)calloc(1, sizeof(struct _synth_settings));
     if (!curr_synth.settings) {
@@ -3901,8 +3957,8 @@ int main(int argc, char **argv)
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-    struct lfds720_ringbuffer_n_element *re =
-        malloc(sizeof(struct lfds720_ringbuffer_n_element) * (fas_frames_queue_size + 1));
+    struct lfds720_ringbuffer_n_element *re = NULL;
+    re = malloc(sizeof(struct lfds720_ringbuffer_n_element) * (fas_frames_queue_size + 1));
 
     struct lfds720_queue_bss_element *synth_commands_queue_element =
         malloc(sizeof(struct lfds720_queue_bss_element) * fas_commands_queue_size);
@@ -3910,8 +3966,8 @@ int main(int argc, char **argv)
     struct lfds720_ringbuffer_n_element *re =
         aligned_alloc(LFDS720_PAL_ATOMIC_ISOLATION_LENGTH_IN_BYTES, sizeof(struct lfds720_ringbuffer_n_element) * (fas_frames_queue_size + 1));
 
-    struct lfds720_queue_bss_element *synth_commands_queue_element =
-        aligned_alloc(LFDS720_PAL_ATOMIC_ISOLATION_LENGTH_IN_BYTES, sizeof(struct lfds720_queue_bss_element) * fas_commands_queue_size);
+    struct lfds720_queue_bss_element *synth_commands_queue_element = NULL;
+    synth_commands_queue_element = aligned_alloc(LFDS720_PAL_ATOMIC_ISOLATION_LENGTH_IN_BYTES, sizeof(struct lfds720_queue_bss_element) * fas_commands_queue_size);
 #endif
 
     if (re == NULL) {
@@ -3941,7 +3997,7 @@ int main(int argc, char **argv)
         goto quit;
     }
 
-    dummy_notes = calloc(FAS_MAX_INSTRUMENTS, sizeof(struct note));
+    dummy_notes = calloc(fas_max_instruments, sizeof(struct note));
     if (dummy_notes == NULL) {
         fprintf(stderr, "note data structure alloc. error.\n");
         goto quit;
@@ -4026,17 +4082,19 @@ quit:
     Pa_Terminate();
 #endif
 
-    freeInstrumentsState(fas_instrument_states, FAS_MAX_INSTRUMENTS);
+    freeInstrumentsState(fas_instrument_states, fas_max_instruments);
 
     // free synth
     if (curr_synth.oscillators) {
-        freeOscillatorsBank(&curr_synth.oscillators, curr_synth.bank_settings->h, FAS_MAX_INSTRUMENTS);
+        freeOscillatorsBank(&curr_synth.oscillators, curr_synth.bank_settings->h, fas_max_instruments);
     }
+
+    free(curr_synth.instruments);
 
     free(curr_synth.settings);
 
     if (curr_synth.grains) {
-        freeGrains(&curr_synth.grains, samples_count, FAS_MAX_INSTRUMENTS, curr_synth.bank_settings->h, fas_granular_max_density);
+        freeGrains(&curr_synth.grains, samples_count, fas_max_instruments, curr_synth.bank_settings->h, fas_granular_max_density);
     }
 
     free(curr_synth.bank_settings);
@@ -4069,10 +4127,13 @@ quit:
     freeFaustFactories(fas_faust_effs);
 #endif
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
     if (re) {
         lfds720_ringbuffer_n_cleanup(&rs, rb_element_cleanup_callback);
         free(re);
     }
+#pragma GCC diagnostic pop
 
     lfds720_freelist_n_cleanup(&freelist_frames, flf_element_cleanup_callback);
     lfds720_freelist_n_cleanup(&freelist_commands, flc_element_cleanup_callback);
@@ -4089,10 +4150,13 @@ quit:
         free(dummy_notes);
     }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
     if (synth_commands_queue_element) {
         lfds720_queue_bss_cleanup(&synth_commands_queue_state, q_element_cleanup_callback);
         free(synth_commands_queue_element);
     }
+#pragma GCC diagnostic pop
 
     freeRender();
 
@@ -4126,7 +4190,7 @@ error:
     }
 #endif
 
-    freeInstrumentsState(fas_instrument_states, FAS_MAX_INSTRUMENTS);
+    freeInstrumentsState(fas_instrument_states, fas_max_instruments);
 
     freeEnvelopes(grain_envelope);
 

@@ -144,6 +144,7 @@
     unsigned int fas_stream_infos_send_delay = FAS_STREAM_INFOS_SEND_DELAY;
     unsigned int fas_max_drop = FAS_MAX_DROP;
     unsigned int fas_render_width = FAS_RENDER_WIDTH;
+    unsigned int fas_max_instruments = FAS_MAX_INSTRUMENTS;
     int fas_samplerate_converter_type = -1; // SRC_SINC_MEDIUM_QUALITY
     FAS_FLOAT fas_smooth_factor = FAS_SMOOTH_FACTOR;
     FAS_FLOAT fas_noise_amount = FAS_NOISE_AMOUNT;
@@ -383,11 +384,11 @@
         struct _synth *synth = *s;
         if (synth) {
             if (synth->oscillators && synth->bank_settings) {
-                synth->oscillators = freeOscillatorsBank(&synth->oscillators, synth->bank_settings->h, FAS_MAX_INSTRUMENTS);
+                synth->oscillators = freeOscillatorsBank(&synth->oscillators, synth->bank_settings->h, fas_max_instruments);
             }
 
             if (synth->grains) {
-                freeGrains(&synth->grains, samples_count, FAS_MAX_INSTRUMENTS, synth->bank_settings->h, fas_granular_max_density);
+                freeGrains(&synth->grains, samples_count, fas_max_instruments, synth->bank_settings->h, fas_granular_max_density);
             }
 
             if (synth->chn_settings) {
@@ -400,6 +401,10 @@
 
             if (synth->settings) {
                 free(synth->settings);
+            }
+
+            if (synth->instruments) {
+                free(synth->instruments);
             }
 
             free(synth);

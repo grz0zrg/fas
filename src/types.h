@@ -100,7 +100,7 @@
         // channels settings
         struct _synth_chn_settings *chn_settings;
         // instruments settings
-        struct _synth_instrument instruments[FAS_MAX_INSTRUMENTS];
+        struct _synth_instrument *instruments;
         
         int note;
         int chn;
@@ -133,7 +133,7 @@
 
         // user session related synth. data
         double ***synth_chn_fx_settings;
-        struct _synth_instrument instruments[FAS_MAX_INSTRUMENTS];
+        struct _synth_instrument *instruments;
 
         struct oscillator *oscillators;
 

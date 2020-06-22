@@ -188,7 +188,7 @@
     #define FX_PANNER 28
     #define FX_FAUST 29
 
-    // max instruments
+    // default max instruments
     #define FAS_MAX_INSTRUMENTS 24
 
 #ifdef USE_DOUBLE

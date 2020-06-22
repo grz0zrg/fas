@@ -16,6 +16,7 @@ void print_usage() {
     printf("  --max_drop %u\n", FAS_MAX_DROP);
     printf("  --render my_session\n");
     printf("  --render_width %u\n", FAS_RENDER_WIDTH);
+    printf("  --max_instruments %u\n", FAS_MAX_INSTRUMENTS);
     //printf("  --render_convert main.fs\n");
     printf("  --iface 127.0.0.1\n");
     printf("  --input_device -1\n");

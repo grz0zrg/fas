@@ -64,10 +64,6 @@
     #include "liblfds720.h"
 #endif
 
-#ifdef WITH_OSC
-    #include "lo/lo.h"
-#endif
-
     #include "lodepng/lodepng.h"
     #include "AHEasing/easing.h"
 
@@ -136,7 +132,6 @@
     unsigned int fas_frames_queue_size = FAS_FRAMES_QUEUE_SIZE;
     unsigned int fas_commands_queue_size = FAS_COMMANDS_QUEUE_SIZE;
     unsigned int fas_ssl = FAS_SSL;
-    unsigned int fas_osc_out = FAS_OSC_OUT;
     int fas_input_channels = FAS_INPUT_CHANNELS;
     int fas_output_channels = FAS_OUTPUT_CHANNELS;
     unsigned int fas_granular_max_density = FAS_GRANULAR_MAX_DENSITY;
@@ -145,14 +140,13 @@
     unsigned int fas_max_drop = FAS_MAX_DROP;
     unsigned int fas_render_width = FAS_RENDER_WIDTH;
     unsigned int fas_max_instruments = FAS_MAX_INSTRUMENTS;
+    unsigned int fas_max_channels = FAS_MAX_CHANNELS;
     int fas_samplerate_converter_type = -1; // SRC_SINC_MEDIUM_QUALITY
     FAS_FLOAT fas_smooth_factor = FAS_SMOOTH_FACTOR;
     FAS_FLOAT fas_noise_amount = FAS_NOISE_AMOUNT;
     int fas_audio_device = -1;
     int fas_input_audio_device = -1;
     char *fas_iface = NULL;
-    char *fas_osc_addr = "127.0.0.1";
-    char *fas_osc_port = "57120";
     char *fas_audio_device_name = NULL;
     char *fas_input_audio_device_name = NULL;
     char *fas_render_target = NULL;
@@ -164,10 +158,6 @@
     char *fas_faust_effs_path = NULL;
 
     unsigned int fas_drop_counter = 0;
-
-#ifdef WITH_OSC
-    lo_address fas_lo_addr;
-#endif
 
     unsigned long int fas_render_counter = 0;
     unsigned long int fas_render_frame_counter = 0;
@@ -433,12 +423,13 @@
     void initializeSynthChnSettings() {
         unsigned int i = 0, j = 0;
         
-        for (i = 0; i < frame_data_count; i += 1) {   
+        for (i = 0; i < fas_max_instruments; i += 1) {   
             for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {  
                 curr_synth.chn_settings[i].fx[j].fx_id = -1;
                 curr_synth.chn_settings[i].fx[j].bypass = 0;
             }
             curr_synth.chn_settings[i].muted = 0;
+            curr_synth.chn_settings[i].output_chn = -1;
         }
     }
 

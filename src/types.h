@@ -31,6 +31,8 @@
     struct _synth_chn_settings {
         unsigned int muted;
 
+        int output_chn;
+
         FAS_FLOAT output_l;
         FAS_FLOAT output_r;
 

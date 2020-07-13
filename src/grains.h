@@ -20,8 +20,8 @@
         FAS_FLOAT *env_step;
     };
 
-    extern struct grain *createGrains(struct sample **samples, unsigned int samples_count, unsigned int n, FAS_FLOAT base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int frame_data_count, unsigned int max_density);
+    extern struct grain *createGrains(struct sample **samples, unsigned int samples_count, unsigned int n, FAS_FLOAT base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int max_instruments, unsigned int max_density);
     extern void computeGrains(unsigned int channel, struct grain *g, unsigned int grain_index, FAS_FLOAT alpha, unsigned int si, unsigned int density, FAS_FLOAT density_offset, FAS_FLOAT *gr_env, struct sample *samples, unsigned int smp_index, unsigned int sample_rate, FAS_FLOAT min_duration, FAS_FLOAT max_duration, FAS_FLOAT *out_l, FAS_FLOAT *out_r);
-    extern struct grain *freeGrains(struct grain **g, unsigned int samples_count, unsigned int frame_data_count, unsigned int n, unsigned int max_density);
+    extern struct grain *freeGrains(struct grain **g, unsigned int samples_count, unsigned int max_instruments, unsigned int n, unsigned int max_density);
 
 #endif

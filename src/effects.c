@@ -4,14 +4,14 @@
 void createFaustEffects(
     struct _faust_factories *faust_factories,
     struct _synth_fx **fxs,
-    unsigned int frame_data_count,
+    unsigned int max_channels,
     unsigned int sample_rate) {
     if (fxs == NULL || faust_factories == NULL) {
         return;
     }
 
     unsigned int i = 0, j = 0, k = 0;
-    for (i = 0; i < frame_data_count; i += 1) {
+    for (i = 0; i < max_channels; i += 1) {
         struct _synth_fx *fx = fxs[i];
         
         fx->faust_effs_len = faust_factories->len;
@@ -72,12 +72,12 @@ void createEffects(
     sp_data *spd,
 #endif
     struct _synth_fx **fxs,
-    unsigned int frame_data_count,
+    unsigned int max_channels,
     unsigned int sample_rate
 ) {
     unsigned int i = 0, j = 0, k = 0;
 
-    for (i = 0; i < frame_data_count; i += 1) {
+    for (i = 0; i < max_channels; i += 1) {
         fxs[i] = (struct _synth_fx *)calloc(1, sizeof(struct _synth_fx));
 
         struct _synth_fx *fx = fxs[i];
@@ -648,6 +648,10 @@ void resetConvolution(
         imp_ftbl = smp->ftbl;
     }
 
+    if (!isPowerOfTwo((int)v2)) {
+        v2 = 1024;
+    }
+
     unsigned int slot_index = slot * 2 + lr;
 
     sp_conv_destroy((sp_conv **)&fxs->conv[slot_index]);
@@ -772,13 +776,13 @@ void resetConvolutions(
 }
 
 #ifdef WITH_FAUST
-void freeFaustEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
+void freeFaustEffects(struct _synth_fx **fxs, unsigned int max_channels) {
     if (fxs == NULL) {
         return;
     }
 
     unsigned int i = 0, j = 0, k = 0;
-    for (i = 0; i < frame_data_count; i += 1) {
+    for (i = 0; i < max_channels; i += 1) {
         struct _synth_fx *fx = fxs[i];
 
         for (j = 0; j < FAS_MAX_FX_SLOTS; j += 1) {
@@ -799,17 +803,17 @@ void freeFaustEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
 }
 #endif
 
-void freeEffects(struct _synth_fx **fxs, unsigned int frame_data_count) {
+void freeEffects(struct _synth_fx **fxs, unsigned int max_channels) {
     if (fxs == NULL) {
         return;
     }
 
 #ifdef WITH_FAUST
-    freeFaustEffects(fxs, frame_data_count);
+    freeFaustEffects(fxs, max_channels);
 #endif
 
     unsigned int i = 0, j = 0, k = 0;
-    for (i = 0; i < frame_data_count; i += 1) {
+    for (i = 0; i < max_channels; i += 1) {
         struct _synth_fx *fx = fxs[i];
 
 #ifdef WITH_SOUNDPIPE

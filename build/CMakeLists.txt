@@ -24,7 +24,7 @@ add_compile_options(-Wextra -pedantic)
 # Output options
 
 option (LIBLFDS720 "Use liblfds720 (arm64 support)" off)
-option (WITH_OSC "Use OSC output" off)
+#option (WITH_OSC "Use OSC output" off)
 option (WITH_FAUST "Use Faust (custom generators / effects support)" on)
 option (WITH_JACK "Use Jack instead of PortAudio" off)
 option (WITH_AUBIO "Use Aubio to automatically detect samples fundamental frequencies" on)
@@ -135,13 +135,13 @@ if (WITH_SOUNDPIPE)
     target_link_libraries(fas ${LIBSOUNDPIPE_LIBRARIES})
 endif()
 
-if (WITH_OSC)
-    find_package(Liblo MODULE REQUIRED)
-    include_directories(${LIBLO_INCLUDE_DIR})
+#if (WITH_OSC)
+#    find_package(Liblo MODULE REQUIRED)
+#    include_directories(${LIBLO_INCLUDE_DIR})
 
-    add_definitions(-DWITH_OSC)
-    target_link_libraries(fas ${LIBLO_LIBRARIES})
-endif()
+#    add_definitions(-DWITH_OSC)
+#    target_link_libraries(fas ${LIBLO_LIBRARIES})
+#endif()
 
 if (MAGIC_CIRCLE)
     add_definitions(-DMAGIC_CIRCLE)

@@ -10,7 +10,7 @@ void createFaustGenerators(
     struct oscillator *osc_bank,
     unsigned int n,
     unsigned int sample_rate,
-    unsigned int frame_data_count) {
+    unsigned int max_instruments) {
     if (!osc_bank || faust_factories == NULL) {
         return;
     }
@@ -24,9 +24,9 @@ void createFaustGenerators(
         struct oscillator *osc = &osc_bank[index];
 
         osc->faust_gens_len = faust_factories->len;
-        osc->faust_gens = malloc(sizeof(struct _fas_faust_dsp **) * frame_data_count);
+        osc->faust_gens = malloc(sizeof(struct _fas_faust_dsp **) * max_instruments);
 
-        for (i = 0; i < frame_data_count; i += 1) {
+        for (i = 0; i < max_instruments; i += 1) {
             osc->faust_gens[i] = malloc(sizeof(struct _fas_faust_dsp *) * (faust_factories->len));
             for (k = 0; k < faust_factories->len; k += 1) {
                 osc->faust_gens[i][k] = malloc(sizeof(struct _fas_faust_dsp));
@@ -89,7 +89,7 @@ void createFaustGenerators(
 void freeFaustGenerators(
         struct oscillator **o,
         unsigned int n,
-        unsigned int frame_data_count
+        unsigned int max_instruments
     ) {
     struct oscillator *oscs = *o;
 
@@ -99,7 +99,7 @@ void freeFaustGenerators(
 
     unsigned int y = 0, i = 0, k = 0;
     for (y = 0; y < n; y += 1) {
-        for (i = 0; i < frame_data_count; i += 1) {
+        for (i = 0; i < max_instruments; i += 1) {
             for (k = 0; k < oscs[y].faust_gens_len; k += 1) {
                 struct _fas_faust_dsp *fdsp = oscs[y].faust_gens[i][k];
 
@@ -128,7 +128,7 @@ struct oscillator *createOscillatorsBank(
     unsigned int octaves,
     unsigned int sample_rate,
     unsigned int wavetable_size,
-    unsigned int frame_data_count) {
+    unsigned int max_instruments) {
     struct oscillator *oscillators = (struct oscillator*)malloc(n * sizeof(struct oscillator));
 
     if (oscillators == NULL) {
@@ -167,46 +167,46 @@ struct oscillator *createOscillatorsBank(
         osc->prev_freq = frequency_prev;
         osc->next_freq = frequency_next;
 
-        osc->phase_index = malloc(sizeof(FAS_FLOAT) * frame_data_count);
-        osc->phase_index2 = malloc(sizeof(FAS_FLOAT) * frame_data_count);
+        osc->phase_index = malloc(sizeof(FAS_FLOAT) * max_instruments);
+        osc->phase_index2 = malloc(sizeof(FAS_FLOAT) * max_instruments);
 
 #ifdef MAGIC_CIRCLE
         osc->mc_eps = 2. * sin(2. * 3.141592653589 * (frequency / (FAS_FLOAT)sample_rate) / 2.);
-        osc->mc_x = malloc(sizeof(FAS_FLOAT) * frame_data_count);
-        osc->mc_y = malloc(sizeof(FAS_FLOAT) * frame_data_count);
+        osc->mc_x = malloc(sizeof(FAS_FLOAT) * max_instruments);
+        osc->mc_y = malloc(sizeof(FAS_FLOAT) * max_instruments);
 #endif
 
-        osc->fphase = malloc(sizeof(FAS_FLOAT) * frame_data_count);
+        osc->fphase = malloc(sizeof(FAS_FLOAT) * max_instruments);
 
         // ==
-        osc->fp1 = malloc(sizeof(FAS_FLOAT *) * frame_data_count);
-        osc->fp2 = malloc(sizeof(FAS_FLOAT *) * frame_data_count);
-        osc->fp3 = malloc(sizeof(FAS_FLOAT *) * frame_data_count);
-        osc->fp4 = malloc(sizeof(FAS_FLOAT *) * frame_data_count);
+        osc->fp1 = malloc(sizeof(FAS_FLOAT *) * max_instruments);
+        osc->fp2 = malloc(sizeof(FAS_FLOAT *) * max_instruments);
+        osc->fp3 = malloc(sizeof(FAS_FLOAT *) * max_instruments);
+        osc->fp4 = malloc(sizeof(FAS_FLOAT *) * max_instruments);
 
-        osc->wav1 = malloc(sizeof(FAS_FLOAT *) * frame_data_count);
-        osc->wav2 = malloc(sizeof(FAS_FLOAT *) * frame_data_count);
+        osc->wav1 = malloc(sizeof(FAS_FLOAT *) * max_instruments);
+        osc->wav2 = malloc(sizeof(FAS_FLOAT *) * max_instruments);
 
-        osc->triggered = calloc(frame_data_count, sizeof(unsigned int));
+        osc->triggered = calloc(max_instruments, sizeof(unsigned int));
 
         osc->buffer_len = (FAS_FLOAT)sample_rate / frequency;
-        osc->buffer = malloc(sizeof(FAS_FLOAT) * osc->buffer_len * frame_data_count);
+        osc->buffer = malloc(sizeof(FAS_FLOAT) * osc->buffer_len * max_instruments);
 
-        osc->noise_index = malloc(sizeof(uint16_t) * frame_data_count);
+        osc->noise_index = malloc(sizeof(uint16_t) * max_instruments);
 
-        osc->pvalue = malloc(sizeof(FAS_FLOAT) * frame_data_count);
+        osc->pvalue = malloc(sizeof(FAS_FLOAT) * max_instruments);
 
-        osc->bw = malloc(sizeof(FAS_FLOAT) * frame_data_count);
+        osc->bw = malloc(sizeof(FAS_FLOAT) * max_instruments);
 
 #ifdef WITH_SOUNDPIPE
-        osc->sp_filters = malloc(sizeof(void **) * frame_data_count);
-        osc->sp_mods = malloc(sizeof(void **) * frame_data_count);
-        osc->sp_gens = malloc(sizeof(void **) * frame_data_count);
+        osc->sp_filters = malloc(sizeof(void **) * max_instruments);
+        osc->sp_mods = malloc(sizeof(void **) * max_instruments);
+        osc->sp_gens = malloc(sizeof(void **) * max_instruments);
 
         sp_ftbl_create(spd, (sp_ftbl **)&osc->ft_void, 1);
 #endif
 
-        for (i = 0; i < frame_data_count; i += 1) {
+        for (i = 0; i < max_instruments; i += 1) {
             osc->phase_index[i] = rand() / (FAS_FLOAT)RAND_MAX * wavetable_size;
             osc->noise_index[i] = rand() / (FAS_FLOAT)RAND_MAX * 65536;
             osc->pvalue[i] = 0;
@@ -356,7 +356,7 @@ struct oscillator *updateOscillatorBank(
 #endif
     struct oscillator **o,
     unsigned int n,
-    unsigned int frame_data_count,
+    unsigned int max_instruments,
     unsigned int sample_rate,
     int target,
     FAS_FLOAT value1,
@@ -372,7 +372,7 @@ struct oscillator *updateOscillatorBank(
     unsigned int y = 0, i = 0, k = 0, j = 0;
     for (y = 0; y < n; y += 1) {
         struct oscillator *osc = &oscs[n - 1 - y];
-        for (i = 0; i < frame_data_count; i += 1) {
+        for (i = 0; i < max_instruments; i += 1) {
 #ifdef WITH_SOUNDPIPE
             if (target == 0) {
                 sp_drip_destroy((sp_drip **)&oscs[y].sp_gens[i][SP_DRIP_GENERATOR]);
@@ -415,7 +415,7 @@ struct oscillator *updateOscillatorBank(
     }
 }
 
-struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, unsigned int frame_data_count) {
+struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, unsigned int max_instruments) {
     struct oscillator *oscs = *o;
 
     if (oscs == NULL) {
@@ -423,7 +423,7 @@ struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, un
     }
 
 #ifdef WITH_FAUST
-    freeFaustGenerators(o, n, frame_data_count);
+    freeFaustGenerators(o, n, max_instruments);
 #endif
 
     unsigned int y = 0, i = 0, k = 0, j = 0;
@@ -445,7 +445,7 @@ struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, un
 
         free(oscs[y].bw);
 
-        for (i = 0; i < frame_data_count; i += 1) {
+        for (i = 0; i < max_instruments; i += 1) {
             free(oscs[y].fp1[i]);
             free(oscs[y].fp2[i]);
             free(oscs[y].fp3[i]);

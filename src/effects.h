@@ -63,7 +63,7 @@
 #ifdef WITH_SOUNDPIPE
         sp_data *spd,
 #endif
-        struct _synth_fx **fx, unsigned int frame_data_count, unsigned int sample_rate);
+        struct _synth_fx **fx, unsigned int max_channels, unsigned int sample_rate);
 
     void updateEffectParameter(
 #ifdef WITH_SOUNDPIPE
@@ -132,11 +132,11 @@
     );
 #endif
 
-    void freeEffects(struct _synth_fx **fx, unsigned int frame_data_count);
+    void freeEffects(struct _synth_fx **fx, unsigned int max_channels);
 
 #ifdef WITH_FAUST
-    void createFaustEffects(struct _faust_factories *faust_factories, struct _synth_fx **fxs, unsigned int frame_data_count, unsigned int sample_rate);
-    void freeFaustEffects(struct _synth_fx **fxs, unsigned int frame_data_count);
+    void createFaustEffects(struct _faust_factories *faust_factories, struct _synth_fx **fxs, unsigned int max_channels, unsigned int sample_rate);
+    void freeFaustEffects(struct _synth_fx **fxs, unsigned int max_channels);
 #endif
 
 #endif

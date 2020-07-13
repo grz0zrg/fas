@@ -2,7 +2,7 @@
 
 // granular synthesis : grains setup
 // all possible grains (and sub-grains from max_density parameter) are pre-computed in memory
-struct grain *createGrains(struct sample **s, unsigned int samples_count, unsigned int n, FAS_FLOAT base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int frame_data_count, unsigned int max_density) {
+struct grain *createGrains(struct sample **s, unsigned int samples_count, unsigned int n, FAS_FLOAT base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int max_instruments, unsigned int max_density) {
     if (samples_count == 0) {
         return NULL;
     }
@@ -30,17 +30,17 @@ struct grain *createGrains(struct sample **s, unsigned int samples_count, unsign
             }
 
             // channels dependent parameters
-            g[gr_index].frame = calloc(frame_data_count, sizeof(FAS_FLOAT));
-            g[gr_index].frames = calloc(frame_data_count, sizeof(unsigned int));
-            //g[gr_index].index = calloc(frame_data_count, sizeof(unsigned int));
-            g[gr_index].env_index = calloc(frame_data_count, sizeof(FAS_FLOAT));
-            g[gr_index].env_step = calloc(frame_data_count, sizeof(FAS_FLOAT));
-            g[gr_index].smp_index = calloc(frame_data_count, sizeof(unsigned int));
-            g[gr_index].density = calloc(frame_data_count, sizeof(unsigned int));
-            g[gr_index].speed = calloc(frame_data_count, sizeof(FAS_FLOAT));
+            g[gr_index].frame = calloc(max_instruments, sizeof(FAS_FLOAT));
+            g[gr_index].frames = calloc(max_instruments, sizeof(unsigned int));
+            //g[gr_index].index = calloc(max_instruments, sizeof(unsigned int));
+            g[gr_index].env_index = calloc(max_instruments, sizeof(FAS_FLOAT));
+            g[gr_index].env_step = calloc(max_instruments, sizeof(FAS_FLOAT));
+            g[gr_index].smp_index = calloc(max_instruments, sizeof(unsigned int));
+            g[gr_index].density = calloc(max_instruments, sizeof(unsigned int));
+            g[gr_index].speed = calloc(max_instruments, sizeof(FAS_FLOAT));
 
             // initialization for each simultaneous channels
-            for (unsigned int j = 0; j < frame_data_count; j += 1) {
+            for (unsigned int j = 0; j < max_instruments; j += 1) {
                 g[gr_index].env_index[j] = FAS_ENVS_SIZE;
                 g[gr_index].smp_index[j] = k;
                 g[gr_index].density[j] = 1;
@@ -145,7 +145,7 @@ inline void computeGrains(unsigned int channel, struct grain *g, unsigned int gr
     }
 }
 
-struct grain *freeGrains(struct grain **g, unsigned int samples_count, unsigned int frame_data_count, unsigned int n, unsigned int max_density) {
+struct grain *freeGrains(struct grain **g, unsigned int samples_count, unsigned int max_instruments, unsigned int n, unsigned int max_density) {
     if (samples_count == 0) {
         return NULL;
     }

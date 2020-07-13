@@ -17,13 +17,11 @@ void print_usage() {
     printf("  --render my_session\n");
     printf("  --render_width %u\n", FAS_RENDER_WIDTH);
     printf("  --max_instruments %u\n", FAS_MAX_INSTRUMENTS);
+    printf("  --max_channels %u\n", FAS_MAX_CHANNELS);
     //printf("  --render_convert main.fs\n");
     printf("  --iface 127.0.0.1\n");
     printf("  --input_device -1\n");
     printf("  --device -1\n");
-    printf("  --osc_out 0\n");
-    printf("  --osc_addr 127.0.0.1\n");
-    printf("  --osc_port 57120\n");
     printf("  --grains_dir ./grains/\n");
     printf("  --waves_dir ./waves/\n");
     printf("  --impulses_dir ./impulses/\n");

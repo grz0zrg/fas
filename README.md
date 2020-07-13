@@ -36,7 +36,6 @@ Table of Contents
       * [Limitations](#limitations)
       * [What is sent](#what-is-sent)
       * [Offline rendering (planned)](#offline-rendering-(planned))
-      * [OSC](#osc)
       * [Jack](#jack)
    * [Technical Implementation](#technical-implementation)
    * [Packets description](#packets-description)
@@ -81,7 +80,7 @@ There is also an input instrument which just play input audio so amplitude envel
 
 There is also a modulation instrument which can be used to modulate fx or instruments.
 
-Multiple instruments can be used at the same time targeting different output channels, the maximum number of instruments can be changed and there is no limits on the number of output channels.
+Multiple instruments can be used at the same time with dedicated virtual output channels (which can be routed to any device output channels), the maximum number of instruments / virtual channels can be changed on launch.
 
 FAS is focused on **real-time performances**, being **cross-platform** and **pixels-based**.
 
@@ -89,7 +88,7 @@ This project was built for the [Fragment Synthesizer](https://github.com/grz0zrg
 
 The most pixels-adapted synthesis methods are (in order) additive/spectral, wavetable, granular/PM/Physical modelling; re-synthesis is possible with all of them.
 
-Requirement : by default this synth require ~1 Gb RAM (~2 Gb RAM to be safe) which enable a maximum of 24 instruments with a frames queue size of 3, the memory requirement can be lowered greatly by lowering the amount of instruments or the frame queue size parameter (a frame queue size of 1 would divide the requirement by two but would potentially introduce hiccups).
+Requirement : by default this synth require ~1 Gb RAM (~2 Gb RAM to be safe) which enable a maximum of 24 instruments / virtual channels with a frames queue size of 3, the memory requirement can be lowered greatly by lowering the amount of instruments / virtual channels or the frame queue size parameter (a frame queue size of 1 would divide the requirement by two but would potentially introduce hiccups).
 
 ### Pixels-based
 
@@ -115,15 +114,16 @@ As a fun side note FAS can be considered as a basis to build a simple [DAW](http
 Here is some architectural specifications as if it were made by a synth. manufacturer :
 
 * polyphonic; unlimited number of voices (depend on input data height parameter)
-* multitimbral; unlimited number of timbres / parts / instruments with **configurable output channel**
+* multitimbral; unlimited number of timbres / parts / instruments with **configurable virtual output channel**
 * distributed architecture; more than one instance can run on same machine / a network with independent processing of voice / part, example : [FAS relay](https://github.com/grz0zrg/fsynth/tree/master/fas_relay)
 * driven by pixels data over the wire; this synth can be used as a basis for other softwares and has about no limitations as-is, it is typically used with a client that implement higher order features like MIDI such as [Fragment client](https://github.com/grz0zrg/fsynth)
  * envelopes ? has it all due to stream based architecture, you can build any types (ADSR etc.) with any interpolation scheme (linear / exp etc.)
 * multiple sound engine; additive / spectral, sample-based, subtractive, wavetable, physical modeling, frequency modulation, spectral, filters bank, phase distorsion...
-* allow to extend the sound engine at runtime with user-defined generators and effects written with [Faust](https://faust.grame.fr/) DSP specification language  
+* virtual channels: instruments -> virtual channels -> output device channels
+* allow to extend the sound engine at runtime with user-defined generators and effects written with [Faust](https://faust.grame.fr/) DSP specification language
 * high quality stereophonic audio with low latency and multiple input / output (with Jack)
 * fully microtonal / spectral (oscillator-bank concept for every instruments)
-* unlimited effects slot per part (24 by default but adaptable); reverb, convolution, comb, delay, filters, phaser... 30 high quality effects type provided by Soundpipe are available with most of them stereophonic, you can also choose to add your own effects chain since every part have dedicated stereo output
+* unlimited effects slot per virtual channel (24 by default but adaptable); reverb, convolution, comb, delay, filters, phaser... 30 high quality effects type provided by Soundpipe are available (most of them stereophonic)
 * per partial slot effect for additive synthesis
 * per voice filtering for subtractive synthesis with one multi mode filter
   * per voice effects is limited by RGBA note data, this may be seen as a limitation since only one multi mode filter per voice is allowed
@@ -661,16 +661,10 @@ TODO
 
 ### Future
 
-The ongoing development is to add support for offline rendering, improve Faust integration / add more Faust *.dsp.
+The ongoing development is to add support for offline rendering, improve Faust integration / add more Faust *.dsp, have the option to use OSC instead of Websockets.
 
 There is also minor architectural / cleanup work to do.
 There is also continuous work to do on improving analysis / synthesis algorithms.
-
-### OSC
-
-FAS support OSC output of pixels data if the flag "WITH_OSC" is defined at compile time, OSC data is sent on the channel "/fragment" with data type "idff" and data (in order) "osc index", "osc frequency", "osc amplitude L value", "osc amplitude R value"
-
-With OSC you can basically do whatever you want with the pixels data, feeding SuperCollider synths for example, sending the data as an OSC bundle is WIP.
 
 ### Jack
 
@@ -779,6 +773,7 @@ struct _cmd_chn_settings {
     
     // target parameter
     //  0 : wether this channel is muted or not, a muted channel will not output any sounds but is still available as an input, this is useful for methods that use an input channel as source
+    //  1 : device output channel : for max. performance the value should be set to -1 to indicate to skip this channel processing when there is no instruments bound to this channel
     unsigned int target;
 
     double value; // target value
@@ -814,7 +809,7 @@ struct _cmd_instrument_settings {
     // target parameter
     //  0 : synthesis method, mapping can be found in constants.h (FAS_ADDITIVE etc.)
     //  1 : wether this instrument is muted or not, a muted instrument will not output any sounds but is still available as an input, this is useful for methods that use an input instrument as source
-    //  2 : Output channel
+    //  2 : Output virtual channel index (must be within fas_max_channels to work)
     //  3 : parameter
     //        Granular : granular envelope type for this instrument (there is 13 types of envelopes)
     //        Subtractive : filter type  (require Soundpipe)
@@ -908,11 +903,6 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux with PortAudio :
    * cmake .. -DLWS_WITH_SSL=0 -DLWS_WITHOUT_CLIENT=1
    * make
    * sudo make install
- * Get latest [liblo package](http://liblo.sourceforge.net/) (only needed if WITH_OSC is defined / use OSC makefile rule)
-   * uncompress, go into the directory "liblo-0.29"
-   * ./configure
-   * make
-   * sudo make install
 * Get latest [libsamplerate](http://www.mega-nerd.com/SRC/download.html)
   * you may need to specify the build type on configure (example for NanoPi NEO2 / Raspberry PI : `./configure --build=arm-linux-gnueabihf`)
   * you may need to install libfftw : `sudo apt-get install libfftw3-dev`
@@ -960,7 +950,6 @@ Bit depth is fixed to 32 bits float at the moment.
 There is some cmake build options available to customize features :
 
  * `-DLIBLFDS720` : Use the provided liblfds 7.2.0 library (for ARM64 support)
- * `-DWITH_OSC` : Use OSC output features
  * `-DWITH_JACK` : Use Jack driver instead of PortAudio (may be faster)
  * `-DWITH_FAUST` : Use Faust
  * `-DWITH_SOUNDPIPE` : Use Soundpipe
@@ -988,14 +977,12 @@ Usage: fas [list_of_parameters]
  * --wavetable_size 8192 **no effects if built with advanced optimizations option**
  * --smooth_factor 1.0 **this is the samples interpolation factor between frames, a high value will sharpen sounds attack / transitions (just like if the stream rate / FPS was higher), a low value will smooth it (audio will become muddy)**
  * --max_instruments 24 **this is the maximum amount of instruments that can be used, may increase memory consumption significantly**
+ * --max_channels 24 **this is the maximum amount of virtual channels that can be used, may increase memory consumption significantly**
  * --ssl 0
  * --deflate 0 **network data compression (add additional processing)**
  * --max_drop 60 **this allow smooth audio in the case of frames drop, allow 60 frames drop by default which equal to approximately 1 sec.**
  * --render target.fs **real-time pixels-data offline rendering, this will save pixels data to "target.fs" file**
  * --render_convert target.fs **this will convert the pixels data contained by the .fs file to a .flac file of the same name**
- * --osc_out 0 **you can enable OSC output of notes by setting this argument to 1**
- * --osc_addr 127.0.0.1 **the OSC server address**
- * --osc_port 57120 **the OSC server port**
  * --grains_dir ./grains/
  * --granular_max_density 128 **this control how dense grains can be (maximum)**
  * --waves_dir ./waves/

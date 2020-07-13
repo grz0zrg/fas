@@ -79,13 +79,13 @@
 
     /**
      * create an oscillator bank of N oscillators with a frequencies map defined by f(y) = base_frequency * (2 ^ (y / (n / octaves)))
-     * each oscillators in the bank may have additional per instrument parameters defined by frame_data_count
+     * each oscillators in the bank may have additional per instrument parameters defined by max_instruments
      **/
     extern struct oscillator *createOscillatorsBank(
 #ifdef WITH_SOUNDPIPE
         sp_data *spd,
 #endif
-        unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int wavetable_size, unsigned int frame_data_count);
+        unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int wavetable_size, unsigned int max_instruments);
 
     struct oscillator *updateOscillatorBank(
     #ifdef WITH_SOUNDPIPE
@@ -93,13 +93,13 @@
     #endif
         struct oscillator **o,
         unsigned int n,
-        unsigned int frame_data_count,
+        unsigned int max_instruments,
         unsigned int sample_rate,
         int target,
         FAS_FLOAT value1,
         FAS_FLOAT value2);
 
-    extern struct oscillator *freeOscillatorsBank(struct oscillator **oscs, unsigned int n, unsigned int frame_data_count);
+    extern struct oscillator *freeOscillatorsBank(struct oscillator **oscs, unsigned int n, unsigned int max_instruments);
 
 #ifdef WITH_FAUST
     extern void createFaustGenerators(
@@ -107,11 +107,11 @@
         struct oscillator *osc_bank,
         unsigned int n,
         unsigned int sample_rate,
-        unsigned int frame_data_count);
+        unsigned int max_instruments);
 
     extern void freeFaustGenerators(
         struct oscillator **o,
         unsigned int n,
-        unsigned int frame_data_count);
+        unsigned int max_instruments);
 #endif
 #endif

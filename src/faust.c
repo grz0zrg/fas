@@ -4,16 +4,16 @@
 #include "faust.h"
 
 struct _faust_factories *createFaustFactories(char *directory) {
-    struct _faust_factories *fl = (struct _faust_factories *)malloc(sizeof(struct _faust_factories));
-
     tinydir_dir dir;
     int ret = tinydir_open_sorted(&dir, directory);
 
     if (ret == -1) {
         printf("tinydir_open failed for directory '%s'.\n", directory);
 
-        return 0;
+        return NULL;
     }
+
+    struct _faust_factories *fl = (struct _faust_factories *)malloc(sizeof(struct _faust_factories));
 
     size_t dir_length = strlen(directory);
     char *current_dir = (char *)malloc(sizeof(char) * (dir_length + 1));
@@ -78,7 +78,7 @@ struct _faust_factories *createFaustFactories(char *directory) {
 }
 
 void freeFaustFactories(struct _faust_factories *fl) {
-    if (!fl) {
+    if (fl == NULL) {
         return;
     }
 

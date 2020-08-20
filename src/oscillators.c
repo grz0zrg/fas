@@ -24,16 +24,20 @@ void createFaustGenerators(
         struct oscillator *osc = &osc_bank[index];
 
         osc->faust_gens_len = faust_factories->len;
-        osc->faust_gens = malloc(sizeof(struct _fas_faust_dsp **) * max_instruments);
+        osc->faust_gens = calloc(max_instruments, sizeof(struct _fas_faust_dsp **));
+
+        if (osc->faust_gens_len == 0) {
+            continue;
+        }
 
         for (i = 0; i < max_instruments; i += 1) {
-            osc->faust_gens[i] = malloc(sizeof(struct _fas_faust_dsp *) * (faust_factories->len));
+            osc->faust_gens[i] = calloc(faust_factories->len, sizeof(struct _fas_faust_dsp *));
             for (k = 0; k < faust_factories->len; k += 1) {
-                osc->faust_gens[i][k] = malloc(sizeof(struct _fas_faust_dsp));
+                osc->faust_gens[i][k] = calloc(1, sizeof(struct _fas_faust_dsp));
 
                 struct _fas_faust_ui_control *uiface = calloc(1, sizeof(struct _fas_faust_ui_control));
                 
-                UIGlue *ui = malloc(sizeof(UIGlue));
+                UIGlue *ui = calloc(1, sizeof(UIGlue));
                 ui->openTabBox = ui_open_tab_box;
                 ui->openHorizontalBox = ui_open_horizontal_box;
                 ui->openVerticalBox = ui_open_vertical_box;
@@ -99,7 +103,15 @@ void freeFaustGenerators(
 
     unsigned int y = 0, i = 0, k = 0;
     for (y = 0; y < n; y += 1) {
+        if (oscs[y].faust_gens == NULL) {
+            continue;
+        }
+
         for (i = 0; i < max_instruments; i += 1) {
+            if (oscs[y].faust_gens[i] == NULL) {
+                continue;
+            }
+
             for (k = 0; k < oscs[y].faust_gens_len; k += 1) {
                 struct _fas_faust_dsp *fdsp = oscs[y].faust_gens[i][k];
 
@@ -129,7 +141,7 @@ struct oscillator *createOscillatorsBank(
     unsigned int sample_rate,
     unsigned int wavetable_size,
     unsigned int max_instruments) {
-    struct oscillator *oscillators = (struct oscillator*)malloc(n * sizeof(struct oscillator));
+    struct oscillator *oscillators = (struct oscillator*)calloc(n, sizeof(struct oscillator));
 
     if (oscillators == NULL) {
         printf("createOscillators alloc. error.");

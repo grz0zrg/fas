@@ -64,7 +64,7 @@ void doSynthCommands() {
             if (target == 0 && value > 0) {
                 fpsChange(value);
             } else if (target == 1) {
-                curr_synth.settings->gain_lr = synth_command->value[0];
+                curr_synth.settings->gain_lr = value;
             }
         } else if (synth_command->type == FAS_CMD_CHN_SETTINGS) {
             uint32_t chn = synth_command->value[0];

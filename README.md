@@ -263,6 +263,8 @@ Wavetable synthesis is fast and provide rich sounds.
 
 Note : FAS does not really have multiple 'wavetables' as it load every waves into a big continuous wavetable but the different wavetables are ordered (by directory then by filename) when loaded so that each loaded waves are contiguous.
 
+Note : The wavetable can be used as a sampler as long as the input file is exported into small chunks (with some kind of windowing to remove crackles), this can be done easily with a small script or some software. An example Python script `sample_split.py` is available in the scripts directory.
+
 #### RGBA interpretation
 
 | Components | Interpretations                                              |
@@ -967,7 +969,7 @@ By default FAS build with `-DWITH_FAUST -DWITH_AUBIO -DWITH_SOUNDPIPE -DMAGIC_CI
 
 You can tweak this program by passing parameters to its arguments, for command-line help : **fas --h**
 
-A wxWidget user-friendly launcher is also available [here](https://github.com/grz0zrg/fas_launcher)
+A wxWidget user-friendly launcher is also available [here](https://github.com/grz0zrg/fas_launcher) (Note : may not support all options)
  
 Usage: fas [list_of_parameters]
  * --i **print audio device infos**

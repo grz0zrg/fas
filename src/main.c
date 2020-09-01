@@ -819,8 +819,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         osc->fp1[k][1] = fmod(osc->fp1[k][1], smp->frames);
 
                         if (osc->fp1[k][3] >= 1) {
-                            unsigned int start_index = (int)fabs(round(n->blue)) % waves_count;
-                            unsigned int stop_index = (int)fabs(round(n->alpha)) % waves_count;
+                            unsigned int start_index = abs((int)round(n->blue)) % waves_count;
+                            unsigned int stop_index = abs((int)round(n->alpha)) % waves_count;
 
                             unsigned int next_start_index = start_index;
 

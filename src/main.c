@@ -804,9 +804,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         fsmp = wsmp + fmin(osc->fp1[k][3], 1.0) * (nwsmp - wsmp);
 
                         osc->fp2[k][1] += osc->fp2[k][2];
-                        if (osc->fp2[k][1] >= nsmp->frames) {
-                            osc->fp2[k][1] = fmod(osc->fp2[k][1], nsmp->frames);
-                        }
+ 
+                        osc->fp2[k][1] = fmod(osc->fp2[k][1], nsmp->frames);
                     } else {
                         fsmp = wsmp;
                     }
@@ -856,6 +855,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                             struct sample *nsmp = &waves[(int)osc->fp2[k][0]];
                             osc->fp2[k][2] = osc->freq / nsmp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)nsmp->samplerate);
+
+                            osc->fp1[k][1] = 0;
                         }
                     }
 

@@ -389,7 +389,13 @@ void updateEffectParameter(
 #endif
 #ifdef WITH_FAUST
     if (fx->fx_id == FX_FAUST) {
-        struct _fas_faust_dsp *fdsp = fxs->faust_effs[slot][(unsigned int)fx->fp[0]];
+        unsigned int fx_index = (unsigned int)fx->fp[0];
+
+        if (fx_index >= fxs->faust_effs_len) {
+            return;
+        }
+
+        struct _fas_faust_dsp *fdsp = fxs->faust_effs[slot][fx_index];
 
         struct _fas_faust_ui_control *tmp;
         if (target == 3) {
@@ -631,6 +637,10 @@ void updateEffectParameter(
     }
 }
 
+int isValidConvPart(int x) {
+    return (x == 256 || x == 512 || x == 1024 || x == 2048 || x == 4096 || x == 8192 || x == 16384 || x == 32768 || x == 65536);
+}
+
 #ifdef WITH_SOUNDPIPE
 void resetConvolution(
     sp_data *sp,
@@ -648,7 +658,7 @@ void resetConvolution(
         imp_ftbl = smp->ftbl;
     }
 
-    if (!isPowerOfTwo((int)v2)) {
+    if (!isPowerOfTwo((int)v2) || !isValidConvPart((int)v2)) { // conv. length validation is necessary due to possible priority issues on fx slot/target update
         v2 = 1024;
     }
 

@@ -220,7 +220,7 @@ void freeEnvelopes(FAS_FLOAT **envs) {
 }
 
 int isPowerOfTwo(unsigned int x) {
-    return (x != 0) && ((x & (x - 1)) == 0);
+    return (x && !(x & (x - 1)));
 }
 
 char *create_filepath(char *directory, char *filename) {

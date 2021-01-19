@@ -1463,9 +1463,12 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                     struct _synth_fx_settings *chn_fx_settings = &chn_settings->fx[j];
 
-                    struct _fas_faust_dsp *fas_faust_dsp = fx->faust_effs[j][(unsigned int)chn_fx_settings->fp[0]];
+                    unsigned int fx_index = (unsigned int)chn_fx_settings->fp[0];
+                    if (fx_index < fx->faust_effs_len) {
+                        struct _fas_faust_dsp *fas_faust_dsp = fx->faust_effs[j][fx_index];
 
-                    computeCDSPInstance(fas_faust_dsp->dsp, 1, faust_input, faust_output);
+                        computeCDSPInstance(fas_faust_dsp->dsp, 1, faust_input, faust_output);
+                    }
 #endif
                 }
                 

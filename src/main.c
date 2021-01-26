@@ -369,16 +369,13 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     if (fx == SP_CRUSH_MODS) {
                         sp_bitcrush *crush = (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS];
                         
-                        crush->bitdepth = 1.f + (osc->fp1[k][1] * 15.f);
-                        crush->srate = n->res * (FAS_FLOAT)fas_sample_rate;
+                        FAS_FLOAT bitdepth = 1.f + (osc->fp1[k][1] * 31.f);
+                        FAS_FLOAT srate = n->res * (FAS_FLOAT)fas_sample_rate;
+
+                        crush->bitdepth = bitdepth;
+                        crush->srate = fmax(1, srate);
 
                         sp_bitcrush_compute(sp, (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS], &smp, &smp); 
-                    } else if (fx == SP_PD_MODS) {
-                        sp_pdhalf *pdh = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
-                        
-                        pdh->amount = (0.5f - n->res) * 2.f;
-
-                        sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &smp, &smp); 
                     } else if (fx == SP_WAVSH_MODS) {
                         sp_dist *dist = (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS];
                         
@@ -386,14 +383,6 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         dist->shape2 = n->alpha;
 
                         sp_dist_compute(sp, (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS], &smp, &smp); 
-                    } else if (fx == SP_FOLD_MODS) {
-                        sp_fold *fold = (sp_fold *)osc->sp_mods[k][SP_FOLD_MODS];
-                        
-                        fold->incr = n->alpha;
-
-                        sp_fold_compute(sp, (sp_fold *)osc->sp_mods[k][SP_FOLD_MODS], &smp, &smp); 
-                    } else if (fx == SP_CONV_MODS) {
-                        sp_conv_compute(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], &smp, &smp); 
                     } else if (fx == NOISE_MODS) {
 #ifndef MAGIC_CIRCLE
                         osc->phase_index[k] += osc->phase_step * (1.0f + (fas_white_noise_table[osc->noise_index[k]++] * fas_noise_amount) * n->alpha);
@@ -578,11 +567,11 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     FAS_FLOAT fbf = (osc->fp1[k][0] + osc->fp1[k][1]) / 2; // 'anti-hunting' filter (simple low-pass)
                     FAS_FLOAT fb = fbf * (floor(n->blue) / 65536.0);
                     
-                    FAS_FLOAT ph2 = fmod(osc->phase_index2[k] + (fb * mod_wav_size), mod_wav_size);
+                    FAS_FLOAT ph2 = fmod(osc->phase_index2[k] + (fb * mod_wav_size), fmax(mod_wav_size, 1));
 
                     FAS_FLOAT smp_mod = osc->wav2[k][(int)ph2];
                     FAS_FLOAT mod = (((FAS_FLOAT)smp_mod * osc->fp3[k][0]) * car_wav_size);
-                    FAS_FLOAT ph1 = fmod(osc->phase_index[k] + mod, car_wav_size);
+                    FAS_FLOAT ph1 = fmod(osc->phase_index[k] + mod, fmax(car_wav_size, 1));
 
                     int phase_index1 = (int)ph1;
                     int phase_index2 = phase_index1 + 1;
@@ -597,7 +586,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
                     // dc filter (due to feedback there is a 0Hz component)
-                    FAS_FLOAT dc_filtered_smp = smp - osc->pvalue[k] + (0.99 * osc->fp1[k][2]);
+                    FAS_FLOAT dc_filtered_smp = smp - osc->pvalue[k] + ((FAS_FLOAT)0.99 * osc->fp1[k][2]);
                     osc->pvalue[k] = smp;
                     osc->fp1[k][2] = dc_filtered_smp;
 
@@ -1579,36 +1568,6 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             double dummy_int_part;
                             osc->fp1[k][0] = fabs(n->blue);
                             osc->fp1[k][1] = modf(fabs(n->blue), &dummy_int_part);
-
-                            if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
-                                unsigned int alpha = fabs(round(n->alpha));
-                                unsigned int palpha = fabs(round(n->palpha));
-#ifdef PARTIAL_FX
-                                int fx = n->density % SP_OSC_MODS;
-                                if (alpha != palpha) {
-                                    if (fx == SP_CONV_MODS) {
-#ifdef WITH_SOUNDPIPE
-                                        sp_ftbl *imp_ftbl = osc->ft_void;
-                                        if (impulses_count > 0) {
-                                            struct sample *smp = &impulses[alpha % impulses_count];
-                                            imp_ftbl = smp->ftbl;
-                                        }
-                                        sp_conv_destroy((sp_conv **)&osc->sp_mods[k][SP_CONV_MODS]);
-
-                                        sp_conv_create((sp_conv **)&osc->sp_mods[k][SP_CONV_MODS]);
-                                        sp_conv_init(sp, (sp_conv *)osc->sp_mods[k][SP_CONV_MODS], imp_ftbl, 2048);
-#endif
-                                    }
-                                }
-
-                                //if (fx == SP_EMPTY_MODS) {
-                                //    osc->phase_index[k] = n->alpha * fas_wavetable_size_m1;
-                                //}
-#else
-                                // phase control via alpha value
-                                //osc->phase_index[k] = n->alpha * fas_wavetable_size_m1;
-#endif
-                            }
                         }
                     } else if (synthesis_method == FAS_GRANULAR) {
                         for (j = s; j < e; j += 1) {
@@ -1727,6 +1686,11 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
                                 osc->fp1[k][0] = 0.0f;
                                 osc->fp1[k][1] = 0.0f;
+                                osc->fp1[k][2] = 0.0f;
+                                osc->fp1[k][3] = 0.0f;
+                                osc->fp1[k][4] = 0.0f;
+                                osc->fp2[k][0] = 0.0f;
+                                osc->fp2[k][1] = 0.0f;
                             }
 
                             if (instrument->p0 >= 0 && waves_count > 0) {
@@ -4014,6 +3978,10 @@ int main(int argc, char **argv)
 
 quit:
 
+#ifndef WITH_JACK
+    pthread_join(tid, NULL);
+#endif
+
     // thank you for your attention, bye. 
 #ifdef WITH_JACK
     jack_client_close (client);
@@ -4116,10 +4084,6 @@ quit:
 #pragma GCC diagnostic pop
 
     freeRender();
-
-#ifndef WITH_JACK
-    pthread_join(tid, NULL);
-#endif
 
     printf("Bye.\n");
 

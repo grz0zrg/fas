@@ -307,6 +307,8 @@
     void freeInstrumentState(struct _synth_instrument_states *state) {
         afSTFTfree(state->afSTFT_handle);
 
+        state->afSTFT_handle = NULL;
+
         for (int j = 0; j < 2; j += 1) {
             free(state->in[j]);
             free(state->out[j]);
@@ -317,6 +319,8 @@
             free(state->stft_temp[j].re);
             free(state->stft_temp[j].im);
         }
+
+        state->position = 0;
     }
 
     void createInstrumentState(struct _synth_instrument_states *state, unsigned int hop_size) {
@@ -340,6 +344,8 @@
             state->stft_temp[j].re = (float *)calloc((hop_size + 1), sizeof(float));
             state->stft_temp[j].im = (float *)calloc((hop_size + 1), sizeof(float));
         }
+
+        state->position = 0;
 
         state->hop_size = hop_size;
     }

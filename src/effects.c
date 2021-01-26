@@ -460,9 +460,9 @@ void updateEffectParameter(
             sp_bitcrush *bitcrush = (sp_bitcrush *)fxs->bitcrush[slot_index];
 
             if (target == 2) {
-                bitcrush->bitdepth = value;
+                bitcrush->bitdepth = fabs(fmax(1, fmin(32, value)));
             } else if (target == 3) {
-                bitcrush->srate = value;
+                bitcrush->srate = fabs(fmax(1, fmin(value, sp->sr)));
             } else if (target == 4) {
                 fxs->dry[slot_index] = value;
             } else if (target == 5) {

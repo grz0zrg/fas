@@ -336,12 +336,6 @@ struct oscillator *createOscillatorsBank(
             sp_dist *dist = (sp_dist *)osc->sp_mods[i][SP_WAVSH_MODS];
             dist->pregain = 1.f;
             dist->postgain = 1.f;
-
-            sp_fold_create((sp_fold **)&osc->sp_mods[i][SP_FOLD_MODS]);
-            sp_fold_init(spd, osc->sp_mods[i][SP_FOLD_MODS]);
-
-            sp_conv_create((sp_conv **)&osc->sp_mods[i][SP_CONV_MODS]);
-            sp_conv_init(spd, osc->sp_mods[i][SP_CONV_MODS], osc->ft_void, 2048);  
 #endif
 
             // == PM
@@ -490,8 +484,6 @@ struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, un
 
             sp_bitcrush_destroy((sp_bitcrush **)&oscs[y].sp_mods[i][SP_CRUSH_MODS]);
             sp_dist_destroy((sp_dist **)&oscs[y].sp_mods[i][SP_WAVSH_MODS]);
-            sp_fold_destroy((sp_fold **)&oscs[y].sp_mods[i][SP_FOLD_MODS]);
-            sp_conv_destroy((sp_conv **)&oscs[y].sp_mods[i][SP_CONV_MODS]);
 
             free(oscs[y].sp_mods[i]);
 #endif

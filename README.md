@@ -124,7 +124,7 @@ Here is some architectural specifications as if it were made by a synth. manufac
 * high quality stereophonic audio with low latency and multiple input / output (with Jack)
 * fully microtonal / spectral (oscillator-bank concept for every instruments)
 * unlimited effects slot per virtual channel (24 by default but adaptable); reverb, convolution, comb, delay, filters, phaser... 30 high quality effects type provided by Soundpipe are available (most of them stereophonic)
-* per partial slot effect for additive synthesis
+* per partial effect slot for additive synthesis
 * per voice filtering for subtractive synthesis with one multi mode filter
   * per voice effects is limited by RGBA note data, this may be seen as a limitation since only one multi mode filter per voice is allowed
 * highly optimized real-time architecture; run on low-power embedded hardware such as Raspberry
@@ -141,11 +141,8 @@ When compiled with `PARTIAL_FX` defined there is a fx slot available **per parti
 
 * 0: none
 * 1: bitcrush (Bitdepth / Sampling rate : B component [0, 1] / A component [0, 1])
-* 2: phase distorsion (Amount : A component [0, 1] where 0.5 is origin)
-* 3: tanh waveshaping (Wave 1 / Wave 2 : B component [0, 1] / A component [0, 1))
-* 4: signal foldover (A component [0, ...))
-* 5: noise (B added white noise factor to sine wave phase, maximum defined by command-line parameter)
-* 6: convolver (Impulse file : A component integer part; Note : require huge amount of processing power with even low amount of partials / long impulse)
+* 2: tanh waveshaping (Wave 1 / Wave 2 : B component [0, 1] / A component [0, 1))
+* 3: noise (B added white noise factor to sine wave phase, maximum defined by command-line parameter)
 
 Any combination of these can be applied to each partials with real-time parameters change. This feature may allow to easily add character to the additive sound.
 
@@ -176,7 +173,7 @@ Granular synthesis implementation is less optimal than additive synthesis but ha
 
 The granular synthesis algorithm is also prototyped in JavaScript (one channel only) and can be tried step by step in a browser by opening the `lab/granular/algorithm.html`
 
-All granular synthesis parameters excluding density and envelope type can be changed in real-time without issues.
+All granular synthesis parameters excluding density and envelope type can be changed in real-time without crackles.
 
 #### Window type
 
@@ -287,7 +284,7 @@ Channel settings are used to change spectral parameters :
  * p0 : source channel / instrument
  * p1 : window size (power of two; 32 up to 1024; might introduce a delay)
  * p2 : mode (0 or 1)
- * p3 : source mode (0 or 1 for instrument)
+ * p3 : source mode (0 for channel or 1 for instrument)
 
 Mode is a parameter which select how the frequency domain changes will be applied
 
@@ -922,7 +919,7 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux with PortAudio :
 * For automatic pitch detection of sample files get aubio from your package manager (can also be installed from sources but instructions have yet to be written)
 * libsndfile can be installed through package manager
 
-Some dependencies can also be installed through the operating system packages manager. (may have some issues with deflate option and some libwebsockets packages, this is resolved by compiling libwebsockets 2.2.x)
+Some dependencies can also be installed through the operating system packages manager. (may have some issues with deflate option and some libwebsockets packages, this is resolved by compiling libwebsockets 2.2.x, may also have issues compiling Faust, usually solved by installing a specific version of LLVM)
 
 On ARM64 you must use liblfds 7.2.0 (by passing `-DLIBLFDS720` to cmake) which is provided in the lib directory, this is a not yet released version and potentially unstable for anything else, it is only provided to provide FAS under ARM64 platforms and is not guaranteed to work for anything else.
 

@@ -114,7 +114,7 @@
     // Soundpipe
     #define SP_OSC_FILTERS 12 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
     #define SP_OSC_GENS 7 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
-    #define SP_OSC_MODS 7 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!! (note : empty / pdhalf does count even if not allocated at the same place)
+    #define SP_OSC_MODS 4 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!! (note : empty does count even if not allocated at the same place)
 
     // sp filters id
     #define SP_MOOG_FILTER 0
@@ -142,11 +142,8 @@
     // sp mods id
     #define SP_EMPTY_MODS 0
     #define SP_CRUSH_MODS 1
-    #define SP_PD_MODS 2
-    #define SP_WAVSH_MODS 3
-    #define SP_FOLD_MODS 4
-    #define SP_CONV_MODS 5
-    #define NOISE_MODS 6
+    #define SP_WAVSH_MODS 2
+    #define NOISE_MODS 3
 
     // chn params type
     #define CHN_PARAM_SYNTH 0

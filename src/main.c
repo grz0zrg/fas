@@ -174,7 +174,7 @@ void doSynthCommands() {
                     if (target == 0) {
                         fx_settings->fx_id = value;
 
-                        if (value == -1) { // this slot has been deleted; we need to shift everything after down to this slot (effect slots are handled linearly)
+                        if (value < 0) { // this slot has been deleted; we need to shift everything after down to this slot (effect slots are handled linearly)
                             unsigned int i = 0;
                             for (i = slot; i < FAS_MAX_FX_SLOTS - 1; i += 1) {
                                 struct _synth_fx_settings *fx_settings1 = &chn_settings->fx[i];
@@ -190,10 +190,16 @@ void doSynthCommands() {
                                 unsigned int j = 0;
                                 for (j = 0; j < FAS_MAX_FX_PARAMETERS; j += 1) {
                                     fx_settings1->fp[j] = fx_settings2->fp[j];
+
+                                    updateEffectParameter(
+#ifdef WITH_SOUNDPIPE
+                                        sp,
+#endif                    
+                                        synth_fx[chn], chn_settings, i, j + 2, fx_settings1->fp[j]);
                                 }
                             }
 
-                            struct _synth_fx_settings *fx_settings_tail = &chn_settings->fx[FAS_MAX_FX_SLOTS - 1];
+                            struct _synth_fx_settings *fx_settings_tail = &chn_settings->fx[i];
                             fx_settings_tail->fx_id = -1;
                         }
                     } else if (target == 1) {
@@ -208,7 +214,6 @@ void doSynthCommands() {
                                 sp,
 #endif                    
                                 synth_fx[chn], chn_settings, slot, target, value);
-
                         } else {
 #ifdef DEBUG
     printf("CMD CHN_SETTINGS : fp index does not exist \n");
@@ -1736,26 +1741,26 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
 #ifdef WITH_SOUNDPIPE
                             SPFLOAT freq = osc->freq * n->cutoff;
-                            SPFLOAT res = fabs(n->res * 2.); // allow > 1 resonance
+                            SPFLOAT res = fabs(n->res);
 
                             // clamp to nyquist limit / filter limit
                             freq = fmin(freq, fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
 
                             sp_moogladder *spmf = (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER];
                             spmf->freq = freq;
-                            spmf->res = fabs(res);
+                            spmf->res = res;
 
                             sp_diode *spdf = (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER];
                             spdf->freq = freq;
-                            spdf->res = fabs(res);
+                            spdf->res = res;
 
                             sp_wpkorg35 *spkf = (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER];
                             spkf->cutoff = freq;
-                            spkf->res = fabs(res);
+                            spkf->res = fabs(res * 2.);
 
                             sp_lpf18 *splf = (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER];
                             splf->cutoff = freq;
-                            splf->res = fabs(n->res);
+                            splf->res = res;
 #else
                             huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (FAS_FLOAT)fas_sample_rate);
 

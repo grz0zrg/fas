@@ -63,7 +63,7 @@ The versatility of its sound engine allow a wide variety of synthesis methods (a
 There is a second type of synthesis methods (or modifiers) which use any synthesis methods from above as input:
 
 * second-order band-pass Butterworth filter (bandpass filter bank)
-* formant synthesis (formant filter bank)
+* formant synthesis (formant filter bank) note : may be hot
 * string resonator synthesis (complex filter bank similar to Karplus-Strong)
 * modal synthesis (resonant filter bank)
 * phase distorsion
@@ -373,6 +373,8 @@ Only available with Soundpipe.
 Specific type of synthesis which use a canvas-mapped bank of formant filters, each activated formant filters use an user-defined channel as source. It can be used to mimic speech.
 
 It is similar to bandpass mode with a different algorithm.
+
+WARNING : This may be hot with some frequencies.
 
 #### RGBA interpretation
 

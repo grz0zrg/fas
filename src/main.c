@@ -943,14 +943,14 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         int chn = (int)bint % fas_max_channels;
                         struct _synth_chn_settings *input_chn_settings = &curr_synth.chn_settings[chn];
 
-                        il = input_chn_settings->last_sample_l * vl;
-                        ir = input_chn_settings->last_sample_r * vr;
+                        il = input_chn_settings->last_sample_l;
+                        ir = input_chn_settings->last_sample_r;
                     } else {
                         int instrument_index = (int)bint % fas_max_instruments;
                         struct _synth_instrument *instrument = &curr_synth.instruments[instrument_index];
 
-                        il = instrument->last_sample_l * vl;
-                        ir = instrument->last_sample_r * vr; 
+                        il = instrument->last_sample_l;
+                        ir = instrument->last_sample_r; 
                     }
 
                     FAS_FLOAT sl = 0.0f;
@@ -980,8 +980,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     int chn = (int)bint % fas_max_channels;
                     struct _synth_chn_settings *input_chn_settings = &curr_synth.chn_settings[chn];
 
-                    il = input_chn_settings->last_sample_l * vl;
-                    ir = input_chn_settings->last_sample_r * vr;
+                    il = input_chn_settings->last_sample_l;
+                    ir = input_chn_settings->last_sample_r;
 
                     FAS_FLOAT sl = 0.0f;
                     FAS_FLOAT sr = 0.0f;
@@ -1011,14 +1011,14 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         int chn = (int)bint % fas_max_channels;
                         struct _synth_chn_settings *input_chn_settings = &curr_synth.chn_settings[chn];
 
-                        il = input_chn_settings->last_sample_l * vl;
-                        ir = input_chn_settings->last_sample_r * vr;
+                        il = input_chn_settings->last_sample_l;
+                        ir = input_chn_settings->last_sample_r;
                     } else {
                         int instrument_index = (int)bint % fas_max_instruments;
                         struct _synth_instrument *instrument = &curr_synth.instruments[instrument_index];
 
-                        il = instrument->last_sample_l * vl;
-                        ir = instrument->last_sample_r * vr; 
+                        il = instrument->last_sample_l;
+                        ir = instrument->last_sample_r; 
                     }
 
                     FAS_FLOAT sl = 0.0f;
@@ -1049,14 +1049,14 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         int chn = (int)bint % fas_max_channels;
                         struct _synth_chn_settings *input_chn_settings = &curr_synth.chn_settings[chn];
 
-                        il = input_chn_settings->last_sample_l * vl;
-                        ir = input_chn_settings->last_sample_r * vr;
+                        il = input_chn_settings->last_sample_l;
+                        ir = input_chn_settings->last_sample_r;
                     } else {
                         int instrument_index = (int)bint % fas_max_instruments;
                         struct _synth_instrument *instrument = &curr_synth.instruments[instrument_index];
 
-                        il = instrument->last_sample_l * vl;
-                        ir = instrument->last_sample_r * vr; 
+                        il = instrument->last_sample_l;
+                        ir = instrument->last_sample_r; 
                     }
 
                     FAS_FLOAT sl = 0.0f;
@@ -1087,14 +1087,14 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         int chn = (int)bint % fas_max_channels;
                         struct _synth_chn_settings *input_chn_settings = &curr_synth.chn_settings[chn];
 
-                        il = input_chn_settings->last_sample_l * vl;
-                        ir = input_chn_settings->last_sample_r * vr;
+                        il = input_chn_settings->last_sample_l;
+                        ir = input_chn_settings->last_sample_r;
                     } else {
                         int instrument_index = (int)bint % fas_max_instruments;
                         struct _synth_instrument *instrument = &curr_synth.instruments[instrument_index];
 
-                        il = instrument->last_sample_l * vl;
-                        ir = instrument->last_sample_r * vr; 
+                        il = instrument->last_sample_l;
+                        ir = instrument->last_sample_r; 
                     }
 
                     FAS_FLOAT sl = 0.0f;
@@ -1678,8 +1678,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
 #ifdef WITH_SOUNDPIPE
                             sp_pdhalf *pdhalf = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
-                            pdhalf->ibipolar = 1;
-                            pdhalf->amount = n->alpha;//fmin(fmax(n->alpha, -1.f), 1.f);
+                            pdhalf->ibipolar = 0;
+                            pdhalf->amount = fmin(fmax(n->alpha, -1.f), 1.f);
 #endif
                         } 
                     } else if (synthesis_method == FAS_FM) {
@@ -1756,7 +1756,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                             sp_wpkorg35 *spkf = (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER];
                             spkf->cutoff = freq;
-                            spkf->res = fabs(res * 2.);
+                            spkf->res = res * 2.;
 
                             sp_lpf18 *splf = (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER];
                             splf->cutoff = freq;

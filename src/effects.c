@@ -695,11 +695,11 @@ void resetDelays(
         sp_smoothdelay_destroy((sp_smoothdelay **)&fxs->sdelay[slot_index]);
         sp_smoothdelay_create((sp_smoothdelay **)&fxs->sdelay[slot_index]);
 
-        sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[slot_index], v1, v2);
+        sp_smoothdelay_init(sp, (sp_smoothdelay *)fxs->sdelay[slot_index], fmax(v1, 0.0001f), v2);
 
         sp_smoothdelay *sdelay = (sp_smoothdelay *)fxs->sdelay[slot_index];
         sdelay->feedback = v3;
-        sdelay->del = v4;
+        sdelay->del = fmax(v4, 0.0001f);
     }
 }
 

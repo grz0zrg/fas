@@ -850,7 +850,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             struct sample *nsmp = &waves[(int)osc->fp2[k][0]];
                             osc->fp2[k][2] = osc->freq / nsmp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)nsmp->samplerate);
 
-                            osc->fp1[k][1] = 0;
+                            //osc->fp1[k][1] = 0;
                         }
                     }
 
@@ -2796,8 +2796,8 @@ if (remaining_payload != 0) {
                         if (curr_fx_id == FX_CONV) {
                             if (target == 2 || target == 3) {
                                 if (target == 3) {
-                                    if (isPowerOfTwo(value) == 0) {
-                                        value = 4096;
+                                    if (!isPowerOfTwo((int)value) || !isValidConvPart((int)value)) {
+                                        value = 1024;
                                     }
 
                                     fp1 = usd->synth_chn_fx_settings[chn][fx_slot][target] = value;
@@ -2806,8 +2806,8 @@ if (remaining_payload != 0) {
                                 resetConvolution(sp, synth_fx[chn], impulses, impulses_count, fx_slot, 0, fp0, fp1);
                             } else if (target == 4 || target == 5) {
                                 if (target == 5) {
-                                    if (isPowerOfTwo(value) == 0) {
-                                        value = 4096;
+                                    if (!isPowerOfTwo((int)value) || !isValidConvPart((int)value)) {
+                                        value = 1024;
                                     }
 
                                     fp3 = usd->synth_chn_fx_settings[chn][fx_slot][target] = value;
@@ -2880,7 +2880,11 @@ fflush(stdout);
                         waves_count = load_samples(&waves, fas_waves_path, fas_sample_rate, fas_samplerate_converter_type, 0);
 #endif
 
-                        waves_count_m1 = waves_count - 1;
+                        if (waves_count > 0) {
+                            waves_count_m1 = waves_count - 1;
+                        } else {
+                            waves_count_m1 = 0;
+                        }
 
                         audioPlay();
                     } else if (action_type[0] == FAS_ACTION_IMPULSES_RELOAD) { // RELOAD IMPULSES
@@ -2893,7 +2897,11 @@ fflush(stdout);
 #else
                         impulses_count = load_samples(&impulses, fas_impulses_path, fas_sample_rate, fas_samplerate_converter_type, 0);
 #endif
-                        impulses_count_m1 = impulses_count - 1;
+                        if (impulses_count > 0) {
+                            impulses_count_m1 = impulses_count - 1;
+                        } else {
+                            impulses_count_m1 = 0;
+                        }
 
                         for (n = 0; n < fas_max_channels; n += 1) {
                             resetConvolutions(
@@ -2916,7 +2924,11 @@ fflush(stdout);
 #else
                         samples_count = load_samples(&samples, fas_grains_path, fas_sample_rate, fas_samplerate_converter_type, 1);
 #endif
-                        samples_count_m1 = samples_count - 1;
+                        if (samples_count > 0) {
+                            samples_count_m1 = samples_count - 1;
+                        } else {
+                            samples_count_m1 = 0;
+                        }
 
                         curr_synth.grains = createGrains(&samples, samples_count, usd->synth_h, curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, fas_max_instruments, fas_granular_max_density);
 

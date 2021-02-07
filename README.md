@@ -16,7 +16,7 @@ Table of Contents
       * [Sampler](#sampler)
       * [Subtractive synthesis](#subtractive-synthesis)
       * [PM synthesis](#pm-synthesis)
-      * [Wavetable synthesis (WIP)](#wavetable-synthesis)
+      * [Wavetable synthesis](#wavetable-synthesis)
       * [Physical modelling](#physical-modelling)
       * [Spectral synthesis](#spectral-synthesis)
       * [Bandpass synthesis](#bandpass-synthesis)
@@ -35,8 +35,8 @@ Table of Contents
          * [Frames drop](#frames-drop)
       * [Limitations](#limitations)
       * [What is sent](#what-is-sent)
-      * [Offline rendering (planned)](#offline-rendering-(planned))
       * [Jack](#jack)
+      * [Soundpipe](#soundpipe)
    * [Technical Implementation](#technical-implementation)
    * [Packets description](#packets-description)
    * [Building FAS](#build)
@@ -656,16 +656,16 @@ struct _stream_infos {
 }
 ```
 
-### Offline rendering (WIP)
-
-TODO
-
 ### Future
 
 The ongoing development is to add support for offline rendering, improve Faust integration / add more Faust *.dsp, have the option to use OSC instead of Websockets.
 
 There is also minor architectural / cleanup work to do.
 There is also continuous work to do on improving analysis / synthesis algorithms.
+
+### Soundpipe
+
+Due to licensing issues with cSound and the Soundpipe library all derived cSound modules were removed in the official Soundpipe repository. The removed cSound modules which were used by this project were implemented back into FAS making sure all of them comply with the LGPL, they can be found under `src/Soundpipe`.
 
 ### Jack
 
@@ -982,8 +982,6 @@ Usage: fas [list_of_parameters]
  * --ssl 0
  * --deflate 0 **network data compression (add additional processing)**
  * --max_drop 60 **this allow smooth audio in the case of frames drop, allow 60 frames drop by default which equal to approximately 1 sec.**
- * --render target.fs **real-time pixels-data offline rendering, this will save pixels data to "target.fs" file**
- * --render_convert target.fs **this will convert the pixels data contained by the .fs file to a .flac file of the same name**
  * --grains_dir ./grains/
  * --granular_max_density 128 **this control how dense grains can be (maximum)**
  * --waves_dir ./waves/

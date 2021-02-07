@@ -370,15 +370,15 @@ unsigned int load_samples(
             }
 
             for (j = 0; j < pad_length; j += 1) {
-                smp->data_l[smp->frames - j] = smp->data_l[j];
-                smp->data_r[smp->frames - j] = smp->data_r[j];
+                smp->data_l[smp->frames + (pad_length - 1) - j] = 0;
+                smp->data_r[smp->frames + (pad_length - 1) - j] = 0;
             }
 
             free(smp->data);
 
 #ifdef WITH_SOUNDPIPE
             // embed sample infos into sp_ftbl
-            sp_ftbl_bind(sp, &smp->ftbl, smp->data_l, sfinfo.frames);
+            sp_ftbl_bind(sp, &smp->ftbl, smp->data_l, smp->frames);
 #endif
 
             if (pitch_detection == 0) {
@@ -475,12 +475,12 @@ unsigned int load_samples(
         next:
                 if (smp->pitch == 0) {
                     smp->pitch = 440.;
-                    printf("Fundamental pitch was not detected, 440hz as default.\n");
+                    printf("Fundamental frequency was not detected, 440hz as default.\n");
                 } else {
                     printf("Fundamental frequency %fhz was detected. (automatic)\n", smp->pitch);
                 }
             } else {
-                printf("Pitch %fhz was detected.\n", smp->pitch);
+                printf("Fundamental frequency %fhz was detected.\n", smp->pitch);
             }
 
         close:

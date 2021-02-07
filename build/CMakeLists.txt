@@ -8,7 +8,11 @@ get_filename_component(ROOT ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)
 set (SRCDIR ${ROOT}/src)
 set (BINDIR ${ROOT}/bin)
 
-file (GLOB SRC ${SRCDIR}/*.c ${SRCDIR}/afSTFT/*.c ${SRCDIR}/lodepng/*.c ${SRCDIR}/yin/*.c ${SRCDIR}/ccwt/*.c ${SRCDIR}/AHEasing/*.c)
+if(WITH_SOUNDPIPE)
+    file (GLOB SRC ${SRCDIR}/*.c ${SRCDIR}/afSTFT/*.c ${SRCDIR}/lodepng/*.c ${SRCDIR}/yin/*.c ${SRCDIR}/ccwt/*.c ${SRCDIR}/AHEasing/*.c ${SRCDIR}/Soundpipe/*.c)
+else()
+    file (GLOB SRC ${SRCDIR}/*.c ${SRCDIR}/afSTFT/*.c ${SRCDIR}/lodepng/*.c ${SRCDIR}/yin/*.c ${SRCDIR}/ccwt/*.c ${SRCDIR}/AHEasing/*.c)
+endif()
 file (GLOB HEADERS  ${SRCDIR}/*.h ${SRCDIR}/afSTFT/*.h ${SRCDIR}/lodepng/*.h ${SRCDIR}/yin/*.h ${SRCDIR}/tinydir/*.h ${SRCDIR}/ccwt/*.h ${SRCDIR}/AHEasing/*.h)
 
 ############################################################

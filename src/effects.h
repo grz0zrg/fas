@@ -1,15 +1,18 @@
 #ifndef _FAS_EFFECTS_H_
 #define _FAS_EFFECTS_H_
 
+    #include <stdlib.h>
+
 #ifdef WITH_SOUNDPIPE
+
     #include "soundpipe.h"
+    #include "Soundpipe/sp.h"
 #endif
 
 #ifdef WITH_FAUST
     #include "faust.h"
 #endif
 
-    #include <stdlib.h>
     #include "types.h"
     #include "samples.h"
     #include "tools.h"
@@ -85,6 +88,8 @@
         unsigned int impulses_count);
 
 #ifdef WITH_SOUNDPIPE
+    int isValidConvPart(int x);
+
     void resetConvolution(
         sp_data *sp,
         struct _synth_fx *fxs,

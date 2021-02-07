@@ -4,6 +4,10 @@
 
 #include "oscillators.h"
 
+#ifdef WITH_SOUNDPIPE
+    #include "Soundpipe/sp.h"
+#endif
+
 #ifdef WITH_FAUST
 void createFaustGenerators(
     struct _faust_factories *faust_factories,

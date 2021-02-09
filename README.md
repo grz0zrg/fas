@@ -40,7 +40,7 @@ Table of Contents
    * [Technical Implementation](#technical-implementation)
    * [Packets description](#packets-description)
    * [Building FAS](#build)
-   * [Cross-compiling under Linux for Windows](#cross-compiling-under-linux-for-windows)
+   * [Building with MSYS2](#building-fas-with-msys2)
    * [Makefile rules](#makefile-rules)
    * [Usage](#usage)
    * [Credits](#credits)
@@ -963,6 +963,90 @@ There is some cmake build options available to customize features :
  * `-DUSE_DOUBLE` : Use double precision for all internal computations (note : must probably compile dependencies such as Soundpipe and Faust as well when it is defined)
 
 By default FAS build with `-DWITH_FAUST -DWITH_AUBIO -DWITH_SOUNDPIPE -DMAGIC_CIRCLE -DPARTIAL_FX -DINTERLEAVED_SAMPLE_FORMAT`
+
+## Building with MSYS2
+
+all the steps below take place within [MSYS2](http://www.msys2.org/) environment and use `mingw64.exe` (which should be installed within MSYS2 or at the install steps)
+
+install some necessary packages first (if some are still missing they can be found with `pacman -Ss package_name` command and to add them with `pacman -S package_name`):
+
+* make: `pacman -S mingw-w64-x86_64-make`
+* cmake: `pacman -S mingw-w64-x86_64-cmake`
+* clang: `pacman -S mingw-w64-x86_64-clang`
+* git: `pacman -S git`
+* gcc: `pacman -S mingw-w64-x86_64-gcc`
+* llvm: `pacman -S mingw-w64-x86_64-llvm`
+* polly: `pacman -S mingw-w64-x86_64-polly`
+* libsamplerate: `pacman -S mingw-w64-x86_64-libsamplerate`
+* libsndfile: `pacman -S mingw-w64-x86_64-libsndfile`
+* libav: `pacman -S mingw-w64-x86_64-gst-libav`
+* libmicrohttpd: `pacman -S mingw-w64-x86_64-libmicrohttpd`
+* pip: `pacman -S mingw-w64-x86_64-python-pip`
+
+Note: apart from 'git', make sure you use the "mingw-w64-x86_64-..." version of the above packages, because the development tools and libraries installed from packages without the mingw-w64-x86_64 prefix are intended to work correctly only in the MSYS environment, not in the MinGW32/64 one.
+
+now download FAS requirements libraries (see all 'Get latest ****' links above) then :
+
+```
+cd aubio-0.4.7
+PYTHONIOENCODING=utf-8 ./waf configure --prefix=/mingw64 --disable-jack --with-target-platform=win32 --check-c-compiler=gcc
+PYTHONIOENCODING=utf-8 ./waf build --disable-tests --disable-docs --disable-examples
+PYTHONIOENCODING=utf-8 ./waf install --disable-tests --disable-docs --disable-examples
+
+cd soundpipe
+make
+cp libsoundpipe.a C:/msys64/mingw64/lib/libsoundpipe.a
+mkdir C:/msys64/mingw64/include/soundpipe
+cp h/soundpipe.h C:/msys64/mingw64/include/soundpipe.h
+
+cd liblfds7.1.1/liblfds711/build/gcc_gnumake
+C_INCLUDE_PATH=/usr/include make
+```
+
+copy `liblfds7.1.1` directory into FAS `lib` directory (this is where CMake is going to find the include and library files)
+
+libwebsockets:
+
+```
+cd libwebsockets-2.2.2
+mkdir build
+cd build
+cmake -S . -B . -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX=C:/msys64/mingw64 -DCMAKE_INSTALL_PREFIX=C:/msys64/mingw64 -DLWS_WITH_SSL=OFF -DLWS_WITH_SHARED=ON -DLWS_WITHOUT_DAEMONIZE=ON -DLWS_WITHOUT_TESTAPPS=ON -DCMAKE_BUILD_TYPE=Release -DLWS_WITHOUT_CLIENT=ON ..
+make
+make install
+```
+
+portaudio with support for DirectSound / ASIO:
+
+download [DirectSound](https://download.tuxfamily.org/allegro/files/dx9mgw.zip) / [ASIO headers](https://www.steinberg.net/en/company/developers.html), put it somewhere in your HOME directory and remember the path (it is assumed here that the headers are placed in portaudio files parent directory with name `dx9mgw` and `asiosdk_2.3.3`
+
+```
+cd portaudio
+./configure --with-winapi=wmme,directx,asio,wdmks --with-dxdir=../dx9mgw --with-asiodir=../asiosdk_2.3.3
+make
+make install
+```
+
+Faust
+
+```
+cd faust
+make most
+make install
+```
+
+Note: if there is some errors at the end of the build / install, try a `make` `make install` again
+
+Finally the audio server can be built:
+
+`
+cd build
+cmake -S . -B . -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON && mingw32-make.exe
+`
+
+Some DLLs may be needed to run the audio server, they can easily be located by calling `updatedb` first then `locate dll_name` in the MSYS terminal.
+
+Note : if FAS doesn't launch (silently fail to do anything) it may be because JACK is installed / being used, this is probably due to PortAudio trying to select JACK when it launch and failing to do so, there is no fixes yet except stopping / disabling / uninstalling Jack on Windows before running the audio server.
 
 ## Usage
 

@@ -200,7 +200,14 @@ find_package(LibWebSockets MODULE REQUIRED)
 find_package(Threads REQUIRED)
 
 include_directories(${LIBSNDFILE_INCLUDE_DIR} ${LIBSAMPLERATE_INCLUDE_DIR} ${LIBWEBSOCKETS_INCLUDE_DIR})
-target_link_libraries(fas m atomic Threads::Threads ${LIBSNDFILE_LIBRARY} ${LIBSAMPLERATE_LIBRARIES} ${LIBWEBSOCKETS_LIBRARIES})
+if (WIN32)
+    if (NOT WITH_JACK)
+        # add Windows audio libs (note: consider for now that portaudio was compiled with support for wmme/directx/asio/wdmks)
+        target_link_libraries(fas m atomic Threads::Threads ${LIBSNDFILE_LIBRARY} ${LIBSAMPLERATE_LIBRARIES} ${LIBWEBSOCKETS_LIBRARIES} z stdc++ winmm setupapi ws2_32)
+    endif()
+else()
+    target_link_libraries(fas m atomic Threads::Threads ${LIBSNDFILE_LIBRARY} ${LIBSAMPLERATE_LIBRARIES} ${LIBWEBSOCKETS_LIBRARIES})
+endif()
 
 ############################################################
 # Install

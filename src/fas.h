@@ -29,6 +29,10 @@
 #endif
     #include "libwebsockets.h"
 
+#if defined(_WIN32) || defined(_WIN64)
+    #include <windows.h>
+#endif
+
 // compatibility layer to support liblfds 711 version (since default is liblfds720 which has ARM64 support but is not yet released)
 #ifdef LFDS711
     #include "liblfds711.h"

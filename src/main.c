@@ -3117,7 +3117,11 @@ void *streamWatcher(void *args) {
     PaError err = paNoError;
 
     while (keep_running) {
+#if defined(_WIN32) || defined(_WIN64)
+        Sleep(5000);
+#else
         sleep(5);
+#endif
 
         // check if stream is still alive, if not this may need a restart...
         if (Pa_IsStreamActive(stream) == 0 && Pa_IsStreamStopped(stream) == 0) {

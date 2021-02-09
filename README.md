@@ -40,7 +40,7 @@ Table of Contents
    * [Technical Implementation](#technical-implementation)
    * [Packets description](#packets-description)
    * [Building FAS](#build)
-   * [Building with MSYS2](#building-fas-with-msys2)
+   * [Building with MSYS2 on Windows](#building-fas-with-msys2-on-windows)
    * [Makefile rules](#makefile-rules)
    * [Usage](#usage)
    * [Credits](#credits)
@@ -964,7 +964,7 @@ There is some cmake build options available to customize features :
 
 By default FAS build with `-DWITH_FAUST -DWITH_AUBIO -DWITH_SOUNDPIPE -DMAGIC_CIRCLE -DPARTIAL_FX -DINTERLEAVED_SAMPLE_FORMAT`
 
-## Building with MSYS2
+## Building with MSYS2 on Windows
 
 all the steps below take place within [MSYS2](http://www.msys2.org/) environment and use `mingw64.exe` (which should be installed within MSYS2 or at the install steps)
 

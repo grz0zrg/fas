@@ -1039,12 +1039,12 @@ Note: if there is some errors at the end of the build / install, try a `make` `m
 
 Finally the audio server can be built:
 
-`
+```
 cd build
 cmake -S . -B . -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON && mingw32-make.exe
-`
+```
 
-Some DLLs may be needed to run the audio server, they can easily be located by calling `updatedb` first then `locate dll_name` in the MSYS terminal.
+Some DLLs may be needed alonside the fas.exe binary to run the audio server, they can easily be located by calling `updatedb` first then `locate dll_name` in the MSYS terminal.
 
 Note : if FAS doesn't launch (silently fail to do anything) it may be because JACK is installed / being used, this is probably due to PortAudio trying to select JACK when it launch and failing to do so, there is no fixes yet except stopping / disabling / uninstalling Jack on Windows before running the audio server.
 

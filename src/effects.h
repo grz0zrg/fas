@@ -2,9 +2,9 @@
 #define _FAS_EFFECTS_H_
 
     #include <stdlib.h>
+    #include <stdint.h>
 
 #ifdef WITH_SOUNDPIPE
-
     #include "soundpipe.h"
     #include "Soundpipe/sp.h"
 #endif

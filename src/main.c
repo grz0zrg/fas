@@ -613,7 +613,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
                     // implementation from http://www.martin-finke.de/blog/articles/audio-plugins-018-polyblep-oscillator/
-                    FAS_FLOAT smp;
+                    FAS_FLOAT smp = 0;
                     FAS_FLOAT t = osc->fphase[k] / M_PI2;
 
                     int waveform = ((int)fabs(floor(n->alpha))) % 6;

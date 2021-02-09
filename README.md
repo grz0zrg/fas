@@ -40,7 +40,7 @@ Table of Contents
    * [Technical Implementation](#technical-implementation)
    * [Packets description](#packets-description)
    * [Building FAS](#build)
-   * [Building with MSYS2 on Windows](#building-fas-with-msys2-on-windows)
+   * [Building with MSYS2 on Windows](#building-with-msys2-on-windows)
    * [Makefile rules](#makefile-rules)
    * [Usage](#usage)
    * [Credits](#credits)

@@ -8,8 +8,8 @@
     #include <string.h>
     #include <strings.h>
     #include <stdatomic.h>
-    #include <time.h>
     #include <stdbool.h>
+    #include <time.h>
 
     #if defined(_WIN32) || defined(_WIN64)
         #include <conio.h>
@@ -86,7 +86,16 @@
 #endif
     #include "tools.h"
     #include "effects.h"
+
     #include "types.h"
+
+    struct _frame_sync {
+        uint64_t lasttime;
+        double acc_time;
+    } frame_sync;
+
+    struct _synth curr_synth;
+
     #include "grains.h"
     #include "oscillators.h"
     #include "wavetables.h"

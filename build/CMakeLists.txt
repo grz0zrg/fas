@@ -8,12 +8,60 @@ get_filename_component(ROOT ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)
 set (SRCDIR ${ROOT}/src)
 set (BINDIR ${ROOT}/bin)
 
-if(WITH_SOUNDPIPE)
-    file (GLOB SRC ${SRCDIR}/*.c ${SRCDIR}/afSTFT/*.c ${SRCDIR}/lodepng/*.c ${SRCDIR}/yin/*.c ${SRCDIR}/ccwt/*.c ${SRCDIR}/AHEasing/*.c ${SRCDIR}/Soundpipe/*.c)
-else()
-    file (GLOB SRC ${SRCDIR}/*.c ${SRCDIR}/afSTFT/*.c ${SRCDIR}/lodepng/*.c ${SRCDIR}/yin/*.c ${SRCDIR}/ccwt/*.c ${SRCDIR}/AHEasing/*.c)
+#if(WITH_SOUNDPIPE)
+#    file (GLOB SRC CONFIGURE_DEPENDS ${SRCDIR}/*.c ${SRCDIR}/afSTFT/*.c ${SRCDIR}/lodepng/*.c ${SRCDIR}/yin/*.c ${SRCDIR}/Soundpipe/*.c ${SRCDIR}/ccwt/*.c ${SRCDIR}/AHEasing/*.c)
+#else()
+#    file (GLOB SRC CONFIGURE_DEPENDS ${SRCDIR}/*.c ${SRCDIR}/afSTFT/*.c ${SRCDIR}/lodepng/*.c ${SRCDIR}/yin/*.c ${SRCDIR}/ccwt/*.c ${SRCDIR}/AHEasing/*.c)
+#endif()
+
+set(SRC 
+	${SRCDIR}/main.c
+	${SRCDIR}/effects.c
+	${SRCDIR}/filters.c
+	${SRCDIR}/grains.c
+	${SRCDIR}/note.c
+	${SRCDIR}/oscillators.c
+	${SRCDIR}/samples.c
+	${SRCDIR}/tools.c
+	${SRCDIR}/usage.c
+	${SRCDIR}/time.c
+	${SRCDIR}/wavetables.c)
+set(SRC_LODEPNG ${SRCDIR}/lodepng/lodepng.c)
+set(SRC_AHEasing ${SRCDIR}/AHEasing/easing.c)
+set(SRC_afSTFT
+	${SRCDIR}/afSTFT/afSTFTlib.c
+	${SRCDIR}/afSTFT/vecTools.c
+	${SRCDIR}/afSTFT/fft4g.c)
+
+if (WITH_SOUNDPIPE)
+	set(SRC_SOUNDPIPE 
+		${SRCDIR}/Soundpipe/sp_aux.c
+		${SRCDIR}/Soundpipe/bar.c
+		${SRCDIR}/Soundpipe/clip.c
+		${SRCDIR}/Soundpipe/comb.c
+		${SRCDIR}/Soundpipe/conv.c
+		${SRCDIR}/Soundpipe/dcblock.c
+		${SRCDIR}/Soundpipe/dist.c
+		${SRCDIR}/Soundpipe/drip.c
+		${SRCDIR}/Soundpipe/fofilt.c
+		${SRCDIR}/Soundpipe/fold.c
+		${SRCDIR}/Soundpipe/lpf18.c
+		${SRCDIR}/Soundpipe/mode.c
+		${SRCDIR}/Soundpipe/moogladder.c
+		${SRCDIR}/Soundpipe/panst.c
+		${SRCDIR}/Soundpipe/pareq.c
+		${SRCDIR}/Soundpipe/pdhalf.c
+		${SRCDIR}/Soundpipe/revsc.c
+		${SRCDIR}/Soundpipe/streson.c
+		${SRCDIR}/Soundpipe/tbvcf.c
+		${SRCDIR}/Soundpipe/waveset.c)
 endif()
-file (GLOB HEADERS  ${SRCDIR}/*.h ${SRCDIR}/afSTFT/*.h ${SRCDIR}/lodepng/*.h ${SRCDIR}/yin/*.h ${SRCDIR}/tinydir/*.h ${SRCDIR}/ccwt/*.h ${SRCDIR}/AHEasing/*.h)
+
+if (WITH_FAUST)
+    set(SRC_FAUST ${SRCDIR}/faust.c)
+endif()
+
+include_directories(${SRCDIR}/)
 
 ############################################################
 # compiler options
@@ -45,7 +93,7 @@ option (INTERLEAVED_SAMPLE_FORMAT "PortAudio use interleaved buffers (not used w
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${ROOT}/bin)
 
-add_executable(fas ${SRC} ${HEADERS})
+add_executable(fas ${SRC} ${SRC_LODEPNG} ${SRC_AHEasing} ${SRC_afSTFT} ${SRC_SOUNDPIPE} ${SRC_FAUST} ${HEADERS})
 
 ############################################################
 # Dependencies

@@ -112,7 +112,7 @@
 
         // track current note-level sample (boundary defined by FPS)
         atomic_int curr_sample;
-    } curr_synth;
+    };
 
     struct user_session_data {
         char peer_name[PEER_NAME_BUFFER_LENGTH];
@@ -141,9 +141,4 @@
 
         unsigned int synth_h;
     };
-
-    struct _frame_sync {
-        uint64_t lasttime;
-        double acc_time;
-    } frame_sync;
 #endif

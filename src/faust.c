@@ -1,7 +1,7 @@
-#include "tinydir/tinydir.h"
-
 #include "tools.h"
 #include "faust.h"
+
+#include "tinydir/tinydir.h"
 
 struct _faust_factories *createFaustFactories(char *directory) {
     tinydir_dir dir;

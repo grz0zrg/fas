@@ -131,6 +131,8 @@
     char *fas_default_faust_effs_path = "./faust/effects";
     char *fas_install_default_faust_effs_path = "/usr/local/share/fragment/faust/effects";
 
+    char *fas_default_faust_libs_path = "./faustlibraries";
+
     // program settings with associated default value
     unsigned int fas_sample_rate = FAS_SAMPLE_RATE;
     int fas_frames_per_buffer = FAS_FRAMES_PER_BUFFER;
@@ -169,6 +171,7 @@
     char *fas_impulses_path = NULL;
     char *fas_faust_gens_path = NULL;
     char *fas_faust_effs_path = NULL;
+    char *fas_faust_libs_path = NULL;
 
     unsigned int fas_drop_counter = 0;
 

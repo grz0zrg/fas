@@ -514,6 +514,8 @@ Faust DSP focused language is simple and intuitive to learn and produce highly o
 
 FAS look and load any Faust DSP code (*.dsp) at startup in the `faust/generators` and `faust/effects` directories. FAS can also reload Faust code dynamically when the appropriate ACTION packet is received.
 
+Faust libraries directory is set to `./faustlibraries` by default. (can be specified with command line argument)
+
 All Faust DSP generators will be registered into the special instrument type Faust, instrument settings parameter 0 can then be used to switch between generators, generators with two inputs also work in this case the blue integer part will be used to select the source channel / instrument and its fractional part to switch between channel (> 0) / instrument mode.
 
 All Faust DSP effects will be registered into the special effect type Faust, the first effect parameter can then be used to switch between effects.
@@ -1072,6 +1074,7 @@ Usage: fas [list_of_parameters]
  * --impulses_dir ./impulses/
  * --faust_gens_dir ./faust/generators
  * --faust_effs_dir ./faust/effects
+ * --faust_libs_dir ./faustlibraries
  * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
  * --port 3003 **the listening port**
  * --iface 127.0.0.1 **the listening address**

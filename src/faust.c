@@ -3,7 +3,7 @@
 
 #include "tinydir/tinydir.h"
 
-struct _faust_factories *createFaustFactories(char *directory) {
+struct _faust_factories *createFaustFactories(char *directory, char *libs_path) {
     tinydir_dir dir;
     int ret = tinydir_open_sorted(&dir, directory);
 
@@ -50,9 +50,16 @@ struct _faust_factories *createFaustFactories(char *directory) {
             }
 
             //
-            const char* argv1[1] = { 0 };
+            if (libs_path == NULL) {
+                fprintf(stdout, "createFaustFactories: libs_path should not be null\n");
+                continue;
+            }
 
-            llvm_dsp_factory *dsp_factory = createCDSPFactoryFromFile(filepath, 0, argv1, "", error_msg, -1);
+            int argc = 2;
+            const char *libs_opt = "-I";
+            const char* argv[2] = { libs_opt, libs_path };
+
+            llvm_dsp_factory *dsp_factory = createCDSPFactoryFromFile(filepath, argc, argv, "", error_msg, -1);
             if (dsp_factory) {
                 fl->factories[fl->len] = dsp_factory;
 

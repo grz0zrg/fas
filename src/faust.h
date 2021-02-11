@@ -86,7 +86,7 @@ struct _faust_factories {
     size_t len;
 };
 
-extern struct _faust_factories *createFaustFactories(char *directory);
+extern struct _faust_factories *createFaustFactories(char *directory, char *libs_path);
 extern void freeFaustFactories(struct _faust_factories *fl);
 
 #endif

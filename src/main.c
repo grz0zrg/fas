@@ -2972,7 +2972,7 @@ fflush(stdout);
                             freeFaustGenerators(&curr_synth.oscillators, curr_synth.bank_settings->h, fas_max_instruments);
 
                             freeFaustFactories(fas_faust_gens);
-                            fas_faust_gens = createFaustFactories(fas_faust_gens_path);
+                            fas_faust_gens = createFaustFactories(fas_faust_gens_path, fas_faust_libs_path);
 
                             createFaustGenerators(fas_faust_gens, curr_synth.oscillators, curr_synth.bank_settings->h, fas_sample_rate, fas_max_instruments);
 
@@ -2984,7 +2984,7 @@ fflush(stdout);
                             freeFaustEffects(synth_fx, fas_max_channels);
 
                             freeFaustFactories(fas_faust_effs);
-                            fas_faust_effs = createFaustFactories(fas_faust_effs_path);
+                            fas_faust_effs = createFaustFactories(fas_faust_effs_path, fas_faust_libs_path);
 
                             createFaustEffects(fas_faust_effs, synth_fx, fas_max_channels, fas_sample_rate);
 
@@ -3175,8 +3175,9 @@ int main(int argc, char **argv)
         { "render_convert",             required_argument, 0, 27 },
         { "faust_gens_dir",             required_argument, 0, 28 },
         { "faust_effs_dir",             required_argument, 0, 29 },
-        { "max_instruments",            required_argument, 0, 30 },
-        { "max_channels",               required_argument, 0, 31 },
+        { "faust_libs_dir",             required_argument, 0, 30 },
+        { "max_instruments",            required_argument, 0, 31 },
+        { "max_channels",               required_argument, 0, 32 },
         { 0, 0, 0, 0 }
     };
 
@@ -3282,9 +3283,12 @@ int main(int argc, char **argv)
                 fas_faust_effs_path = optarg;
                 break;
             case 30:
-                fas_max_instruments = strtoul(optarg, NULL, 0);
+                fas_faust_libs_path = optarg;
                 break;
             case 31:
+                fas_max_instruments = strtoul(optarg, NULL, 0);
+                break;
+            case 32:
                 fas_max_channels = strtoul(optarg, NULL, 0);
                 break;
             default: print_usage();
@@ -3575,8 +3579,16 @@ int main(int argc, char **argv)
         }
 
 #ifdef WITH_FAUST
-        fas_faust_gens = createFaustFactories("./faust/generators");
-        fas_faust_effs = createFaustFactories("./faust/effects");
+        // faust libs path setup
+        if (fas_faust_libs_path == NULL) { // setup default faust libs path
+            fas_faust_libs_path = fas_default_faust_libs_path;
+        }
+
+        printf("Faust library path set to '%s'\n", fas_faust_libs_path);
+        //
+
+        fas_faust_gens = createFaustFactories("./faust/generators", fas_faust_libs_path);
+        fas_faust_effs = createFaustFactories("./faust/effects", fas_faust_libs_path);
 #endif
 
         if (fas_wavetable) {

@@ -1,8 +1,8 @@
 #include "usage.h"
 
 void print_usage() {
-    printf("Usage: fas [list_of_settings]\n");
-    printf(" possible settings with associated default value:\n");
+    printf("Usage: fas [list_of_parameters]\n");
+    printf(" possible parameters with associated default value:\n");
     printf("  --i\n");
     printf("  --sample_rate %u\n", FAS_SAMPLE_RATE);
     printf("  --frames %u\n", FAS_FRAMES_PER_BUFFER);
@@ -27,6 +27,7 @@ void print_usage() {
     printf("  --impulses_dir ./impulses/\n");
     printf("  --faust_gens_dir ./faust/generators/\n");
     printf("  --faust_effs_dir ./faust/effects/\n");
+    printf("  --faust_libs_dir ./faustlibraries\n");
     printf("  --granular_max_density %u\n", FAS_GRANULAR_MAX_DENSITY);
     printf("  --stream_infos_send_delay %u\n", FAS_STREAM_INFOS_SEND_DELAY);
     printf("  --input_channels %u\n", FAS_INPUT_CHANNELS);

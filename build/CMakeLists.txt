@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(fas VERSION 1.0)
+project(fas VERSION 1.0.0)
 
 ############################################################
 # source and headers files
@@ -24,7 +24,7 @@ set(SRC
 	${SRCDIR}/samples.c
 	${SRCDIR}/tools.c
 	${SRCDIR}/usage.c
-	${SRCDIR}/time.c
+	${SRCDIR}/timer.c
 	${SRCDIR}/wavetables.c)
 set(SRC_LODEPNG ${SRCDIR}/lodepng/lodepng.c)
 set(SRC_AHEasing ${SRCDIR}/AHEasing/easing.c)
@@ -277,7 +277,13 @@ include(InstallRequiredSystemLibraries)
 set(CPACK_RESOURCE_FILE_LICENSE "${ROOT}/LICENSE")
 set(CPACK_PACKAGE_DIRECTORY "${ROOT}/packages")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://www.fsynth.com")
-set(CPACK_PACKAGE_VERSION_MAJOR "1")
-set(CPACK_PACKAGE_VERSION_MINOR "0")
-set(CPACK_PACKAGE_VERSION_PATCH "0")
+set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+set(CPACK_PACKAGE_CHECKSUM "SHA3_256")
+install(CODE "
+    include(InstallRequiredSystemLibraries)
+    include(BundleUtilities)
+    fixup_bundle(${ROOT}/bin/fas \"\" \"\")
+    ")
 include(CPack)

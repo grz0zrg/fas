@@ -1,5 +1,5 @@
 // Cross-platform high resolution timer : https://www.roxlu.com/2014/047/high-resolution-timer-function-in-c-c-- 
-#include "time.h"
+#include "timer.h"
 
 uint64_t ns() {
   static uint64_t is_init = 0;

@@ -110,7 +110,7 @@ void createEffects(
                 sp_conv_init(spd, (sp_conv *)fx->conv[j + k], fx->ft_void, 256);
 
                 sp_delay_create((sp_delay **)&fx->delay[j + k]);
-                sp_delay_init(spd, (sp_delay *)fx->delay[j + k], 1.f);
+                sp_delay_init(spd, (sp_delay *)fx->delay[j + k], 1);
 
                 sp_smoothdelay_create((sp_smoothdelay **)&fx->sdelay[j + k]);
                 sp_smoothdelay_init(spd, (sp_smoothdelay *)fx->sdelay[j + k], 1.f, 1024);
@@ -687,7 +687,7 @@ void resetDelays(
         sp_delay_destroy((sp_delay **)&fxs->delay[slot_index]);
         sp_delay_create((sp_delay **)&fxs->delay[slot_index]);
 
-        sp_delay_init(sp, (sp_delay *)fxs->delay[slot_index], v1);
+        sp_delay_init(sp, (sp_delay *)fxs->delay[slot_index], fmax(v1, 1));
 
         sp_delay *delay = (sp_delay *)fxs->delay[slot_index];
         delay->feedback = v2;

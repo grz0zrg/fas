@@ -8,7 +8,7 @@ This program should compile on most platforms!
 Table of Contents
 =================
 
-* [<a href="https://www.fsynth.com">Fragment Synthesizer</a>](#fragment-:-additive/spectral/granular/pm-synthesizer)
+* [Fragment Audio Server](#fragment-audio-server)
    * [About FAS](#about)
       * [Pixels-based](#pixels-based)
       * [Additive synthesis](#additive-synthesis)
@@ -31,17 +31,16 @@ Table of Contents
       * [Effects](#effects)
       * [Performances](#performances)
          * [Raspberry PI](#raspberry-pi)
-         * [Distributed/multi-core synthesis](#distributed/multi-core-synthesis)
+         * [Distributed and parallel synthesis](#distributed-and-parallel-synthesis)
          * [Frames drop](#frames-drop)
       * [Limitations](#limitations)
       * [What is sent](#what-is-sent)
       * [Jack](#jack)
-      * [Soundpipe](#soundpipe)
+   * [About Soundpipe](#about-soundpipe)
    * [Technical Implementation](#technical-implementation)
    * [Packets description](#packets-description)
    * [Building FAS](#build)
    * [Building with MSYS2 on Windows](#building-with-msys2-on-windows)
-   * [Makefile rules](#makefile-rules)
    * [Usage](#usage)
    * [Credits](#credits)
 
@@ -622,7 +621,7 @@ FAS was tested on a [Raspberry Pi 3B](https://www.raspberrypi.org/) with a [Hifi
 
 It was also tested on [NapoPI NEO 2](https://www.friendlyarm.com/index.php?route=product/product&product_id=180) and [NanoPI Fire 3](https://www.friendlyarm.com/index.php?route=product/product&product_id=206) boards.
 
-#### Distributed/multi-core synthesis
+#### Distributed and parallel synthesis
 
 Due to the architecture of FAS, distributed sound synthesis is made possible by running multiple FAS instances on the same or different computer by distributing the pixels data correctly to each instances, on the same machine this only require a sufficient amount of memory.
 
@@ -665,9 +664,6 @@ The ongoing development is to add support for offline rendering, improve Faust i
 There is also minor architectural / cleanup work to do.
 There is also continuous work to do on improving analysis / synthesis algorithms.
 
-### Soundpipe
-
-Due to licensing issues with cSound and the Soundpipe library all derived cSound modules were removed in the official Soundpipe repository. The removed cSound modules which were used by this project were implemented back into FAS making sure all of them comply with the LGPL, they can be found under `src/Soundpipe`.
 
 ### Jack
 
@@ -678,6 +674,10 @@ Using Jack allow unlimited output / input channels so get rid of the PortAudio d
 Use `--output_channels` and `--input_channels` command-line arguments to configure Jack input / output ports.
 
 Note : FAS ports are not connected automatically. (`qjackctl` program can be used to connect ports)
+
+## About Soundpipe
+
+Due to licensing issues with cSound and the Soundpipe library all derived cSound modules were removed in the official Soundpipe repository. The removed cSound modules which were used by this project were implemented back into FAS making sure all of them comply with the LGPL, they can be found under `src/Soundpipe`.
 
 ## Technical implementation
 
@@ -916,6 +916,7 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux with PortAudio :
 * Get latest [Soundpipe](https://github.com/PaulBatchelor/Soundpipe)
   * make
   * sudo make install
+  * **Warning** : Soundpipe started to use c89 mode which seem to produce some issues, you may want to compile with newer C like C11 to get rid of any fx chain crashs until it is fixed. (this can be specified in the Makefile)
 * Get latest [Faust](https://github.com/grame-cncm/faust)
   * sudo apt-get install cmake llvm libmicrohttpd-dev
   * make all
@@ -929,23 +930,26 @@ On ARM64 you must use liblfds 7.2.0 (by passing `-DLIBLFDS720` to cmake) which i
 
 To compile liblfds720 (ARM64 only):
 
-* cd lib/liblfds7.2.0/src/liblfds720/build
-* make
+* `cd lib/liblfds7.2.0/src/liblfds720/build && make`
 
 Once all dependencies are installed one can run `cmake` followed by `make` in the build directory :
 
-`cd build && cmake -DCMAKE_BUILD_TYPE=Release && make`
+* `cd build && cmake -S . -B . -DCMAKE_BUILD_TYPE=Release && make`
 
 `fas` binary should then be available in the `bin` directory
 
-FAS can then be installed with `sudo make install` in the build directory
+Packaging : running `cpack` copy shared libraries into the `bin` directory.
 
-FAS will load grains / waves / impulses first by checking `/usr/local/share/fragment/` default install path (specifically `grains` `waves` `impulses` directories) and when they are not available will look into the binary directory.
+FAS can be installed with `sudo make install` in the build directory.
 
-FAS will load Faust files first by checking `/usr/local/share/fragment/` default install path (specifically `faust/generators` `faust/effects` directories) and when they are not available will look into the binary directory.
+FAS will load grains / waves / impulses first by checking `/usr/local/share/fragment/` (on Linux) default install path (specifically `grains` `waves` `impulses` directories) and when they are not available will look into the binary directory.
+
+FAS will load Faust files first by checking `/usr/local/share/fragment/` (on Linux) default install path (specifically `faust/generators` `faust/effects` directories) and when they are not available will look into the binary directory.
 
 Recommended launch parameters with HiFiBerry DAC+ :
-    ./fas --frames_queue_size 63 --sample_rate 48000 --device 2
+
+* `./fas --frames_queue_size 3 --sample_rate 48000 --device 2`
+
 Bit depth is fixed to 32 bits float at the moment.
 
 ## CMake options
@@ -1057,35 +1061,35 @@ You can tweak this program by passing parameters to its arguments, for command-l
 A wxWidget user-friendly launcher is also available [here](https://github.com/grz0zrg/fas_launcher) (Note : may not support all options)
  
 Usage: fas [list_of_parameters]
- * --i **print audio device infos**
- * --sample_rate 44100
- * --noise_amount 0.1 **the maximum amount of band-limited noise to add (wavetables only)**
- * --frames 512 **audio buffer size**
- * --wavetable_size 8192 **no effects if built with advanced optimizations option**
- * --smooth_factor 1.0 **this is the samples interpolation factor between frames, a high value will sharpen sounds attack / transitions (just like if the stream rate / FPS was higher), a low value will smooth it (audio will become muddy)**
- * --max_instruments 24 **this is the maximum amount of instruments that can be used, may increase memory consumption significantly**
- * --max_channels 24 **this is the maximum amount of virtual channels that can be used, may increase memory consumption significantly**
- * --ssl 0
- * --deflate 0 **network data compression (add additional processing)**
- * --max_drop 60 **this allow smooth audio in the case of frames drop, allow 60 frames drop by default which equal to approximately 1 sec.**
- * --grains_dir ./grains/
- * --granular_max_density 128 **this control how dense grains can be (maximum)**
- * --waves_dir ./waves/
- * --impulses_dir ./impulses/
- * --faust_gens_dir ./faust/generators
- * --faust_effs_dir ./faust/effects
- * --faust_libs_dir ./faustlibraries
- * --rx_buffer_size 8192 **this is how much data is accepted in one single packet**
- * --port 3003 **the listening port**
- * --iface 127.0.0.1 **the listening address**
- * --device -1 **PortAudio audio output device index or full name (informations about audio devices are displayed when the app. start)**
- * --input_device -1 **PortAudio audio input device index or full name (informations about audio devices are displayed when the app. start)**
- * --output_channels 2 **stereo pair**
- * --input_channels 2 **stereo pair**
- * --frames_queue_size 3 **important parameter, if you increase this too much the audio might be delayed and the memory requirement will increase significantly**
- * --commands_queue_size 512 **should be a positive integer power of 2**
- * --stream_infos_send_delay 2 **FAS will send the stream infos every two seconds**
- * --samplerate_conv_type -1 **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time, this settings can be ignored most of the time since FAS do real-time resampling, -1 skip the resampling step**
+ * `--i` **print audio device infos**
+ * `--sample_rate 44100`
+ * `--noise_amount 0.1` **the maximum amount of band-limited noise to add (wavetables only)**
+ * `--frames 512` **audio buffer size**
+ * `--wavetable_size 8192` **no effects if built with advanced optimizations option**
+ * `--smooth_factor 1.0` **this is the samples interpolation factor between frames, a high value will sharpen sounds attack / transitions (just like if the stream rate / FPS was higher), a low value will smooth it (audio will become muddy)**
+ * `--max_instruments 24` **this is the maximum amount of instruments that can be used, may increase memory consumption significantly**
+ * `--max_channels 24` **this is the maximum amount of virtual channels that can be used, may increase memory consumption significantly**
+ * `--ssl 0`
+ * `--deflate 0` **network data compression (add additional processing)**
+ * `--max_drop 60` **this allow smooth audio in the case of frames drop, allow 60 frames drop by default which equal to approximately 1 sec.**
+ * `--grains_dir ./grains/`
+ * `--granular_max_density 128` **this control how dense grains can be (maximum)**
+ * `--waves_dir ./waves/`
+ * `--impulses_dir ./impulses/`
+ * `--faust_gens_dir ./faust/generators`
+ * `--faust_effs_dir ./faust/effects`
+ * `--faust_libs_dir ./faustlibraries`
+ * `--rx_buffer_size 8192` **this is how much data is accepted in one single packet**
+ * `--port 3003` **the listening port**
+ * `--iface 127.0.0.1` **the listening address**
+ * `--device -1` **PortAudio audio output device index or full name (informations about audio devices are displayed when the app. start)**
+ * `--input_device -1` **PortAudio audio input device index or full name (informations about audio devices are displayed when the app. start)**
+ * `--output_channels 2` **stereo pair**
+ * `--input_channels 2` **stereo pair**
+ * `--frames_queue_size 3` **important parameter, if you increase this too much the audio might be delayed and the memory requirement will increase significantly**
+ * `--commands_queue_size 512` **should be a positive integer power of 2**
+ * `--stream_infos_send_delay 2` **FAS will send the stream infos every two seconds**
+ * `--samplerate_conv_type -1` **see [this](http://www.mega-nerd.com/SRC/api_misc.html#Converters) for converter type, this has impact on samples loading time, this settings can be ignored most of the time since FAS do real-time resampling, -1 skip the resampling step**
 
 **You can stop the application by pressing any keys while it is running on Windows or by sending SIGINT (Ctrl+C etc.) under Unix systems.**
 

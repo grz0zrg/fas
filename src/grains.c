@@ -75,7 +75,7 @@ inline void computeGrains(unsigned int channel, struct grain *g, unsigned int gr
             //gr->index[k] = grain_start;
             // old algorithm (percent of sample length, no cycles)
             // roundf(grain_start + fmax(randf(GRAIN_MIN_DURATION + min_duration, max_duration), GRAIN_MIN_DURATION) * (smp->frames - grain_start - 1)) + 1;
-            gr->frames[channel] = roundf(fmax(randf(GRAIN_MIN_DURATION + min_duration, max_duration), GRAIN_MIN_DURATION) * (FAS_FLOAT)sample_rate);
+            gr->frames[channel] = fmax(roundf(fmax(randf(GRAIN_MIN_DURATION + min_duration, max_duration), GRAIN_MIN_DURATION) * (FAS_FLOAT)sample_rate), 0.00000001);
             gr->env_step[channel] = fmax(((FAS_FLOAT)(FAS_ENVS_SIZE)) / (((FAS_FLOAT)gr->frames[channel]/* - (FAS_FLOAT)grain_start*/) / fabs(gr_speed)), 0.00000001);
             gr->env_index[channel] = 0.0f;
             gr->density[channel] = density;

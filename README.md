@@ -675,6 +675,7 @@ Use `--output_channels` and `--input_channels` command-line arguments to configu
 
 Note : FAS ports are not connected automatically. (`qjackctl` program can be used to connect ports)
 
+
 ## About Soundpipe
 
 Due to licensing issues with cSound and the Soundpipe library all derived cSound modules were removed in the official Soundpipe repository. The removed cSound modules which were used by this project were implemented back into FAS making sure all of them comply with the LGPL, they can be found under `src/Soundpipe`.

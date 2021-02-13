@@ -47,13 +47,10 @@ FAS_FLOAT raw_waveform(FAS_FLOAT phase, int type) {
 }
 
 FAS_FLOAT randf(FAS_FLOAT min, FAS_FLOAT max) {
-    if (min == 0.f && max == 0.f) {
-        return 0.f;
-    }
+    FAS_FLOAT random = ((FAS_FLOAT)rand()) / (FAS_FLOAT)RAND_MAX;
 
     FAS_FLOAT range = (max - min);
-    FAS_FLOAT div = RAND_MAX / range;
-    return min + (rand() / div);
+    return random * range + min;
 }
 
 FAS_FLOAT gaussian(FAS_FLOAT x, int L, FAS_FLOAT sigma) {

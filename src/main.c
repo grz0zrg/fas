@@ -956,8 +956,31 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     FAS_FLOAT sl = 0.0f;
                     FAS_FLOAT sr = 0.0f;
 
-                    sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
-                    sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &ir, &sr);
+                    if (instrument->p0 == 1) {
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &il, &sr);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &sl, &sl);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &sr, &sr);
+                    } else if (instrument->p0 == 2) {
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &il, &sr);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &sl, &sl);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &sr, &sr);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &sl, &sl);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &sr, &sr);
+                    } else if (instrument->p0 == 3) {
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &il, &sr);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &sl, &sl);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &sr, &sr);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &sl, &sl);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &sr, &sr);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &sl, &sl);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &sr, &sr);
+                    } else {
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
+                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &ir, &sr);
+                    }
 
                     output_l += sl * vl;
                     output_r += sr * vr;
@@ -3104,6 +3127,7 @@ int start_server(void) {
 
     if (context == NULL) {
         fprintf(stderr, "lws_create_context failed.\n");
+        fflush(stderr);
         return -1;
     }
 
@@ -3126,7 +3150,7 @@ void *streamWatcher(void *args) {
         // check if stream is still alive, if not this may need a restart...
         if (Pa_IsStreamActive(stream) == 0 && Pa_IsStreamStopped(stream) == 0) {
             fprintf(stderr, "Inactive stream... (time out ?)\n");
-            fflush(stdout);
+            fflush(stderr);
         }
     }
 
@@ -3135,6 +3159,13 @@ void *streamWatcher(void *args) {
 #endif
 
 void int_handler(int dummy) {
+    keep_running = 0;
+}
+
+void fpe_handler(int dummy) {
+    fprintf(stderr, "SIGFPE\n");
+    fflush(stderr);
+
     keep_running = 0;
 }
 
@@ -3853,7 +3884,7 @@ int main(int argc, char **argv)
     curr_synth.instruments = (struct _synth_instrument *)calloc(fas_max_instruments, sizeof(struct _synth_instrument));
     if (!curr_synth.instruments) {
         fprintf(stderr, "curr_synth.instruments calloc failed\n");
-        fflush(stdout);
+        fflush(stderr);
 
         goto error;  
     }
@@ -3861,7 +3892,7 @@ int main(int argc, char **argv)
     curr_synth.settings = (struct _synth_settings*)calloc(1, sizeof(struct _synth_settings));
     if (!curr_synth.settings) {
         fprintf(stderr, "curr_synth.settings calloc failed\n");
-        fflush(stdout);
+        fflush(stderr);
 
         goto error;
     }
@@ -3874,7 +3905,7 @@ int main(int argc, char **argv)
     curr_synth.bank_settings = (struct _bank_settings*)calloc(1, sizeof(struct _bank_settings));
     if (!curr_synth.bank_settings) {
         fprintf(stderr, "curr_synth.bank_settings calloc failed\n");
-        fflush(stdout);
+        fflush(stderr);
 
         goto error;
     }
@@ -3996,6 +4027,7 @@ int main(int argc, char **argv)
     // websocket stuff
 #ifdef __unix__
     signal(SIGINT, int_handler);
+    signal(SIGFPE, fpe_handler);
 #endif
     do {
         lws_service(context, 1);

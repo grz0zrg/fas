@@ -61,7 +61,7 @@
     #define FAS_ENVS_SIZE 65536 // do not change (due to optimizations; when FIXED_WAVETABLE is enabled wavetables will have a length of 16 bits)
     #define FAS_AUDIO 1
     #define FAS_SMOOTH_FACTOR 1.0
-    #define FAS_GRANULAR_MAX_DENSITY 32
+    #define FAS_GRANULAR_MAX_DENSITY 92
     #define FAS_STREAM_INFOS_SEND_DELAY 2
     #define FAS_MAX_DROP 60 // 1 second
     #define FAS_RENDER_WIDTH 4096

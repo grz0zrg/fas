@@ -352,6 +352,8 @@ It can be used with rich form of synthesis (subtractive etc.) as a spectrum scul
 
 Bandwidth can be adjusted individually through alpha channel value which is a factor of current bank gap.
 
+Filter order can be adjusted with parameter 3 (from 0 to 3 where 0 is second-order). (realtime)
+
 As a speed example ~300 filters can be enabled at the same time with ~6 subtractive oscillators as input on an i7 6700 with a single FAS instance (96000kHz)
 
 Fractional part of the blue channel can be used to target a channel (> 0) or an instrument (= 0)
@@ -818,6 +820,7 @@ struct _cmd_instrument_settings {
     //        Granular : granular envelope type for this instrument (there is 13 types of envelopes)
     //        Subtractive : filter type  (require Soundpipe)
     //        Physical modelling : Physical model type (require Soundpipe)
+    //        Bandpass : filter order (require Soundpipe)
     //        Spectral : input channel
     //        Faust : Generator ID
     //  4 : parameter

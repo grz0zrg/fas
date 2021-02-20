@@ -55,9 +55,11 @@ struct _faust_factories *createFaustFactories(char *directory, char *libs_path) 
                 continue;
             }
 
-            int argc = 2;
+            int argc = 4;
             const char *libs_opt = "-I";
-            const char* argv[2] = { libs_opt, libs_path };
+            const char *timeout_opt = "-t";
+            const char *timeout = "300";
+            const char* argv[4] = { libs_opt, libs_path, timeout_opt, timeout };
 
             llvm_dsp_factory *dsp_factory = createCDSPFactoryFromFile(filepath, argc, argv, "", error_msg, -1);
             if (dsp_factory) {

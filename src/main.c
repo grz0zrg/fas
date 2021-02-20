@@ -1141,77 +1141,79 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                     FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                    int faust_dsp_index = instrument->p0 % osc->faust_gens_len;
+                    if (osc->faust_gens_len > 0) {
+                        int faust_dsp_index = instrument->p0 % osc->faust_gens_len;
 
-                    struct _fas_faust_dsp *fas_faust_dsp = osc->faust_gens[k][faust_dsp_index];
+                        struct _fas_faust_dsp *fas_faust_dsp = osc->faust_gens[k][faust_dsp_index];
 
-                    // update Faust DSP params
-                    struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
+                        // update Faust DSP params
+                        struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
 
-                    struct _fas_faust_ui_control *tmp;
-                    // note : p0 is used as the Faust generator index
-                    tmp = getFaustControl(ctrl, "fs_p0");
-                    if (tmp) {
-                        *tmp->zone = instrument->p1;
-                    }
-
-                    tmp = getFaustControl(ctrl, "fs_p1");
-                    if (tmp) {
-                        *tmp->zone = instrument->p2;
-                    }
-
-                    tmp = getFaustControl(ctrl, "fs_p2");
-                    if (tmp) {
-                        *tmp->zone = instrument->p3;
-                    }
-
-                    tmp = getFaustControl(ctrl, "fs_p3");
-                    if (tmp) {
-                        *tmp->zone = instrument->p4;
-                    }
-
-                    int faust_dsp_input_count = getNumInputsCDSPInstance(fas_faust_dsp->dsp);
-                    if (faust_dsp_input_count >= 1) {
-                        double bint = 0;
-                        FAS_FLOAT bflt = modf(fabs(n->blue), &bint);
-
-                        FAS_FLOAT il;
-                        FAS_FLOAT ir;
-
-                        if (bflt > 0) {
-                            int chn = (int)bint % fas_max_channels;
-                            struct _synth_chn_settings *input_chn_settings = &curr_synth.chn_settings[chn];
-
-                            il = input_chn_settings->last_sample_l * vl;
-                            ir = input_chn_settings->last_sample_r * vr;
-                        } else {
-                            int instrument_index = (int)bint % fas_max_instruments;
-                            struct _synth_instrument *instrument = &curr_synth.instruments[instrument_index];
-
-                            il = instrument->last_sample_l * vl;
-                            ir = instrument->last_sample_r * vr; 
+                        struct _fas_faust_ui_control *tmp;
+                        // note : p0 is used as the Faust generator index
+                        tmp = getFaustControl(ctrl, "fs_p0");
+                        if (tmp) {
+                            *tmp->zone = instrument->p1;
                         }
 
-                        FAS_FLOAT sl = 0.0f;
-                        FAS_FLOAT sr = 0.0f;
+                        tmp = getFaustControl(ctrl, "fs_p1");
+                        if (tmp) {
+                            *tmp->zone = instrument->p2;
+                        }
 
-                        FAUSTFLOAT *faust_input[2] = { &il, &ir };
-                        FAUSTFLOAT *faust_output[2] = { &sl, &sr };
+                        tmp = getFaustControl(ctrl, "fs_p2");
+                        if (tmp) {
+                            *tmp->zone = instrument->p3;
+                        }
 
-                        computeCDSPInstance(fas_faust_dsp->dsp, 1, faust_input, faust_output);
+                        tmp = getFaustControl(ctrl, "fs_p3");
+                        if (tmp) {
+                            *tmp->zone = instrument->p4;
+                        }
 
-                        output_l += sl * vl;
-                        output_r += sr * vr;
-                    } else {
-                        FAS_FLOAT sl = 0.0f;
-                        FAS_FLOAT sr = 0.0f;
+                        int faust_dsp_input_count = getNumInputsCDSPInstance(fas_faust_dsp->dsp);
+                        if (faust_dsp_input_count >= 1) {
+                            double bint = 0;
+                            FAS_FLOAT bflt = modf(fabs(n->blue), &bint);
 
-                        FAUSTFLOAT *faust_output[2] = { &sl, &sr };
+                            FAS_FLOAT il;
+                            FAS_FLOAT ir;
 
-                        computeCDSPInstance(fas_faust_dsp->dsp, 1, NULL, faust_output);
+                            if (bflt > 0) {
+                                int chn = (int)bint % fas_max_channels;
+                                struct _synth_chn_settings *input_chn_settings = &curr_synth.chn_settings[chn];
 
-                        output_l += sl * vl;
-                        output_r += sr * vr;
+                                il = input_chn_settings->last_sample_l;
+                                ir = input_chn_settings->last_sample_r;
+                            } else {
+                                int instrument_index = (int)bint % fas_max_instruments;
+                                struct _synth_instrument *instrument = &curr_synth.instruments[instrument_index];
+
+                                il = instrument->last_sample_l;
+                                ir = instrument->last_sample_r; 
+                            }
+
+                            FAS_FLOAT sl = 0.0f;
+                            FAS_FLOAT sr = 0.0f;
+
+                            FAUSTFLOAT *faust_input[2] = { &il, &ir };
+                            FAUSTFLOAT *faust_output[2] = { &sl, &sr };
+
+                            computeCDSPInstance(fas_faust_dsp->dsp, 1, faust_input, faust_output);
+
+                            output_l += sl * vl;
+                            output_r += sr * vr;
+                        } else {
+                            FAS_FLOAT sl = 0.0f;
+                            FAS_FLOAT sr = 0.0f;
+
+                            FAUSTFLOAT *faust_output[2] = { &sl, &sr };
+
+                            computeCDSPInstance(fas_faust_dsp->dsp, 1, NULL, faust_output);
+
+                            output_l += sl * vl;
+                            output_r += sr * vr;
+                        }
                     }
                 }
             }
@@ -1891,42 +1893,44 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                             struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                            int faust_dsp_index = instrument->p0 % osc->faust_gens_len;
+                            if (osc->faust_gens_len) {
+                                int faust_dsp_index = instrument->p0 % osc->faust_gens_len;
 
-                            struct _fas_faust_dsp *fas_faust_dsp = osc->faust_gens[k][faust_dsp_index];
+                                struct _fas_faust_dsp *fas_faust_dsp = osc->faust_gens[k][faust_dsp_index];
 
-                            // update Faust DSP params
-                            struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
+                                // update Faust DSP params
+                                struct _fas_faust_ui_control *ctrl = fas_faust_dsp->controls;
 
-                            struct _fas_faust_ui_control *tmp;
-                            tmp = getFaustControl(ctrl, "fs_pr");
-                            if (tmp) {
-                                *tmp->zone = n->previous_volume_l;
-                            }
+                                struct _fas_faust_ui_control *tmp;
+                                tmp = getFaustControl(ctrl, "fs_pr");
+                                if (tmp) {
+                                    *tmp->zone = n->previous_volume_l;
+                                }
 
-                            tmp = getFaustControl(ctrl, "fs_pg");
-                            if (tmp) {
-                                *tmp->zone = n->previous_volume_r;
-                            }
+                                tmp = getFaustControl(ctrl, "fs_pg");
+                                if (tmp) {
+                                    *tmp->zone = n->previous_volume_r;
+                                }
 
-                            tmp = getFaustControl(ctrl, "fs_r");
-                            if (tmp) {
-                                *tmp->zone = n->volume_l;
-                            }
+                                tmp = getFaustControl(ctrl, "fs_r");
+                                if (tmp) {
+                                    *tmp->zone = n->volume_l;
+                                }
 
-                            tmp = getFaustControl(ctrl, "fs_g");
-                            if (tmp) {
-                                *tmp->zone = n->volume_r;
-                            }
+                                tmp = getFaustControl(ctrl, "fs_g");
+                                if (tmp) {
+                                    *tmp->zone = n->volume_r;
+                                }
 
-                            tmp = getFaustControl(ctrl, "fs_b");
-                            if (tmp) {
-                                *tmp->zone = n->blue;
-                            }
+                                tmp = getFaustControl(ctrl, "fs_b");
+                                if (tmp) {
+                                    *tmp->zone = n->blue;
+                                }
 
-                            tmp = getFaustControl(ctrl, "fs_a");
-                            if (tmp) {
-                                *tmp->zone = n->alpha;
+                                tmp = getFaustControl(ctrl, "fs_a");
+                                if (tmp) {
+                                    *tmp->zone = n->alpha;
+                                }
                             }
                         }
 #endif
@@ -4027,7 +4031,7 @@ int main(int argc, char **argv)
     // websocket stuff
 #ifdef __unix__
     signal(SIGINT, int_handler);
-    signal(SIGFPE, fpe_handler);
+    // signal(SIGFPE, fpe_handler);
 #endif
     do {
         lws_service(context, 1);

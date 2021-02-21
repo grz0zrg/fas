@@ -52,7 +52,7 @@ One can see this as a limitless bank of generators / filters.
 
 The versatility of its sound engine allow a wide variety of synthesis methods (aka instruments) to produce sounds:
 
-* additive / spectral with per partial effects (bitcrush, phase distorsion, waveshaping, fold, convolve)
+* additive / spectral with per partial effects (bitcrush, noise)
 * phase modulation (PM/FM)
 * granular (asynchronous / synchronous)
 * subtractive synthesis
@@ -140,8 +140,7 @@ When compiled with `PARTIAL_FX` defined there is a fx slot available **per parti
 
 * 0: none
 * 1: bitcrush (Bitdepth / Sampling rate : B component [0, 1] / A component [0, 1])
-* 2: tanh waveshaping (Wave 1 / Wave 2 : B component [0, 1] / A component [0, 1))
-* 3: noise (B added white noise factor to sine wave phase, maximum defined by command-line parameter)
+* 2: noise (B added white noise factor to sine wave phase, maximum defined by command-line parameter)
 
 Any combination of these can be applied to each partials with real-time parameters change. This feature may allow to easily add character to the additive sound.
 
@@ -1067,7 +1066,7 @@ A wxWidget user-friendly launcher is also available [here](https://github.com/gr
 Usage: fas [list_of_parameters]
  * `--i` **print audio device infos**
  * `--sample_rate 44100`
- * `--noise_amount 0.1` **the maximum amount of band-limited noise to add (wavetables only)**
+ * `--noise_amount 2.0` **the maximum amount of band-limited noise to add (wavetables only)**
  * `--frames 512` **audio buffer size**
  * `--wavetable_size 8192` **no effects if built with advanced optimizations option**
  * `--smooth_factor 1.0` **this is the samples interpolation factor between frames, a high value will sharpen sounds attack / transitions (just like if the stream rate / FPS was higher), a low value will smooth it (audio will become muddy)**

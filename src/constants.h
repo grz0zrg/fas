@@ -57,7 +57,7 @@
     #define FAS_OUTPUT_CHANNELS 2
     #define FAS_INPUT_CHANNELS 0
     #define FAS_SSL 0
-    #define FAS_NOISE_AMOUNT 0.1
+    #define FAS_NOISE_AMOUNT 1.0
     #define FAS_ENVS_SIZE 65536 // do not change (due to optimizations; when FIXED_WAVETABLE is enabled wavetables will have a length of 16 bits)
     #define FAS_AUDIO 1
     #define FAS_SMOOTH_FACTOR 1.0
@@ -114,7 +114,7 @@
     // Soundpipe
     #define SP_OSC_FILTERS 12 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
     #define SP_OSC_GENS 7 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!!
-    #define SP_OSC_MODS 4 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!! (note : empty does count even if not allocated at the same place)
+    #define SP_OSC_MODS 3 // MUST BE UPDATED WHEN LIST BELOW CHANGE!!!! (note : empty does count even if not allocated at the same place)
 
     // sp filters id
     #define SP_MOOG_FILTER 0
@@ -142,8 +142,8 @@
     // sp mods id
     #define SP_EMPTY_MODS 0
     #define SP_CRUSH_MODS 1
-    #define SP_WAVSH_MODS 2
-    #define NOISE_MODS 3
+    //#define SP_WAVSH_MODS 2
+    #define NOISE_MODS 2
 
     // chn params type
     #define CHN_PARAM_SYNTH 0

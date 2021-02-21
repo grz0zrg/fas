@@ -58,6 +58,10 @@ void createFaustGenerators(
                 ui->uiInterface = uiface;
                 
                 llvm_dsp *dsp = createCDSPInstance(faust_factories->factories[k]);
+                if (!dsp) {
+                    printf("createCDSPInstance failed.");
+                    fflush(stdout);
+                }
 
                 buildUserInterfaceCDSPInstance(dsp, ui);
 
@@ -333,13 +337,14 @@ struct oscillator *createOscillatorsBank(
 
             sp_bitcrush_create((sp_bitcrush **)&osc->sp_mods[i][SP_CRUSH_MODS]);
             sp_bitcrush_init(spd, osc->sp_mods[i][SP_CRUSH_MODS]);
-
+/*
             sp_dist_create((sp_dist **)&osc->sp_mods[i][SP_WAVSH_MODS]);
             sp_dist_init(spd, osc->sp_mods[i][SP_WAVSH_MODS]);
 
             sp_dist *dist = (sp_dist *)osc->sp_mods[i][SP_WAVSH_MODS];
             dist->pregain = 1.f;
             dist->postgain = 1.f;
+*/
 #endif
 
             // == PM
@@ -487,7 +492,7 @@ struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, un
             free(oscs[y].sp_gens[i]);
 
             sp_bitcrush_destroy((sp_bitcrush **)&oscs[y].sp_mods[i][SP_CRUSH_MODS]);
-            sp_dist_destroy((sp_dist **)&oscs[y].sp_mods[i][SP_WAVSH_MODS]);
+            //sp_dist_destroy((sp_dist **)&oscs[y].sp_mods[i][SP_WAVSH_MODS]);
 
             free(oscs[y].sp_mods[i]);
 #endif

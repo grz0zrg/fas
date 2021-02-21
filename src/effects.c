@@ -400,52 +400,52 @@ void updateEffectParameter(
         struct _fas_faust_ui_control *tmp;
         if (target == 3) {
             tmp = getFaustControl(fdsp->controls, "fs_p0");
-            if (tmp) { *tmp->zone = value; }
+            if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
 
             return;
         } else if (target == 4) {
             tmp = getFaustControl(fdsp->controls, "fs_p1");
-            if (tmp) { *tmp->zone = value; }
+            if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
 
             return;
         } else if (target == 5) {
             tmp = getFaustControl(fdsp->controls, "fs_p2");
-            if (tmp) { *tmp->zone = value; }
+            if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
 
             return;
         } else if (target == 6) {
             tmp = getFaustControl(fdsp->controls, "fs_p3");
-            if (tmp) { *tmp->zone = value; }
+            if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
 
             return;
         } else if (target == 7) {
             tmp = getFaustControl(fdsp->controls, "fs_p4");
-            if (tmp) { *tmp->zone = value; }
+            if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
 
             return;
         } else if (target == 8) {
             tmp = getFaustControl(fdsp->controls, "fs_p5");
-            if (tmp) { *tmp->zone = value; }
+            if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
 
             return;
         } else if (target == 9) {
             tmp = getFaustControl(fdsp->controls, "fs_p6");
-            if (tmp) { *tmp->zone = value; }
+            if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
 
             return;
         } else if (target == 10) {
             tmp = getFaustControl(fdsp->controls, "fs_p7");
-            if (tmp) { *tmp->zone = value; }
+            if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
 
             return;
         } else if (target == 11) {
             tmp = getFaustControl(fdsp->controls, "fs_p8");
-            if (tmp) { *tmp->zone = value; }
+            if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
 
             return;
         } else if (target == 12) {
             tmp = getFaustControl(fdsp->controls, "fs_p9");
-            if (tmp) { *tmp->zone = value; }
+            if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
 
             return;
         }

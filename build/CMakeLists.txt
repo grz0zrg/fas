@@ -2,6 +2,23 @@ cmake_minimum_required(VERSION 3.5)
 project(fas VERSION 1.0.0)
 
 ############################################################
+# Output options
+
+option (LIBLFDS720 "Use liblfds720 (arm64 support)" off)
+#option (WITH_OSC "Use OSC output" off)
+option (WITH_FAUST "Use Faust (custom generators / effects support)" on)
+option (WITH_JACK "Use Jack instead of PortAudio" off)
+option (WITH_AUBIO "Use Aubio to automatically detect samples fundamental frequencies" on)
+option (WITH_SOUNDPIPE "Use Soundpipe (extended generators / effects)" on)
+#option (WITH_RUBBERBAND "Use Rubberband (granular pitch shifting)" on)
+option (MAGIC_CIRCLE "Use additive synthesis magic circle oscillator" on)
+option (PARTIAL_FX "Use additive synthesis per partial effects" on)
+option (USE_NEON "Use NEON instructions (ARM platforms)" off)
+option (USE_SSE "Use SSE instructions (Desktop platforms)" off)
+option (USE_DOUBLE "Use double precision" off)
+option (INTERLEAVED_SAMPLE_FORMAT "PortAudio use interleaved buffers (not used when WITH_JACK is set)" on)
+
+############################################################
 # source and headers files
 
 get_filename_component(ROOT ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)
@@ -71,23 +88,6 @@ set (CMAKE_C_STANDARD_REQUIRED TRUE)
 
 # -Wall -Werror
 add_compile_options(-Wextra -pedantic)
-
-############################################################
-# Output options
-
-option (LIBLFDS720 "Use liblfds720 (arm64 support)" off)
-#option (WITH_OSC "Use OSC output" off)
-option (WITH_FAUST "Use Faust (custom generators / effects support)" on)
-option (WITH_JACK "Use Jack instead of PortAudio" off)
-option (WITH_AUBIO "Use Aubio to automatically detect samples fundamental frequencies" on)
-option (WITH_SOUNDPIPE "Use Soundpipe (extended generators / effects)" on)
-#option (WITH_RUBBERBAND "Use Rubberband (granular pitch shifting)" on)
-option (MAGIC_CIRCLE "Use additive synthesis magic circle oscillator" on)
-option (PARTIAL_FX "Use additive synthesis per partial effects" on)
-option (USE_NEON "Use NEON instructions (ARM platforms)" off)
-option (USE_SSE "Use SSE instructions (Desktop platforms)" off)
-option (USE_DOUBLE "Use double precision" off)
-option (INTERLEAVED_SAMPLE_FORMAT "PortAudio use interleaved buffers (not used when WITH_JACK is set)" on)
 
 ############################################################
 

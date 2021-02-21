@@ -380,18 +380,18 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         crush->bitdepth = bitdepth;
                         crush->srate = fmax(1, srate);
 
-                        sp_bitcrush_compute(sp, (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS], &smp, &smp); 
-                    } else if (fx == SP_WAVSH_MODS) {
-                        sp_dist *dist = (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS];
-                        
-                        dist->shape1 = osc->fp1[k][1];
-                        dist->shape2 = n->alpha;
-
-                        sp_dist_compute(sp, (sp_dist *)osc->sp_mods[k][SP_WAVSH_MODS], &smp, &smp); 
+                        sp_bitcrush_compute(sp, (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS], &smp, &smp);
+#ifndef MAGIC_CIRCLE
+                        osc->phase_index[k] += osc->phase_step;
+#endif  
                     } else if (fx == NOISE_MODS) {
 #ifndef MAGIC_CIRCLE
-                        osc->phase_index[k] += osc->phase_step * (1.0f + (fas_white_noise_table[osc->noise_index[k]++] * fas_noise_amount) * n->alpha);
+                        osc->phase_index[k] += osc->phase_step * (1.0f + (fas_white_noise_table[osc->noise_index[k]++] * fas_noise_amount) * fmin(1, n->alpha));
 #endif
+                    } else {
+#ifndef MAGIC_CIRCLE
+                        osc->phase_index[k] += osc->phase_step;
+#endif  
                     }
 #endif
 #endif
@@ -400,7 +400,6 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     output_r += vr * smp;
 
 #ifndef MAGIC_CIRCLE
-                    osc->phase_index[k] += osc->phase_step;
                     osc->phase_index[k] = fmod(osc->phase_index[k], fas_wavetable_size);
 #endif
                 }
@@ -1153,22 +1152,22 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         // note : p0 is used as the Faust generator index
                         tmp = getFaustControl(ctrl, "fs_p0");
                         if (tmp) {
-                            *tmp->zone = instrument->p1;
+                            *tmp->zone = fmax(tmp->min, fmin(tmp->max, instrument->p1));
                         }
 
                         tmp = getFaustControl(ctrl, "fs_p1");
                         if (tmp) {
-                            *tmp->zone = instrument->p2;
+                            *tmp->zone = fmax(tmp->min, fmin(tmp->max, instrument->p2));
                         }
 
                         tmp = getFaustControl(ctrl, "fs_p2");
                         if (tmp) {
-                            *tmp->zone = instrument->p3;
+                            *tmp->zone = fmax(tmp->min, fmin(tmp->max, instrument->p3));
                         }
 
                         tmp = getFaustControl(ctrl, "fs_p3");
                         if (tmp) {
-                            *tmp->zone = instrument->p4;
+                            *tmp->zone = fmax(tmp->min, fmin(tmp->max, instrument->p4));
                         }
 
                         int faust_dsp_input_count = getNumInputsCDSPInstance(fas_faust_dsp->dsp);
@@ -1904,32 +1903,32 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 struct _fas_faust_ui_control *tmp;
                                 tmp = getFaustControl(ctrl, "fs_pr");
                                 if (tmp) {
-                                    *tmp->zone = n->previous_volume_l;
+                                    *tmp->zone = fmax(tmp->min, fmin(tmp->max, n->previous_volume_l));
                                 }
 
                                 tmp = getFaustControl(ctrl, "fs_pg");
                                 if (tmp) {
-                                    *tmp->zone = n->previous_volume_r;
+                                    *tmp->zone = fmax(tmp->min, fmin(tmp->max, n->previous_volume_r));
                                 }
 
                                 tmp = getFaustControl(ctrl, "fs_r");
                                 if (tmp) {
-                                    *tmp->zone = n->volume_l;
+                                    *tmp->zone = fmax(tmp->min, fmin(tmp->max, n->volume_l));
                                 }
 
                                 tmp = getFaustControl(ctrl, "fs_g");
                                 if (tmp) {
-                                    *tmp->zone = n->volume_r;
+                                    *tmp->zone = fmax(tmp->min, fmin(tmp->max, n->volume_r));
                                 }
 
                                 tmp = getFaustControl(ctrl, "fs_b");
                                 if (tmp) {
-                                    *tmp->zone = n->blue;
+                                    *tmp->zone = fmax(tmp->min, fmin(tmp->max, n->blue));
                                 }
 
                                 tmp = getFaustControl(ctrl, "fs_a");
                                 if (tmp) {
-                                    *tmp->zone = n->alpha;
+                                    *tmp->zone = fmax(tmp->min, fmin(tmp->max, n->alpha));
                                 }
                             }
                         }

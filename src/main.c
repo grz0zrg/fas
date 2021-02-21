@@ -3705,7 +3705,7 @@ int main(int argc, char **argv)
         }
     }
 
-    for (i = 0; i < fas_input_channels; i += 1) {
+    for (i = 0; i < fas_input_channels; i += 2) {
         snprintf(portName, 255, "input_%03d", i);
         input_ports[i] = jack_port_register (client, portName, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
 

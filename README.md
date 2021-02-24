@@ -62,7 +62,7 @@ The versatility of its sound engine allow a wide variety of synthesis methods (a
 There is a second type of synthesis methods (or modifiers) which use any synthesis methods from above as input:
 
 * second-order band-pass Butterworth filter (bandpass filter bank)
-* formant synthesis (formant filter bank) note : may be hot
+* formant synthesis (formant filter bank)
 * string resonator synthesis (complex filter bank similar to Karplus-Strong)
 * modal synthesis (resonant filter bank)
 * phase distorsion
@@ -374,7 +374,7 @@ Specific type of synthesis which use a canvas-mapped bank of formant filters, ea
 
 It is similar to bandpass mode with a different algorithm.
 
-WARNING : This may be hot with some frequencies.
+Note : Source channel index cannot be set to the same virtual channel as the formant instrument output.
 
 #### RGBA interpretation
 
@@ -382,7 +382,7 @@ WARNING : This may be hot with some frequencies.
 | ---------: | :------------------------------------- |
 |          R | Amplitude value of the input LEFT channel    |
 |          G | Amplitude value of the input RIGHT channel   |
-|          B | integral part : source channel index / fractional part : Impulse response attack time (in seconds)       |
+|          B | integral part : source channel index / fractional part : Impulse response attack time (in seconds) where maximum value is 60 seconds (so 0.5 = 30 seconds)       |
 |          A | Impulse reponse decay time (in seconds)        |
 
 ### Phase Distorsion synthesis

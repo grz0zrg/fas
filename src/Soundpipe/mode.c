@@ -60,7 +60,7 @@ int sp_mode_compute(sp_data *sp, sp_mode *p, SPFLOAT *in, SPFLOAT *out)
 
     SPFLOAT kfq = p->freq;
     SPFLOAT kq  = p->q;
-    if ((lfq != kfq || lq != kq) && kq > 0) {
+    if ((lfq != kfq || lq != kq)) {
         SPFLOAT kfreq  = kfq*(2.0 * M_PI);
         SPFLOAT kalpha = (p->sr/kfreq);
         SPFLOAT kbeta  = kalpha*kalpha;

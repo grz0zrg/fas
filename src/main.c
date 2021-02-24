@@ -999,20 +999,22 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     FAS_FLOAT il;
                     FAS_FLOAT ir;
 
-                    int chn = (int)bint % fas_max_channels;
-                    struct _synth_chn_settings *input_chn_settings = &curr_synth.chn_settings[chn];
+                    if ((unsigned int)bint != instrument->output_channel) {
+                        int chn = (unsigned int)bint % fas_max_channels;
+                        struct _synth_chn_settings *input_chn_settings = &curr_synth.chn_settings[chn];
 
-                    il = input_chn_settings->last_sample_l;
-                    ir = input_chn_settings->last_sample_r;
+                        il = input_chn_settings->last_sample_l;
+                        ir = input_chn_settings->last_sample_r;
 
-                    FAS_FLOAT sl = 0.0f;
-                    FAS_FLOAT sr = 0.0f;
+                        FAS_FLOAT sl = 0.0f;
+                        FAS_FLOAT sr = 0.0f;
 
-                    sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L], &il, &sl);
-                    sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R], &ir, &sr);
+                        sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L], &il, &sl);
+                        sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R], &ir, &sr);
 
-                    output_l += sl * vl;
-                    output_r += sr * vr;
+                        output_l += sl * vl;
+                        output_r += sr * vr;
+                    }
                 }
             } else if (synthesis_method == FAS_STRING_RESON) {
                 for (j = s; j < e; j += 1) {
@@ -1648,8 +1650,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #ifdef WITH_SOUNDPIPE
                             sp_butbp *bpb_l = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L];
                             sp_butbp *bpb_r = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R];
-                            bpb_l->bw = osc->bw[k] * fabs(n->alpha);
-                            bpb_r->bw = osc->bw[k] * fabs(n->alpha);
+                            bpb_l->bw = osc->bw[k] * fmin(fmax(fabs(n->alpha), 0.000001f), 10.f);
+                            bpb_r->bw = osc->bw[k] * fmin(fmax(fabs(n->alpha), 0.000001f), 10.f);
 #endif
                         }  
                     } else if (synthesis_method == FAS_FORMANT_SYNTH) {
@@ -1659,13 +1661,13 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
                             double dummy_int_part;
-                            FAS_FLOAT blue_frac_part = modf(fabs(n->blue), &dummy_int_part);
+                            FAS_FLOAT blue_frac_part = modf(n->blue, &dummy_int_part);
 
 #ifdef WITH_SOUNDPIPE
                             sp_fofilt *fofilt_l = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L];
                             sp_fofilt *fofilt_r = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R];
-                            fofilt_l->atk = fofilt_l->atk = blue_frac_part;
-                            fofilt_r->dec = fofilt_r->dec = fabs(n->res);
+                            fofilt_l->atk = fofilt_r->atk = fmax(fabs(blue_frac_part) * 60.f, 0.000001f);
+                            fofilt_l->dec = fofilt_r->dec = fmax(fabs(n->res), 0.000001f);
 #endif
                         }    
                     } else if (synthesis_method == FAS_STRING_RESON) {
@@ -1677,8 +1679,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #ifdef WITH_SOUNDPIPE
                             sp_streson *streson_l = (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_L];
                             sp_streson *streson_r = (sp_streson *)osc->sp_filters[k][SP_STRES_FILTER_R];
-                            streson_l->fdbgain = n->res;//fmin(n->alpha, 1.f);
-                            streson_r->fdbgain = n->res;//fmin(n->alpha, 1.f);
+                            streson_l->fdbgain = fmax(fabs(n->res), 0.000001f);
+                            streson_r->fdbgain = fmax(fabs(n->res), 0.000001f);
 #endif
                         }
                     } else if (synthesis_method == FAS_MODAL_SYNTH) {
@@ -1690,8 +1692,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #ifdef WITH_SOUNDPIPE
                             sp_mode *mode_l = (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_L];
                             sp_mode *mode_r = (sp_mode *)osc->sp_filters[k][SP_MODE_FILTER_R];
-                            mode_l->q = n->alpha;
-                            mode_r->q = n->alpha;
+                            mode_l->q = fmax(fabs(n->alpha), 0.000001f);
+                            mode_r->q = fmax(fabs(n->alpha), 0.000001f);
 #endif
                         }
                     } else if (synthesis_method == FAS_PHASE_DISTORSION) {

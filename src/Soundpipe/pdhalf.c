@@ -33,6 +33,8 @@ int sp_pdhalf_init(sp_data *sp, sp_pdhalf *p)
     p->ibipolar = 0;
     p->ifullscale = 1.0;
     p->amount = 0;
+    p->pamount = 0;
+    p->tamount = 0;
     return SP_OK;
 }
 

@@ -83,6 +83,10 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
                     _note->previous_volume_l = pvl;
                     _note->diff_volume_l = -pvl;
                     _note->volume_l = 0;
+
+                    // keep previous values for B & A otherwise its going to be 0 at this point
+                    alpha = pa;
+                    blue = pb;
                 } else {
                     _note->previous_volume_l = 0;
                     _note->diff_volume_l = 0;
@@ -108,6 +112,10 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
                     _note->previous_volume_r = pvr;
                     _note->diff_volume_r = -pvr;
                     _note->volume_r = 0;
+
+                    // keep previous values for B & A otherwise its going to be 0 at this point
+                    alpha = pa;
+                    blue = pb;
                 } else {
                     _note->previous_volume_r = 0;
                     _note->diff_volume_r = 0;

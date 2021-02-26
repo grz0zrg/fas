@@ -704,7 +704,7 @@ The audio thread make the decision to consume notes data at audio sample level b
 When notes data are not available the audio thread will continue with the latest one during the next *note time*, this ensure smooth audio but may introduce some delay.
 When notes data are not available from some amount of time defined by the max drop parameter the audio will simply stop abruptely, this may indicate performance issues.
 
-Most audio output critical changes use linear interpolation to ensure smooth audio in all conditions, this interpolation is computed once per audio frame and occur in-between note events. A linear interpolation smooth factor can be applied to sharpen the transitions.
+Most audio output (and parameters) critical changes use linear interpolation to ensure smooth audio in all conditions, this interpolation is computed once per audio frame and occur in-between note events. A linear interpolation smooth factor can be applied to sharpen the transitions.
 
 Sound synthesis is processed with minimal computation / branching, values which depend on note parameters change are pre-computed per-instrument / oscillator in a dedicated processing block outside synthesis block, notes change and associated parameters happen at sample accurate note time level defined by the FPS parameter configurable from synth. settings.
 

@@ -1,5 +1,5 @@
 typedef struct {
-    SPFLOAT amount, ibipolar, ifullscale;
+    SPFLOAT amount, pamount, tamount, ibipolar, ifullscale;
 } sp_pdhalf;
 
 int sp_pdhalf_create(sp_pdhalf **p);

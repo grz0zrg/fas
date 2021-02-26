@@ -375,7 +375,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         sp_bitcrush *crush = (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS];
                         
                         FAS_FLOAT bitdepth = 1.f + (osc->fp1[k][1] * 31.f);
-                        FAS_FLOAT srate = n->res * (FAS_FLOAT)fas_sample_rate;
+                        FAS_FLOAT srate = lerp(osc->fp2[k][1], osc->fp2[k][0], lerp_t_step) * (FAS_FLOAT)fas_sample_rate;
 
                         crush->bitdepth = bitdepth;
                         crush->srate = fmax(1, srate);
@@ -564,17 +564,20 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                     struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                    FAS_FLOAT mod_phase_step = osc->fp1[k][4];
+                    FAS_FLOAT mod_phase_step = lerp(osc->fp4[k][3], osc->fp4[k][2], lerp_t_step);
                     FAS_FLOAT car_wav_size = osc->fp2[k][0];
                     FAS_FLOAT mod_wav_size = osc->fp2[k][1];
 
                     FAS_FLOAT fbf = (osc->fp1[k][0] + osc->fp1[k][1]) / 2; // 'anti-hunting' filter (simple low-pass)
-                    FAS_FLOAT fb = fbf * (floor(n->blue) / 65536.0);
+                    FAS_FLOAT feedback_level = lerp(osc->fp4[k][1], osc->fp4[k][0], lerp_t_step);
+                    FAS_FLOAT fb = fbf * feedback_level;
                     
                     FAS_FLOAT ph2 = fmod(osc->phase_index2[k] + (fb * mod_wav_size), fmax(mod_wav_size, 1));
 
+                    FAS_FLOAT mod_amplitude = lerp(osc->fp3[k][1], osc->fp3[k][0], lerp_t_step);
+
                     FAS_FLOAT smp_mod = osc->wav2[k][(int)ph2];
-                    FAS_FLOAT mod = (((FAS_FLOAT)smp_mod * osc->fp3[k][0]) * car_wav_size);
+                    FAS_FLOAT mod = (((FAS_FLOAT)smp_mod * mod_amplitude) * car_wav_size);
                     FAS_FLOAT ph1 = fmod(osc->phase_index[k] + mod, fmax(car_wav_size, 1));
 
                     int phase_index1 = (int)ph1;
@@ -666,13 +669,37 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
 #ifdef WITH_SOUNDPIPE
                     if (filter_type == 0) {
-                        sp_moogladder_compute(sp, (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER], &smp, &smp); 
+                        sp_moogladder *moog_ladder = osc->sp_filters[k][SP_MOOG_FILTER];
+
+                        // interpolate parameters
+                        moog_ladder->freq = lerp(osc->fp1[k][0], osc->fp1[k][1], curr_synth.lerp_t);
+                        moog_ladder->res = lerp(osc->fp1[k][2], osc->fp1[k][3], curr_synth.lerp_t);
+
+                        sp_moogladder_compute(sp, moog_ladder, &smp, &smp); 
                     } else if (filter_type == 1) {
-                        sp_diode_compute(sp, (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER], &smp, &smp);
+                        sp_diode *diode_ladder = osc->sp_filters[k][SP_DIODE_FILTER];
+
+                        // interpolate parameters
+                        diode_ladder->freq = lerp(osc->fp1[k][0], osc->fp1[k][1], curr_synth.lerp_t);
+                        diode_ladder->res = lerp(osc->fp1[k][2], osc->fp1[k][3], curr_synth.lerp_t);
+
+                        sp_diode_compute(sp, diode_ladder, &smp, &smp);
                     } else if (filter_type == 2) {
-                        sp_wpkorg35_compute(sp, (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER], &smp, &smp);
+                        sp_wpkorg35 *korg = osc->sp_filters[k][SP_KORG35_FILTER];
+
+                        // interpolate parameters
+                        korg->cutoff = lerp(osc->fp1[k][0], osc->fp1[k][1], curr_synth.lerp_t);
+                        korg->res = lerp(osc->fp1[k][2], osc->fp1[k][3], curr_synth.lerp_t);
+
+                        sp_wpkorg35_compute(sp, korg, &smp, &smp);
                     } else if (filter_type == 3) {
-                        sp_lpf18_compute(sp, (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER], &smp, &smp);
+                        sp_lpf18 *lpf18 = osc->sp_filters[k][SP_LPF18_FILTER];
+
+                        // interpolate parameters
+                        lpf18->cutoff = lerp(osc->fp1[k][0], osc->fp1[k][1], curr_synth.lerp_t);
+                        lpf18->res = lerp(osc->fp1[k][2], osc->fp1[k][3], curr_synth.lerp_t);
+
+                        sp_lpf18_compute(sp, lpf18, &smp, &smp);
                     }
 #else
                     smp = huovilainen_moog(smp, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
@@ -853,7 +880,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         }
                     }
 
-                    osc->fp1[k][3] += osc->fp3[k][0];
+                    osc->fp1[k][3] += lerp(osc->fp3[k][1], osc->fp3[k][0], lerp_t_step);
                 }
             } else if (synthesis_method == FAS_MODULATION) {
                 for (j = s; j < e; j += 1) {
@@ -952,33 +979,39 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         ir = instrument->last_sample_r; 
                     }
 
+                    sp_butbp *butbp_l = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L];
+                    sp_butbp *butbp_r = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R];
+
+                    // interpolate parameters
+                    butbp_l->bw = butbp_r->bw = lerp(osc->fp1[k][0], osc->fp1[k][1], curr_synth.lerp_t);
+
                     FAS_FLOAT sl = 0.0f;
                     FAS_FLOAT sr = 0.0f;
 
                     if (instrument->p0 == 1) {
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &il, &sr);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &sl, &sl);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &sr, &sr);
+                        sp_butbp_compute(sp, butbp_l, &il, &sl);
+                        sp_butbp_compute(sp, butbp_r, &il, &sr);
+                        sp_butbp_compute(sp, butbp_l, &sl, &sl);
+                        sp_butbp_compute(sp, butbp_r, &sr, &sr);
                     } else if (instrument->p0 == 2) {
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &il, &sr);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &sl, &sl);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &sr, &sr);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &sl, &sl);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &sr, &sr);
+                        sp_butbp_compute(sp, butbp_l, &il, &sl);
+                        sp_butbp_compute(sp, butbp_r, &il, &sr);
+                        sp_butbp_compute(sp, butbp_l, &sl, &sl);
+                        sp_butbp_compute(sp, butbp_r, &sr, &sr);
+                        sp_butbp_compute(sp, butbp_l, &sl, &sl);
+                        sp_butbp_compute(sp, butbp_r, &sr, &sr);
                     } else if (instrument->p0 == 3) {
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &il, &sr);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &sl, &sl);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &sr, &sr);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &sl, &sl);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &sr, &sr);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &sl, &sl);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &sr, &sr);
+                        sp_butbp_compute(sp, butbp_l, &il, &sl);
+                        sp_butbp_compute(sp, butbp_r, &il, &sr);
+                        sp_butbp_compute(sp, butbp_l, &sl, &sl);
+                        sp_butbp_compute(sp, butbp_r, &sr, &sr);
+                        sp_butbp_compute(sp, butbp_l, &sl, &sl);
+                        sp_butbp_compute(sp, butbp_r, &sr, &sr);
+                        sp_butbp_compute(sp, butbp_l, &sl, &sl);
+                        sp_butbp_compute(sp, butbp_r, &sr, &sr);
                     } else {
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L], &il, &sl);
-                        sp_butbp_compute(sp, (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R], &ir, &sr);
+                        sp_butbp_compute(sp, butbp_l, &sl, &sl);
+                        sp_butbp_compute(sp, butbp_r, &sr, &sr);
                     }
 
                     output_l += sl * vl;
@@ -1006,11 +1039,18 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         il = input_chn_settings->last_sample_l;
                         ir = input_chn_settings->last_sample_r;
 
+                        sp_fofilt *fofilt_l = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L];
+                        sp_fofilt *fofilt_r = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R];
+                        
+                        // interpolate parameters
+                        fofilt_l->atk = fofilt_r->atk = lerp(fofilt_r->patk, fofilt_r->tatk, curr_synth.lerp_t);
+                        fofilt_l->dec = fofilt_r->dec = lerp(fofilt_r->pdec, fofilt_r->tdec, curr_synth.lerp_t);
+
                         FAS_FLOAT sl = 0.0f;
                         FAS_FLOAT sr = 0.0f;
 
-                        sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L], &il, &sl);
-                        sp_fofilt_compute(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R], &ir, &sr);
+                        sp_fofilt_compute(sp, (sp_fofilt *)fofilt_l, &il, &sl);
+                        sp_fofilt_compute(sp, (sp_fofilt *)fofilt_r, &ir, &sr);
 
                         output_l += sl * vl;
                         output_r += sr * vr;
@@ -1124,8 +1164,13 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     FAS_FLOAT sl = 0.0f;
                     FAS_FLOAT sr = 0.0f;
 
-                    sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &il, &sl);
-                    sp_pdhalf_compute(sp, (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR], &ir, &sr);
+                    sp_pdhalf *pd_gen = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
+
+                    // interpolate parameters
+                    pd_gen->amount = lerp(pd_gen->pamount, pd_gen->tamount, curr_synth.lerp_t);
+
+                    sp_pdhalf_compute(sp, pd_gen, &il, &sl);
+                    sp_pdhalf_compute(sp, pd_gen, &ir, &sr);
 
                     output_l += sl * vl;
                     output_r += sr * vr;
@@ -1599,6 +1644,9 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             double dummy_int_part;
                             osc->fp1[k][0] = fabs(n->blue);
                             osc->fp1[k][1] = modf(fabs(n->blue), &dummy_int_part);
+
+                            osc->fp2[k][1] = osc->fp2[k][0];
+                            osc->fp2[k][0] = n->res;
                         }
                     } else if (synthesis_method == FAS_GRANULAR) {
                         for (j = s; j < e; j += 1) {
@@ -1649,9 +1697,9 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
 #ifdef WITH_SOUNDPIPE
                             sp_butbp *bpb_l = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_L];
-                            sp_butbp *bpb_r = (sp_butbp *)osc->sp_filters[k][SP_BANDPASS_FILTER_R];
-                            bpb_l->bw = osc->bw[k] * fmin(fmax(fabs(n->alpha), 0.000001f), 10.f);
-                            bpb_r->bw = osc->bw[k] * fmin(fmax(fabs(n->alpha), 0.000001f), 10.f);
+
+                            osc->fp1[k][0] = bpb_l->bw;
+                            osc->fp1[k][1] = osc->bw[k] * fmin(fmax(fabs(n->alpha), 0.000001f), 10.f);
 #endif
                         }  
                     } else if (synthesis_method == FAS_FORMANT_SYNTH) {
@@ -1666,8 +1714,15 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #ifdef WITH_SOUNDPIPE
                             sp_fofilt *fofilt_l = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L];
                             sp_fofilt *fofilt_r = (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R];
-                            fofilt_l->atk = fofilt_r->atk = fmax(fabs(blue_frac_part) * 60.f, 0.000001f);
-                            fofilt_l->dec = fofilt_r->dec = fmax(fabs(n->res), 0.000001f);
+                            fofilt_l->patk = fofilt_r->patk = fofilt_r->atk;
+                            fofilt_l->pdec = fofilt_r->pdec = fofilt_r->dec;
+                            fofilt_l->tatk = fofilt_r->tatk = fmax(fabs(blue_frac_part) * 60.f, 0.000001f);
+                            fofilt_l->tdec = fofilt_r->tdec = fmax(fabs(n->res), 0.000001f);
+
+                            if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+                                sp_fofilt_reset(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L]);
+                                sp_fofilt_reset(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R]);
+                            }
 #endif
                         }    
                     } else if (synthesis_method == FAS_STRING_RESON) {
@@ -1705,7 +1760,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #ifdef WITH_SOUNDPIPE
                             sp_pdhalf *pdhalf = (sp_pdhalf *)osc->sp_gens[k][SP_PD_GENERATOR];
                             pdhalf->ibipolar = 0;
-                            pdhalf->amount = fmin(fmax(n->alpha, -1.f), 1.f);
+                            pdhalf->pamount = pdhalf->amount;
+                            pdhalf->tamount = fmin(fmax(n->alpha, -1.f), 1.f);
 #endif
                         } 
                     } else if (synthesis_method == FAS_FM) {
@@ -1715,13 +1771,10 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
                             if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
-                                osc->fp1[k][0] = 0.0f;
-                                osc->fp1[k][1] = 0.0f;
-                                osc->fp1[k][2] = 0.0f;
-                                osc->fp1[k][3] = 0.0f;
-                                osc->fp1[k][4] = 0.0f;
-                                osc->fp2[k][0] = 0.0f;
-                                osc->fp2[k][1] = 0.0f;
+                                memset(osc->fp1[k], 0, sizeof(FAS_FLOAT) * 6);
+                                memset(osc->fp2[k], 0, sizeof(FAS_FLOAT) * 6);
+                                memset(osc->fp3[k], 0, sizeof(FAS_FLOAT) * 6);
+                                memset(osc->fp4[k], 0, sizeof(FAS_FLOAT) * 6);
                             }
 
                             if (instrument->p0 >= 0 && waves_count > 0) {
@@ -1747,19 +1800,26 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                                 osc->wav2[k] = smp->data_l;
 
-                                osc->fp1[k][4] = n->alpha / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
+                                osc->fp4[k][3] = osc->fp4[k][2];
+                                osc->fp4[k][2] = n->alpha / smp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)smp->samplerate);
                                 osc->fp2[k][1] = smp->frames;
                             } else {
                                 osc->wav2[k] = fas_sine_wavetable;
 
-                                osc->fp1[k][4] = n->alpha / (FAS_FLOAT)fas_sample_rate * fas_wavetable_size;
+                                osc->fp4[k][3] = osc->fp4[k][2];
+                                osc->fp4[k][2] = n->alpha / (FAS_FLOAT)fas_sample_rate * fas_wavetable_size;
                                 osc->fp2[k][1] = fas_wavetable_size;
                             }
 
                             double dummy_int_part;
+                            osc->fp3[k][1] = osc->fp3[k][0];
                             osc->fp3[k][0] = modf(fabs(n->blue), &dummy_int_part);
+
+                            osc->fp4[k][1] = osc->fp4[k][0];
+                            osc->fp4[k][0] = floor(n->blue) / 65536.0;
                         }
                     } else if (synthesis_method == FAS_SUBTRACTIVE) {
+                        int filter_type = instrument->p0;
                         for (j = s; j < e; j += 1) {
                             struct note *n = &curr_notes[j];
 
@@ -1772,21 +1832,31 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             // clamp to nyquist limit / filter limit
                             freq = fmin(freq, fas_sample_rate / 2 * FAS_FREQ_LIMIT_FACTOR);
 
-                            sp_moogladder *spmf = (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER];
-                            spmf->freq = freq;
-                            spmf->res = res;
-
-                            sp_diode *spdf = (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER];
-                            spdf->freq = freq;
-                            spdf->res = res;
-
-                            sp_wpkorg35 *spkf = (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER];
-                            spkf->cutoff = freq;
-                            spkf->res = res * 2.;
-
-                            sp_lpf18 *splf = (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER];
-                            splf->cutoff = freq;
-                            splf->res = res;
+                            if (filter_type == 0) {
+                                sp_moogladder *spmf = (sp_moogladder *)osc->sp_filters[k][SP_MOOG_FILTER];
+                                osc->fp1[k][0] = spmf->freq;
+                                osc->fp1[k][1] = freq;
+                                osc->fp1[k][2] = spmf->res;
+                                osc->fp1[k][3] = res;
+                            } else if (filter_type == 1) {
+                                sp_diode *spdf = (sp_diode *)osc->sp_filters[k][SP_DIODE_FILTER];
+                                osc->fp1[k][0] = spdf->freq;
+                                osc->fp1[k][1] = freq;
+                                osc->fp1[k][2] = spdf->res;
+                                osc->fp1[k][3] = res;
+                            } else if (filter_type == 2) {
+                                sp_wpkorg35 *spkf = (sp_wpkorg35 *)osc->sp_filters[k][SP_KORG35_FILTER];
+                                osc->fp1[k][0] = spkf->cutoff;
+                                osc->fp1[k][1] = freq;
+                                osc->fp1[k][2] = spkf->res;
+                                osc->fp1[k][3] = res * 2;
+                            } else if (filter_type == 3) {
+                                sp_lpf18 *splf = (sp_lpf18 *)osc->sp_filters[k][SP_LPF18_FILTER];
+                                osc->fp1[k][0] = splf->cutoff;
+                                osc->fp1[k][1] = freq;
+                                osc->fp1[k][2] = splf->res;
+                                osc->fp1[k][3] = res;
+                            }
 #else
                             huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (FAS_FLOAT)fas_sample_rate);
 
@@ -1884,6 +1954,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             }
 
                             double dummy_int_part;
+                            osc->fp3[k][1] = osc->fp3[k][0];
                             osc->fp3[k][0] = modf(fabs(n->blue), &dummy_int_part);
                         }
 #ifdef WITH_FAUST

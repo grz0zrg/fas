@@ -41,8 +41,8 @@ int sp_fofilt_init(sp_data *sp, sp_fofilt *p)
    p->sr = sp->sr;
 
    p->freq = 1000;
-   p->atk = 0.007;
-   p->dec = 0.04;
+   p->atk = p->patk = p->tatk = 0.007;
+   p->dec = p->pdec = p->tdec = 0.04;
    p->istor = 0.0;
 
    int i;
@@ -51,6 +51,12 @@ int sp_fofilt_init(sp_data *sp, sp_fofilt *p)
          p->delay[i] = 0.0;
    }
    return SP_OK;
+}
+
+void sp_fofilt_reset(sp_data *sp, sp_fofilt *p) {
+    int i = 0;
+    for (i=0; i<4; i++)
+        p->delay[i] = 0.0;
 }
 
 int sp_fofilt_compute(sp_data *sp, sp_fofilt *p, SPFLOAT *in, SPFLOAT *out)

@@ -76,7 +76,7 @@ FAS_FLOAT **createEnvelopes(unsigned int n) {
     FAS_FLOAT a0, a1, a2, a3, L, fN;
 
     for (unsigned int i = 0; i < FAS_ENVS_COUNT; i++) {
-        envs[i] = (FAS_FLOAT *)malloc(n * sizeof(FAS_FLOAT));
+        envs[i] = (FAS_FLOAT *)calloc(n, sizeof(FAS_FLOAT));
 
         // thank to http://michaelkrzyzaniak.com/AudioSynthesis/2_Audio_Synthesis/11_Granular_Synthesis/1_Window_Functions/
         // NOTE : some fix is applied to ensure the boundaries land on 0

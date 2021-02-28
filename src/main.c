@@ -990,19 +990,19 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                     if (instrument->p0 == 1) {
                         sp_butbp_compute(sp, butbp_l, &il, &sl);
-                        sp_butbp_compute(sp, butbp_r, &il, &sr);
+                        sp_butbp_compute(sp, butbp_r, &ir, &sr);
                         sp_butbp_compute(sp, butbp_l, &sl, &sl);
                         sp_butbp_compute(sp, butbp_r, &sr, &sr);
                     } else if (instrument->p0 == 2) {
                         sp_butbp_compute(sp, butbp_l, &il, &sl);
-                        sp_butbp_compute(sp, butbp_r, &il, &sr);
+                        sp_butbp_compute(sp, butbp_r, &ir, &sr);
                         sp_butbp_compute(sp, butbp_l, &sl, &sl);
                         sp_butbp_compute(sp, butbp_r, &sr, &sr);
                         sp_butbp_compute(sp, butbp_l, &sl, &sl);
                         sp_butbp_compute(sp, butbp_r, &sr, &sr);
                     } else if (instrument->p0 == 3) {
                         sp_butbp_compute(sp, butbp_l, &il, &sl);
-                        sp_butbp_compute(sp, butbp_r, &il, &sr);
+                        sp_butbp_compute(sp, butbp_r, &ir, &sr);
                         sp_butbp_compute(sp, butbp_l, &sl, &sl);
                         sp_butbp_compute(sp, butbp_r, &sr, &sr);
                         sp_butbp_compute(sp, butbp_l, &sl, &sl);
@@ -1010,8 +1010,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         sp_butbp_compute(sp, butbp_l, &sl, &sl);
                         sp_butbp_compute(sp, butbp_r, &sr, &sr);
                     } else {
-                        sp_butbp_compute(sp, butbp_l, &sl, &sl);
-                        sp_butbp_compute(sp, butbp_r, &sr, &sr);
+                        sp_butbp_compute(sp, butbp_l, &il, &sl);
+                        sp_butbp_compute(sp, butbp_r, &ir, &sr);
                     }
 
                     output_l += sl * vl;

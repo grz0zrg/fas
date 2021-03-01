@@ -212,6 +212,8 @@ void updateEffectParameter(
         } else if (target == 9) {
             sdelay_r->del = value;
         }
+
+        return;
     } else if (fx->fx_id == FX_DELAY) {
         sp_delay *delay_l = (sp_delay *)fxs->delay[slot2];
         sp_delay *delay_r = (sp_delay *)fxs->delay[slot2 + 1];
@@ -229,6 +231,8 @@ void updateEffectParameter(
         } else if (target == 9) {
             fxs->wet[slot2 + 1] = value;
         }
+
+        return;
     } else if (fx->fx_id == FX_CONV) {
         if (target == 6) {
             fxs->dry[slot2] = value;
@@ -239,110 +243,76 @@ void updateEffectParameter(
         } else if (target == 9) {
             fxs->wet[slot2 + 1] = value;
         }
+
+        return;
     } else if (fx->fx_id == FX_ZITAREV) {
         sp_zitarev *zita = (sp_zitarev *)fxs->zitarev[slot];
 
         if (target == 2) {
             *zita->in_delay = value;
-
-            return;
         } else if (target == 3) {
             *zita->lf_x = value;
-
-            return;
         } else if (target == 4) {
             *zita->rt60_low = value;
-
-            return;
         } else if (target == 5) {
             *zita->rt60_mid = value;
-            
-            return;
         } else if (target == 6) {
             *zita->hf_damping = value;
-
-            return;
         } else if (target == 7) {
             *zita->eq1_freq = value;
-
-            return;
         } else if (target == 8) {
             *zita->eq1_level = value;
-            
-            return;
         } else if (target == 9) {
             *zita->eq2_freq = value;
-
-            return;
         } else if (target == 10) {
             *zita->eq2_level = value;
-
-            return;
         } else if (target == 11) {
             *zita->mix = value;
-            
-            return;
         } else if (target == 12) {
             *zita->level = value;
-
-            return;
         }
+
+        return;
     } else if (fx->fx_id == FX_PHASER) {
         sp_phaser *phaser = (sp_phaser *)fxs->phaser[slot];
 
         if (target == 2) {
             *phaser->MaxNotch1Freq = value;
-
-            return;
         } else if (target == 3) {
             *phaser->MinNotch1Freq = value;
-
-            return;
         } else if (target == 4) {
             *phaser->Notch_width = value;
-
-            return;
         } else if (target == 5) {
             *phaser->NotchFreq = value;
-
-            return;
         } else if (target == 6) {
             *phaser->VibratoMode = value;
-
-            return;
         } else if (target == 7) {
             *phaser->depth = value;
-            
-            return;
         } else if (target == 8) {
             *phaser->feedback_gain = value;
-
-            return;
         } else if (target == 9) {
             *phaser->invert = value;
-
-            return;
         } else if (target == 10) {
             *phaser->level = value;
-
-            return;
         } else if (target == 11) {
             *phaser->lfobpm = value;
-
-            return;
         }
+
+        return;
     } else if (fx->fx_id == FX_SCREV) {
         sp_revsc *revsc = (sp_revsc *)fxs->revsc[slot];
 
         if (target == 2) {
             revsc->feedback = value;
-
-            return;
         } else if (target == 3) {
             revsc->lpfreq = fmin(value, sp->sr / 2 * FAS_FREQ_LIMIT_FACTOR);
-
-            return;
+        } else if (target == 4) {
+            fxs->dry[slot] = value;
+        } else if (target == 5) {
+            fxs->wet[slot] = value;
         }
+
+        return;
     } else if (fx->fx_id == FX_COMB) {
         if (target == 3) {
             sp_comb *comb = (sp_comb *)fxs->comb[slot2];
@@ -361,6 +331,8 @@ void updateEffectParameter(
         } else if (target == 9) {
             fxs->wet[slot2 + 1] = value;
         }
+
+        return;
     } else if (fx->fx_id == FX_AUTOWAH) {
         sp_autowah *autowah_l = (sp_autowah *)fxs->autowah[slot2];
         sp_autowah *autowah_r = (sp_autowah *)fxs->autowah[slot2 + 1];
@@ -378,6 +350,8 @@ void updateEffectParameter(
         } else if (target == 7) {
             *autowah_r->mix = value;
         }
+
+        return;
     } else if (fx->fx_id == FX_PANNER) {
         sp_panst *panner = (sp_panst *)fxs->panner[slot];
         if (target == 2) {
@@ -385,6 +359,8 @@ void updateEffectParameter(
         } else if (target == 3) {
             panner->pan = value;
         }
+
+        return;
     }
 #endif
 #ifdef WITH_FAUST
@@ -401,54 +377,36 @@ void updateEffectParameter(
         if (target == 3) {
             tmp = getFaustControl(fdsp->controls, "fs_p0");
             if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
-
-            return;
         } else if (target == 4) {
             tmp = getFaustControl(fdsp->controls, "fs_p1");
             if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
-
-            return;
         } else if (target == 5) {
             tmp = getFaustControl(fdsp->controls, "fs_p2");
             if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
-
-            return;
         } else if (target == 6) {
             tmp = getFaustControl(fdsp->controls, "fs_p3");
             if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
-
-            return;
         } else if (target == 7) {
             tmp = getFaustControl(fdsp->controls, "fs_p4");
             if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
-
-            return;
         } else if (target == 8) {
             tmp = getFaustControl(fdsp->controls, "fs_p5");
             if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
-
-            return;
         } else if (target == 9) {
             tmp = getFaustControl(fdsp->controls, "fs_p6");
             if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
-
-            return;
         } else if (target == 10) {
             tmp = getFaustControl(fdsp->controls, "fs_p7");
             if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
-
-            return;
         } else if (target == 11) {
             tmp = getFaustControl(fdsp->controls, "fs_p8");
             if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
-
-            return;
         } else if (target == 12) {
             tmp = getFaustControl(fdsp->controls, "fs_p9");
             if (tmp) { *tmp->zone = fmax(tmp->min, fmin(tmp->max, value)); }
-
-            return;
         }
+
+        return;
     }
 #endif
 

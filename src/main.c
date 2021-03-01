@@ -1321,7 +1321,16 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #endif
                 } else if (fx_id == FX_SCREV) {
 #ifdef WITH_SOUNDPIPE
-                    sp_revsc_compute(sp, (sp_revsc *)fx->revsc[d], &chn_settings->output_l, &chn_settings->output_r, &chn_settings->output_l, &chn_settings->output_r);
+                    FAS_FLOAT insl = chn_settings->output_l;
+                    FAS_FLOAT insr = chn_settings->output_r;
+
+                    FAS_FLOAT outsl = 0;
+                    FAS_FLOAT outsr = 0;
+                    
+                    sp_revsc_compute(sp, (sp_revsc *)fx->revsc[d], &insl, &insr, &outsl, &outsr);
+
+                    chn_settings->output_l = chn_settings->output_l * fx->dry[d] + outsl * fx->wet[d];
+                    chn_settings->output_r = chn_settings->output_r * fx->dry[d] + outsr * fx->wet[d];
 #endif
                 } else if (fx_id == FX_AUTOWAH) {
 #ifdef WITH_SOUNDPIPE

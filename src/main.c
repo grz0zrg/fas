@@ -2045,7 +2045,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     }
                     curr_notes = dummy_notes;
 
-                    note_buffer_len = 0;
+                    note_buffer_len = 1;
 
                     fas_drop_counter = 0;
                 }

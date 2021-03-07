@@ -187,8 +187,6 @@
     unsigned int window_size = 8192;
     unsigned int hop_size = 2048;
 
-    FAS_FLOAT acb_time = 0.;
-
     double note_time;
     FAS_FLOAT note_time_samples;
     FAS_FLOAT lerp_t_step;

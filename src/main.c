@@ -267,6 +267,10 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
         audio_thread_state = FAS_AUDIO_PAUSE;
     } else if (audio_thread_state == FAS_AUDIO_DO_PLAY) {
+        curr_synth.lerp_t = 0.0;
+        curr_synth.curr_sample = 0;
+        lerp_t_step = 1 / note_time_samples;
+
         audio_thread_state = FAS_AUDIO_PLAY;
     } else if (audio_thread_state == FAS_AUDIO_DO_FLUSH_THEN_PAUSE) {
         // flush away callback data
@@ -308,11 +312,6 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
             curr_synth.lerp_t += (1.0f / (FAS_FLOAT)nframes);
             curr_synth.lerp_t = fmin(curr_synth.lerp_t, 1.0f);
         }
-
-        curr_synth.lerp_t = 0.0;
-        curr_synth.curr_sample = 0;
-
-        lerp_t_step = 1 / note_time_samples;
 
         return 0;
     }
@@ -2045,7 +2044,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     }
                     curr_notes = dummy_notes;
 
-                    note_buffer_len = 1;
+                    note_buffer_len = 0;
 
                     fas_drop_counter = 0;
                 }
@@ -2275,6 +2274,23 @@ void freeUserSynthChnFxSettings(double ***synth_chn_fx_settings) {
         }
         free(synth_chn_fx_settings);
     }
+}
+
+void sendPerformances(struct lws *wsi, double latency) {
+    static unsigned char p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int) * 2 + sizeof(double) + LWS_SEND_BUFFER_POST_PADDING];
+    p_load[LWS_SEND_BUFFER_PRE_PADDING] = 0; // packet flag
+    p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int)] = 0;
+    p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(double)] = 0;
+#ifdef WITH_JACK
+    int stream_load = cpu_load;
+#else
+    int stream_load = (int)(Pa_GetStreamCpuLoad(stream) * 100);
+#endif
+    memcpy(&p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int)], &stream_load, sizeof(int));
+    memcpy(&p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int) * 2], &latency, sizeof(double));
+    lws_write(wsi, &p_load[LWS_SEND_BUFFER_PRE_PADDING], sizeof(int) * 2 + sizeof(double), LWS_WRITE_BINARY);
+
+    time(&stream_load_begin);
 }
 
 int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
@@ -2631,20 +2647,7 @@ if (remaining_payload != 0) {
                     time(&stream_load_end);
                     double stream_load_time = difftime(stream_load_end,stream_load_begin);
                     if (stream_load_time > fas_stream_infos_send_delay) {
-                        static unsigned char p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int) * 2 + sizeof(double) + LWS_SEND_BUFFER_POST_PADDING];
-                        p_load[LWS_SEND_BUFFER_PRE_PADDING] = 0; // packet flag
-                        p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int)] = 0;
-                        p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(double)] = 0;
-#ifdef WITH_JACK
-                        int stream_load = cpu_load;
-#else
-                        int stream_load = (int)(Pa_GetStreamCpuLoad(stream) * 100);
-#endif
-                        memcpy(&p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int)], &stream_load, sizeof(int));
-                        memcpy(&p_load[LWS_SEND_BUFFER_PRE_PADDING + sizeof(int) * 2], &time_between_frames_ms, sizeof(double));
-                        lws_write(wsi, &p_load[LWS_SEND_BUFFER_PRE_PADDING], sizeof(int) * 2 + sizeof(double), LWS_WRITE_BINARY);
-
-                        time(&stream_load_begin);
+                        sendPerformances(wsi, time_between_frames_ms);
                     }
                 } else if (pid == SYNTH_SETTINGS) {
                     uint32_t target = 0;
@@ -3068,8 +3071,20 @@ fflush(stdout);
                             goto free_packet; 
                         }
                     } else if (action_type[0] == FAS_ACTION_PAUSE) {
+                        if (usd->frame_data != NULL) {
+                            // the audio thread will pause and fade off so ensure future notes data start off a correct state
+                            memset(usd->prev_frame_data, 0, usd->expected_max_frame_length);
+                        }
+
                         audioPause();
+
+                        // just to refresh load stats
+                        sendPerformances(wsi, 0);
                     } else if (action_type[0] == FAS_ACTION_RESUME) {
+                        // reset performances stats
+                        frame_sync.lasttime = ns();
+                        frame_sync.acc_time = note_time * 1000;
+
                         audioPlay();
                     }
 #ifdef WITH_FAUST

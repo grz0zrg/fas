@@ -493,7 +493,7 @@ Instrument settings :
 
 This is provided as a shortcut solution to extend modulation options (modulation can also be done flexibly through instrument / fx synth commands), main disadvantage is the usage of an instrument slot which will increase the amount of data transmitted (thus bandwidth usage may increase and performance may degrade)
 
-Simple use case would be to modulate filters cutoff / resonance parameter or wavetable selection for FM/PM.
+Simple use case would be to modulate filters cutoff / resonance parameter or wavetable selection for FM/PM, basically sample rate instrument parameters changes which cannot be mapped well by default due to RGBA limitations.
 
 Note : Parameters which require re-allocation (eg. convolution file, delay comb time) cannot be modulated.
 
@@ -640,7 +640,7 @@ Note : All instruments which use input instrument or channel are computed on eac
 
 Frames drop happen if the client is too late sending its slices per frame (this is controlled by the `frames_queue_size` option parameter), different reasons can make that happen such as slow connectivity, client side issues like a slow client, etc.
 
-When a frame is dropped, FAS hold the audio till a frame is received or the `max_drop` program option is reached, this ensure smooth audio even if the client has issues sending its frames, latency can be heard if too much frames are dropped however.
+When a frame is dropped, FAS hold the audio till a frame is received or the `max_drop` program option is reached then it goes into a silent mode (stop abruptely but still processing; not paused), this ensure smooth audio even if the client has issues sending its frames, latency can be heard if too much frames are dropped however.
 
 ### Limitations
 

@@ -346,6 +346,8 @@
             freeInstrumentState(state);
         }
 
+        state->afSTFT_handle = NULL;
+
         afSTFTinit(&state->afSTFT_handle, hop_size, 2, 2, 0, 0);
 
         for (int j = 0; j < 2; j += 1) {

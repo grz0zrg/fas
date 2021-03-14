@@ -80,6 +80,8 @@ inline void computeGrains(unsigned int channel, struct grain *g, unsigned int gr
             gr->env_index[channel] = 0.0f;
             gr->density[channel] = density;
 
+            env_index = 0.0f;
+
             if (alpha < 0.0f) {
                 if (gr_speed > 0.0f) {
                     gr->speed[channel] = -gr_speed;
@@ -126,7 +128,7 @@ inline void computeGrains(unsigned int channel, struct grain *g, unsigned int gr
         FAS_FLOAT smp_rv = smp_r + mu * (smp_r2 - smp_r);
 #endif
 
-        FAS_FLOAT env = gr_env[(unsigned int)round(env_index)];
+        FAS_FLOAT env = gr_env[(unsigned int)roundf(env_index)];
 
         *out_l += smp_lv * env;
         *out_r += smp_rv * env;

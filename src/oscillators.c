@@ -138,6 +138,24 @@ void freeFaustGenerators(
 }
 #endif
 
+void resetInstrument(struct oscillator **o, unsigned int n, unsigned int instrument) {
+    struct oscillator *oscs = *o;
+
+    if (oscs == NULL) {
+        return;
+    }
+
+    unsigned int y = 0, i = 0, k = 0, j = 0;
+    for (y = 0; y < n; y += 1) {
+        struct oscillator *osc = &oscs[y];
+
+        memset(osc->fp1[instrument], 0, sizeof(FAS_FLOAT) * 6);
+        memset(osc->fp2[instrument], 0, sizeof(FAS_FLOAT) * 6);
+        memset(osc->fp3[instrument], 0, sizeof(FAS_FLOAT) * 6);
+        memset(osc->fp4[instrument], 0, sizeof(FAS_FLOAT) * 6);
+    }
+}
+
 struct oscillator *createOscillatorsBank(
 #ifdef WITH_SOUNDPIPE
     sp_data *spd,

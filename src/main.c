@@ -124,6 +124,11 @@ void doSynthCommands() {
                     } else {
                         instrument_settings->type = value;
                     }
+
+                    // instruments can be hot switched so make sure the instrument state is correct
+                    if (instrument_settings->type != FAS_VOID) {
+                        resetInstrument(&curr_synth.oscillators, curr_synth.bank_settings->h, instrument);
+                    }
                 } else if (target == 1) {
                     instrument_settings->muted = value;
                 } else if (target == 2) {

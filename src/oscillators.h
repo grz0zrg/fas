@@ -85,7 +85,7 @@
 #ifdef WITH_SOUNDPIPE
         sp_data *spd,
 #endif
-        unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, unsigned int wavetable_size, unsigned int max_instruments);
+        unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, FAS_FLOAT *sine_wavetable, unsigned int wavetable_size, unsigned int max_instruments);
 
     struct oscillator *updateOscillatorBank(
     #ifdef WITH_SOUNDPIPE

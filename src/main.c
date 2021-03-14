@@ -2507,7 +2507,7 @@ if (remaining_payload != 0) {
                         sp,
 #endif
                         curr_synth.bank_settings->h,
-                        curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, fas_wavetable_size, fas_max_instruments);
+                        curr_synth.bank_settings->base_frequency, curr_synth.bank_settings->octave, fas_sample_rate, fas_sine_wavetable, fas_wavetable_size, fas_max_instruments);
                         
 #ifdef WITH_FAUST
 

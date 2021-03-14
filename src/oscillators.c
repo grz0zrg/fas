@@ -147,6 +147,7 @@ struct oscillator *createOscillatorsBank(
     double base_frequency,
     unsigned int octaves,
     unsigned int sample_rate,
+    FAS_FLOAT *sine_wavetable,
     unsigned int wavetable_size,
     unsigned int max_instruments) {
     struct oscillator *oscillators = (struct oscillator*)calloc(n, sizeof(struct oscillator));
@@ -204,8 +205,8 @@ struct oscillator *createOscillatorsBank(
         osc->fp3 = malloc(sizeof(FAS_FLOAT *) * max_instruments);
         osc->fp4 = malloc(sizeof(FAS_FLOAT *) * max_instruments);
 
-        osc->wav1 = malloc(sizeof(FAS_FLOAT *) * max_instruments);
-        osc->wav2 = malloc(sizeof(FAS_FLOAT *) * max_instruments);
+        osc->wav1 = calloc(max_instruments, sizeof(FAS_FLOAT *));
+        osc->wav2 = calloc(max_instruments, sizeof(FAS_FLOAT *));
 
         osc->triggered = calloc(max_instruments, sizeof(unsigned int));
 
@@ -230,6 +231,9 @@ struct oscillator *createOscillatorsBank(
             osc->phase_index[i] = rand() / (FAS_FLOAT)RAND_MAX * wavetable_size;
             osc->noise_index[i] = rand() / (FAS_FLOAT)RAND_MAX * 65536;
             osc->pvalue[i] = 0;
+
+            osc->wav1[i] = sine_wavetable;
+            osc->wav2[i] = sine_wavetable;
 
 #ifdef MAGIC_CIRCLE
             osc->mc_x[i] = 1;

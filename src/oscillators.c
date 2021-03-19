@@ -8,6 +8,8 @@
     #include "Soundpipe/sp.h"
 #endif
 
+#define OSC_GENERIC_PARAMS_LENGTH 6
+
 #ifdef WITH_FAUST
 void createFaustGenerators(
     struct _faust_factories *faust_factories,
@@ -138,6 +140,13 @@ void freeFaustGenerators(
 }
 #endif
 
+void resetOscillator(struct oscillator *osc, unsigned int instrument) {
+    memset(osc->fp1[instrument], 0, sizeof(FAS_FLOAT) * OSC_GENERIC_PARAMS_LENGTH);
+    memset(osc->fp2[instrument], 0, sizeof(FAS_FLOAT) * OSC_GENERIC_PARAMS_LENGTH);
+    memset(osc->fp3[instrument], 0, sizeof(FAS_FLOAT) * OSC_GENERIC_PARAMS_LENGTH);
+    memset(osc->fp4[instrument], 0, sizeof(FAS_FLOAT) * OSC_GENERIC_PARAMS_LENGTH);
+}
+
 void resetInstrument(struct oscillator **o, unsigned int n, unsigned int instrument) {
     struct oscillator *oscs = *o;
 
@@ -149,10 +158,7 @@ void resetInstrument(struct oscillator **o, unsigned int n, unsigned int instrum
     for (y = 0; y < n; y += 1) {
         struct oscillator *osc = &oscs[y];
 
-        memset(osc->fp1[instrument], 0, sizeof(FAS_FLOAT) * 6);
-        memset(osc->fp2[instrument], 0, sizeof(FAS_FLOAT) * 6);
-        memset(osc->fp3[instrument], 0, sizeof(FAS_FLOAT) * 6);
-        memset(osc->fp4[instrument], 0, sizeof(FAS_FLOAT) * 6);
+        resetOscillator(osc, instrument);
     }
 }
 
@@ -374,10 +380,10 @@ struct oscillator *createOscillatorsBank(
 
             osc->fphase[i] = 0;
 
-            osc->fp1[i] = calloc(6, sizeof(FAS_FLOAT));
-            osc->fp2[i] = calloc(6, sizeof(FAS_FLOAT));
-            osc->fp3[i] = calloc(6, sizeof(FAS_FLOAT));
-            osc->fp4[i] = calloc(6, sizeof(FAS_FLOAT));
+            osc->fp1[i] = calloc(OSC_GENERIC_PARAMS_LENGTH, sizeof(FAS_FLOAT));
+            osc->fp2[i] = calloc(OSC_GENERIC_PARAMS_LENGTH, sizeof(FAS_FLOAT));
+            osc->fp3[i] = calloc(OSC_GENERIC_PARAMS_LENGTH, sizeof(FAS_FLOAT));
+            osc->fp4[i] = calloc(OSC_GENERIC_PARAMS_LENGTH, sizeof(FAS_FLOAT));
         }
 
         osc->phase_step = phase_step;

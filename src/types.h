@@ -53,6 +53,9 @@
     struct _synth_instrument_states {
         unsigned int position;
 
+        // used when smoothly switching instruments
+        int state;
+
         // spectral related
         void *afSTFT_handle;
 
@@ -68,6 +71,8 @@
     // synth. instrument
     struct _synth_instrument {
         int type;
+        int next_type;
+
         unsigned int muted;
 
         unsigned int output_channel;

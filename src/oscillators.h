@@ -87,6 +87,7 @@
 #endif
         unsigned int n, double base_frequency, unsigned int octaves, unsigned int sample_rate, FAS_FLOAT *sine_wavetable, unsigned int wavetable_size, unsigned int max_instruments);
 
+    void resetOscillator(struct oscillator *osc, unsigned int instrument);
     void resetInstrument(struct oscillator **o, unsigned int n, unsigned int instrument);
 
     struct oscillator *updateOscillatorBank(

@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2017, 2018, 2019, 2020, Julien Verneuil
+    Copyright (c) 2017-2022, Julien Verneuil
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -24,9 +24,9 @@
 */
 
 /*
-    Oscillator-bank synthesizer built for the Fragment Synthesizer, a web-based image-synth collaborative audio/visual synthesizer.
+    Oscillator-bank / filter-bank synthesizer built for the Fragment Synthesizer, a web-based image-synth collaborative audio/visual synthesizer.
 
-    This collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sound in real-time.
+    This collect Fragment settings and notes data over WebSocket, convert them to a suitable data structure and generate sounds in real-time.
 
     Only one client is supported.
 
@@ -112,23 +112,22 @@ void doSynthCommands() {
             if (instrument < fas_max_instruments) {
                 struct _synth_instrument *instrument_settings = &curr_synth.instruments[instrument];
                 if (target == 0) {
+                    // note : instrument is smoothly switched on note event basis (not directly here but later on)
                     if (value == FAS_GRANULAR && samples_count == 0) {
                         // do not allow synthesis based on samples when there is no samples
-                        instrument_settings->type = FAS_VOID;
+                        instrument_settings->next_type = FAS_VOID;
                     } else if (value == FAS_WAVETABLE_SYNTH && waves_count == 0) {
                         // do not allow synthesis based on waves when there is no waves
-                        instrument_settings->type = FAS_VOID;
+                        instrument_settings->next_type = FAS_VOID;
                     } else if (value == FAS_INPUT && fas_input_channels == 0) {
                         // do not allow input mode when there is no inputs
-                        instrument_settings->type = FAS_VOID;
+                        instrument_settings->next_type = FAS_VOID;
                     } else {
-                        instrument_settings->type = value;
+                        instrument_settings->next_type = value;
                     }
 
-                    // instruments can be hot switched so make sure the instrument state is correct
-                    if (instrument_settings->type != FAS_VOID) {
-                        resetInstrument(&curr_synth.oscillators, curr_synth.bank_settings->h, instrument);
-                    }
+                    // start off a clean state
+                    clearNotesQueue();
                 } else if (target == 1) {
                     instrument_settings->muted = value;
                 } else if (target == 2) {
@@ -275,6 +274,11 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
         curr_synth.lerp_t = 0.0;
         curr_synth.curr_sample = 0;
         lerp_t_step = 1 / note_time_samples;
+
+        // start off a clean state
+        clearNotesQueue();
+
+        trigger_note_on = 1;
 
         audio_thread_state = FAS_AUDIO_PLAY;
     } else if (audio_thread_state == FAS_AUDIO_DO_FLUSH_THEN_PAUSE) {
@@ -1646,8 +1650,47 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     e = s + note_buffer_len;
 
                     struct _synth_instrument *instrument = &curr_synth.instruments[k];
-                    int synthesis_method = instrument->type;
+                    struct _synth_instrument_states *instrument_states = &fas_instrument_states[k];
 
+                    // instrument switch
+                    if (instrument_states->state == 1) {
+                        // old instrument faded off, switch to the new one
+                        instrument->type = instrument->next_type;
+
+                        instrument_states->state = 0;
+
+                        // override current notes data to smoothly switch on and force an instrument note on trigger (to initialize the newly assigned instrument)
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
+
+                            // override current notes data
+                            n->previous_volume_l = 0;
+                            n->previous_volume_r = 0;
+
+                            n->diff_volume_l = -n->previous_volume_l;
+                            n->diff_volume_r = -n->previous_volume_r;
+                        }
+                    }
+
+                    if (instrument->type != instrument->next_type) {
+                        // let the actual instrument fade off (smooth transition)
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
+
+                            // override current notes data
+                            n->volume_l = 0;
+                            n->volume_r = 0;
+
+                            n->diff_volume_l = -n->previous_volume_l;
+                            n->diff_volume_r = -n->previous_volume_r;
+                        }
+
+                        // indicate a transition state
+                        instrument_states->state = 1;
+                    }
+                    //
+
+                    int synthesis_method = instrument->type;
                     if (synthesis_method == FAS_ADDITIVE) {
                         for (j = s; j < e; j += 1) {
                             struct note *n = &curr_notes[j];
@@ -1681,7 +1724,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 }
                             }
 
-                            if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || trigger_note_on) {
                                 unsigned int grain_index = n->osc_index * samples_count + n->smp_index;
                                 unsigned int pgrain_index = n->osc_index * samples_count + n->psmp_index;
                                 unsigned int si = curr_synth.bank_settings->h * samples_count;
@@ -1732,7 +1775,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             fofilt_l->tatk = fofilt_r->tatk = fmax(fabs(blue_frac_part) * 60.f, 0.000001f);
                             fofilt_l->tdec = fofilt_r->tdec = fmax(fabs(n->res), 0.000001f);
 
-                            if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || trigger_note_on) {
                                 sp_fofilt_reset(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_L]);
                                 sp_fofilt_reset(sp, (sp_fofilt *)osc->sp_filters[k][SP_FORMANT_FILTER_R]);
                             }
@@ -1784,10 +1827,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
                             if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
-                                memset(osc->fp1[k], 0, sizeof(FAS_FLOAT) * 6);
-                                memset(osc->fp2[k], 0, sizeof(FAS_FLOAT) * 6);
-                                memset(osc->fp3[k], 0, sizeof(FAS_FLOAT) * 6);
-                                memset(osc->fp4[k], 0, sizeof(FAS_FLOAT) * 6);
+                                resetOscillator(osc, k);
                             }
 
                             if (instrument->p0 >= 0 && waves_count > 0) {
@@ -1874,10 +1914,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (FAS_FLOAT)fas_sample_rate);
 
                             // reset standalone filter on note-off
-                            if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
-                                memset(osc->fp1[k], 0, sizeof(FAS_FLOAT) * 4);
-                                memset(osc->fp2[k], 0, sizeof(FAS_FLOAT) * 4);
-                                memset(osc->fp3[k], 0, sizeof(FAS_FLOAT) * 4);
+                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || trigger_note_on) {
+                                resetOscillator(osc, k);
 
                                 osc->pvalue[k] = 0.0f;
                             }
@@ -1920,7 +1958,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 #ifndef WITH_SOUNDPIPE
                             huovilainen_compute(osc->freq * n->cutoff, n->res, &n->cutoff, &n->res, (FAS_FLOAT)fas_sample_rate);
 #endif
-                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || osc->triggered[k] == 1) {
+                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || osc->triggered[k] == 1 || trigger_note_on) {
                                 if (model_type == 0) {
                                     karplusTrigger(k, osc, n);
 
@@ -1937,7 +1975,9 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                             struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || (osc->triggered[k] == 1 && instrument->p0 == 1)) {
+                            double dummy_int_part;
+
+                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || (osc->triggered[k] == 1 && instrument->p0 == 1) || trigger_note_on) {
                                 int start_index = (int)fabs(round(n->blue)) % waves_count;
                                 int stop_index = (int)fabs(round(n->alpha)) % waves_count;
 
@@ -1964,9 +2004,10 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 osc->fp2[k][2] = osc->freq / nsmp->pitch / ((FAS_FLOAT)fas_sample_rate / (FAS_FLOAT)nsmp->samplerate);
 
                                 osc->triggered[k] = 0;
+
+                                osc->fp3[k][0] = modf(fabs(n->blue), &dummy_int_part);
                             }
 
-                            double dummy_int_part;
                             osc->fp3[k][1] = osc->fp3[k][0];
                             osc->fp3[k][0] = modf(fabs(n->blue), &dummy_int_part);
                         }
@@ -2023,6 +2064,9 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         break;
                     }
                 }
+
+
+                trigger_note_on = 0;
 
 #ifdef DEBUG
     frames_read += 1;

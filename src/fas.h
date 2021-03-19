@@ -191,6 +191,9 @@
     FAS_FLOAT note_time_samples;
     FAS_FLOAT lerp_t_step;
 
+    // a global note on trigger (gonna trigger re-initialization for all instruments)
+    int trigger_note_on = 0;
+
     FAS_FLOAT last_gain_lr = 0.0;
 
     atomic_int audio_thread_state = FAS_AUDIO_PAUSE;
@@ -423,7 +426,7 @@
         }
     }
 
-    void clearQueues() {
+    void clearNotesQueue() {
         void *key;
         while (lfds720_ringbuffer_n_read(&rs, &key, NULL) == 1) {
             struct _freelist_frames_data *freelist_frames_data = (struct _freelist_frames_data *)key;
@@ -431,7 +434,9 @@
             LFDS720_FREELIST_N_SET_VALUE_IN_ELEMENT(freelist_frames_data->fe, freelist_frames_data);
             lfds720_freelist_n_threadsafe_push(&freelist_frames, NULL, &freelist_frames_data->fe);
         }
+    }
 
+    void clearSynthQueue() {
         void *queue_synth_void;
         while(lfds720_queue_bss_dequeue(&synth_commands_queue_state, NULL, &queue_synth_void)) {
             struct _freelist_synth_commands *freelist_synth_command = (struct _freelist_synth_commands *)queue_synth_void;
@@ -439,6 +444,11 @@
             LFDS720_FREELIST_N_SET_VALUE_IN_ELEMENT(freelist_synth_command->fe, freelist_synth_command);
             lfds720_freelist_n_threadsafe_push(&freelist_commands, NULL, &freelist_synth_command->fe);
         }
+    }
+
+    void clearQueues() {
+        clearNotesQueue();
+        clearSynthQueue();
     }
 
     // initialize chn settings (no fx, bypass off)

@@ -1977,7 +1977,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                             double dummy_int_part;
 
-                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || (osc->triggered[k] == 1 && instrument->p0 == 1) || trigger_note_on) {
+                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || (osc->triggered[k] == 1 && instrument->p0 == 1) || trigger_note_on || n->res != osc->fp4[k][0]) {
                                 int start_index = (int)fabs(round(n->blue)) % waves_count;
                                 int stop_index = (int)fabs(round(n->alpha)) % waves_count;
 
@@ -2006,7 +2006,11 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 osc->triggered[k] = 0;
 
                                 osc->fp3[k][0] = modf(fabs(n->blue), &dummy_int_part);
+
+                                osc->fp4[k][0] = n->res;
                             }
+                            
+                            osc->fp4[k][0] = n->res;
 
                             osc->fp3[k][1] = osc->fp3[k][0];
                             osc->fp3[k][0] = modf(fabs(n->blue), &dummy_int_part);

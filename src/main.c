@@ -2177,7 +2177,9 @@ void audioPause() {
 }
 
 void audioPlay() {
-    audio_thread_state = FAS_AUDIO_DO_PLAY;
+    if (!fas_paused_by_client) {
+        audio_thread_state = FAS_AUDIO_DO_PLAY;
+    }
 }
 
 /**
@@ -3131,12 +3133,16 @@ fflush(stdout);
 
                         audioPause();
 
+                        fas_paused_by_client = 1;
+
                         // just to refresh load stats
                         sendPerformances(wsi, 0);
                     } else if (action_type[0] == FAS_ACTION_RESUME) {
                         // reset performances stats
                         frame_sync.lasttime = ns();
                         frame_sync.acc_time = note_time * 1000;
+
+                        fas_paused_by_client = 0;
 
                         audioPlay();
                     }

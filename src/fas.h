@@ -180,6 +180,8 @@
 
     unsigned char *fas_render_buffer = NULL;
 
+    int fas_paused_by_client = 0;
+
     FAS_FLOAT *fas_sine_wavetable = NULL;
     FAS_FLOAT *fas_white_noise_table = NULL;
     uint16_t noise_index = 0.;

@@ -43,4 +43,9 @@
                                 unsigned int instruments, unsigned int data_frame_size, struct note *note_buffer,
                                 unsigned int h, size_t data_length, void *prev_data, void *data);
 
+    // override a note buffer with note on
+    extern void notesOn(struct note *cn, unsigned int start, unsigned int end);
+    // override a note buffer with note off
+    extern void notesOff(struct note *cn, unsigned int start, unsigned int end);
+
 #endif

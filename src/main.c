@@ -133,15 +133,45 @@ void doSynthCommands() {
                 } else if (target == 2) {
                     instrument_settings->output_channel = value;
                 } else if (target == 3) {
-                    instrument_settings->p0 = value;
+                    if (instrument_settings->next_type != instrument_settings->type) {
+                        // note : parameters may be refreshed during instrument switch, so should be only updated when the type really switch later on
+                        instrument_settings->next_p0 = value;
+                    } else {
+                        instrument_settings->p0 = value;
+                        instrument_settings->next_p0 = value;
+                    }
                 } else if (target == 4) {
-                    instrument_settings->p1 = value;
+                    if (instrument_settings->next_type != instrument_settings->type) {
+                        // note : parameters may be refreshed during instrument switch, so should be only updated when the type really switch later on
+                        instrument_settings->next_p1 = value;
+                    } else {
+                        instrument_settings->p1 = value;
+                        instrument_settings->next_p1;
+                    }
                 } else if (target == 5) {
-                    instrument_settings->p2 = value;
+                    if (instrument_settings->next_type != instrument_settings->type) {
+                        // note : parameters may be refreshed during instrument switch, so should be only updated when the type really switch later on
+                        instrument_settings->next_p2 = value;
+                    } else {
+                        instrument_settings->p2 = value;
+                        instrument_settings->next_p2;
+                    }
                 } else if (target == 6) {
-                    instrument_settings->p3 = value;
+                    if (instrument_settings->next_type != instrument_settings->type) {
+                        // note : parameters may be refreshed during instrument switch, so should be only updated when the type really switch later on
+                        instrument_settings->next_p3 = value;
+                    } else {
+                        instrument_settings->p3 = value;
+                        instrument_settings->next_p3;
+                    }
                 } else if (target == 7) {
-                    instrument_settings->p4 = value;
+                    if (instrument_settings->next_type != instrument_settings->type) {
+                        // note : parameters may be refreshed during instrument switch, so should be only updated when the type really switch later on
+                        instrument_settings->next_p4 = value;
+                    } else {
+                        instrument_settings->p4 = value;
+                        instrument_settings->next_p4;
+                    }
                 }
             } else {
 #ifdef DEBUG
@@ -1652,39 +1682,25 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     struct _synth_instrument *instrument = &curr_synth.instruments[k];
                     struct _synth_instrument_states *instrument_states = &fas_instrument_states[k];
 
-                    // instrument switch
+                    // smooth processing of instrument type
                     if (instrument_states->state == 1) {
                         // old instrument faded off, switch to the new one
                         instrument->type = instrument->next_type;
+                        instrument->p0 = instrument->next_p0;
+                        instrument->p1 = instrument->next_p1;
+                        instrument->p2 = instrument->next_p2;
+                        instrument->p3 = instrument->next_p3;
+                        instrument->p4 = instrument->next_p4;
 
                         instrument_states->state = 0;
 
                         // override current notes data to smoothly switch on and force an instrument note on trigger (to initialize the newly assigned instrument)
-                        for (j = s; j < e; j += 1) {
-                            struct note *n = &curr_notes[j];
-
-                            // override current notes data
-                            n->previous_volume_l = 0;
-                            n->previous_volume_r = 0;
-
-                            n->diff_volume_l = -n->previous_volume_l;
-                            n->diff_volume_r = -n->previous_volume_r;
-                        }
+                        notesOn(curr_notes, s, e);
                     }
 
                     if (instrument->type != instrument->next_type) {
-                        // let the actual instrument fade off (smooth transition)
-                        for (j = s; j < e; j += 1) {
-                            struct note *n = &curr_notes[j];
-
-                            // override current notes data
-                            n->volume_l = 0;
-                            n->volume_r = 0;
-
-                            n->diff_volume_l = -n->previous_volume_l;
-                            n->diff_volume_r = -n->previous_volume_r;
-                        }
-
+                        // let the actual instrument fade off (smooth transition) by inserting note off values
+                        notesOff(curr_notes, s, e);
                         // indicate a transition state
                         instrument_states->state = 1;
                     }

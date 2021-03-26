@@ -183,3 +183,31 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
 #endif
     }
 }
+
+void notesOn(struct note *cn, unsigned int start, unsigned int end) {
+    unsigned int j = start;
+    for (j = start; j < end; j += 1) {
+        struct note *n = &cn[j];
+
+        // override notes data
+        n->previous_volume_l = 0;
+        n->previous_volume_r = 0;
+
+        n->diff_volume_l = -n->previous_volume_l;
+        n->diff_volume_r = -n->previous_volume_r;
+    }
+}
+
+void notesOff(struct note *cn, unsigned int start, unsigned int end) {
+    unsigned int j = start;
+    for (j = start; j < end; j += 1) {
+        struct note *n = &cn[j];
+
+        // override notes data
+        n->volume_l = 0;
+        n->volume_r = 0;
+
+        n->diff_volume_l = -n->previous_volume_l;
+        n->diff_volume_r = -n->previous_volume_r;
+    }
+}

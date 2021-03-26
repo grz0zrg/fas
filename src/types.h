@@ -82,6 +82,12 @@
         double p2;
         double p3;
         double p4;
+
+        int next_p0;
+        double next_p1;
+        double next_p2;
+        double next_p3;
+        double next_p4;
         
         FAS_FLOAT last_sample_l;
         FAS_FLOAT last_sample_r;

@@ -943,7 +943,7 @@ Once all dependencies are installed one can run `cmake` followed by `make` in th
 
 `fas` binary should then be available in the `bin` directory
 
-Packaging : running `cpack` copy shared libraries into the `bin` directory.
+Packaging : running `cpack` copy shared libraries into the `bin` directory. (note : `libportaudio.so` and some others doesn't seem to be copied so must be copied manually until it is fixed)
 
 FAS can be installed with `sudo make install` in the build directory.
 

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=fas
+Exec=fas
+Comment=Fragment Audio Server (www.fsynth.com)
+Icon=fas
+Terminal=true
+Categories=AudioVideo;
+

@@ -943,8 +943,6 @@ Once all dependencies are installed one can run `cmake` followed by `make` in th
 
 `fas` binary should then be available in the `bin` directory
 
-Packaging : running `cpack` copy shared libraries into the `bin` directory. (note : `libportaudio.so` and some others doesn't seem to be copied so must be copied manually until it is fixed)
-
 FAS can be installed with `sudo make install` in the build directory.
 
 FAS will load grains / waves / impulses first by checking `/usr/local/share/fragment/` (on Linux) default install path (specifically `grains` `waves` `impulses` directories) and when they are not available will look into the binary directory.
@@ -956,6 +954,14 @@ Recommended launch parameters with HiFiBerry DAC+ :
 * `./fas --frames_queue_size 3 --sample_rate 48000 --device 2`
 
 Bit depth is fixed to 32 bits float at the moment.
+
+### Packaging
+
+Running `cpack` in the build directory copy shared libraries into the `bin` directory. (note : `libportaudio.so` and many others doesn't seem to be copied so must be copied manually until it is fixed)
+
+FAS is distributed as an [AppImage](https://appimage.org/) which is a solution to provide single pre-packaged binary file which run easily on any distributions, the command `appimagetool AppDir/` must be used to build an AppImage in either `appimage/jack` directory or `appimage/portaudio`.
+
+AppImage note : At the moment to successfully build one AppImage two directory (`usr/bin` and `usb/lib`) must be created inside `appimage/jack` and `appimage/portaudio` and the fas binary should be put into each `bin` directory and shared libraries copied by the `cpack` command (and any others missing libraries) should be put into each `lib` directory.
 
 ## CMake options
 

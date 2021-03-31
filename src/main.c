@@ -413,7 +413,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         sp_bitcrush *crush = (sp_bitcrush *)osc->sp_mods[k][SP_CRUSH_MODS];
                         
                         FAS_FLOAT bitdepth = 1.f + (osc->fp1[k][1] * 31.f);
-                        FAS_FLOAT srate = lerp(osc->fp2[k][1], osc->fp2[k][0], lerp_t_step) * (FAS_FLOAT)fas_sample_rate;
+                        FAS_FLOAT srate = lerp(osc->fp2[k][1], osc->fp2[k][0], curr_synth.lerp_t) * (FAS_FLOAT)fas_sample_rate;
 
                         crush->bitdepth = bitdepth;
                         crush->srate = fmax(1, srate);
@@ -602,17 +602,17 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                     struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                    FAS_FLOAT mod_phase_step = lerp(osc->fp4[k][3], osc->fp4[k][2], lerp_t_step);
+                    FAS_FLOAT mod_phase_step = lerp(osc->fp4[k][3], osc->fp4[k][2], curr_synth.lerp_t);
                     FAS_FLOAT car_wav_size = osc->fp2[k][0];
                     FAS_FLOAT mod_wav_size = osc->fp2[k][1];
 
                     FAS_FLOAT fbf = (osc->fp1[k][0] + osc->fp1[k][1]) / 2; // 'anti-hunting' filter (simple low-pass)
-                    FAS_FLOAT feedback_level = lerp(osc->fp4[k][1], osc->fp4[k][0], lerp_t_step);
+                    FAS_FLOAT feedback_level = lerp(osc->fp4[k][1], osc->fp4[k][0], curr_synth.lerp_t);
                     FAS_FLOAT fb = fbf * feedback_level;
                     
                     FAS_FLOAT ph2 = fmod(osc->phase_index2[k] + (fb * mod_wav_size), fmax(mod_wav_size, 1));
 
-                    FAS_FLOAT mod_amplitude = lerp(osc->fp3[k][1], osc->fp3[k][0], lerp_t_step);
+                    FAS_FLOAT mod_amplitude = lerp(osc->fp3[k][1], osc->fp3[k][0], curr_synth.lerp_t);
 
                     FAS_FLOAT smp_mod = osc->wav2[k][(int)ph2];
                     FAS_FLOAT mod = (((FAS_FLOAT)smp_mod * mod_amplitude) * car_wav_size);
@@ -918,7 +918,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         }
                     }
 
-                    osc->fp1[k][3] += lerp(osc->fp3[k][1], osc->fp3[k][0], lerp_t_step);
+                    osc->fp1[k][3] += lerp(osc->fp3[k][1], osc->fp3[k][0], curr_synth.lerp_t);
                 }
             } else if (synthesis_method == FAS_MODULATION) {
                 for (j = s; j < e; j += 1) {
@@ -1842,8 +1842,16 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                             struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
 
-                            if (n->previous_volume_l <= 0 && n->previous_volume_r <= 0) {
+                            double dummy_int_part;
+
+                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || trigger_note_on) {
                                 resetOscillator(osc, k);
+
+                                osc->pvalue[k] = 0;
+
+                                osc->fp3[k][0] = modf(fabs(n->blue), &dummy_int_part);
+                                osc->fp4[k][0] = floor(fabs(n->blue)) / 65536.0;
+                                osc->fp4[k][3] = osc->fp4[k][2];
                             }
 
                             if (instrument->p0 >= 0 && waves_count > 0) {
@@ -1880,12 +1888,11 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 osc->fp2[k][1] = fas_wavetable_size;
                             }
 
-                            double dummy_int_part;
                             osc->fp3[k][1] = osc->fp3[k][0];
                             osc->fp3[k][0] = modf(fabs(n->blue), &dummy_int_part);
 
                             osc->fp4[k][1] = osc->fp4[k][0];
-                            osc->fp4[k][0] = floor(n->blue) / 65536.0;
+                            osc->fp4[k][0] = floor(fabs(n->blue)) / 65536.0;
                         }
                     } else if (synthesis_method == FAS_SUBTRACTIVE) {
                         int filter_type = instrument->p0;

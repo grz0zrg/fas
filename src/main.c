@@ -1719,6 +1719,11 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                             osc->fp2[k][1] = osc->fp2[k][0];
                             osc->fp2[k][0] = n->res;
+
+                            // make sure phase index is randomized and within bounds
+                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || trigger_note_on) {
+                                osc->phase_index[k] = randf(0, fas_wavetable_size);
+                            }
                         }
                     } else if (synthesis_method == FAS_GRANULAR) {
                         for (j = s; j < e; j += 1) {
@@ -1943,6 +1948,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 resetOscillator(osc, k);
 
                                 osc->pvalue[k] = 0.0f;
+
+                                osc->phase_index[k] = randf(0, fas_noise_wavetable_size - 1);
                             }
 #endif
                         }

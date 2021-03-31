@@ -1845,12 +1845,10 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             double dummy_int_part;
 
                             if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || trigger_note_on) {
-                                resetOscillator(osc, k);
-
                                 osc->pvalue[k] = 0;
 
-                                osc->fp3[k][0] = modf(fabs(n->blue), &dummy_int_part);
-                                osc->fp4[k][0] = floor(fabs(n->blue)) / 65536.0;
+                                osc->fp3[k][0] = modf(fabs(n->pblue), &dummy_int_part);
+                                osc->fp4[k][0] = floor(fabs(n->pblue)) / 65536.0;
                                 osc->fp4[k][3] = osc->fp4[k][2];
                             }
 
@@ -1886,6 +1884,10 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 osc->fp4[k][3] = osc->fp4[k][2];
                                 osc->fp4[k][2] = n->alpha / (FAS_FLOAT)fas_sample_rate * fas_wavetable_size;
                                 osc->fp2[k][1] = fas_wavetable_size;
+                            }
+
+                            if ((n->previous_volume_l <= 0 && n->previous_volume_r <= 0) || trigger_note_on) {
+                                osc->fp4[k][3] = osc->fp4[k][2];
                             }
 
                             osc->fp3[k][1] = osc->fp3[k][0];

@@ -677,7 +677,7 @@ Use `--output_channels` and `--input_channels` command-line arguments to configu
 Note : FAS ports are not connected automatically. (`qjackctl` program can be used to connect ports)
 
 
-## About Soundpipe
+## About Soundpipe
 
 Due to licensing issues with cSound and the Soundpipe library all derived cSound modules were removed in the official Soundpipe repository. The removed cSound modules which were used by this project were implemented back into FAS making sure all of them comply with the LGPL, they can be found under `src/Soundpipe`.
 
@@ -1076,7 +1076,7 @@ Usage: fas [list_of_parameters]
  * `--sample_rate 44100`
  * `--noise_amount 2.0` **the maximum amount of band-limited noise to add (wavetables only)**
  * `--frames 512` **audio buffer size**
- * `--wavetable_size 8192` **no effects if built with advanced optimizations option**
+ * `--wavetable_size 16384` **no effects if built with advanced optimizations option**
  * `--smooth_factor 1.0` **this is the samples interpolation factor between frames, a high value will sharpen sounds attack / transitions (just like if the stream rate / FPS was higher), a low value will smooth it (audio will become muddy)**
  * `--max_instruments 24` **this is the maximum amount of instruments that can be used, may increase memory consumption significantly**
  * `--max_channels 24` **this is the maximum amount of virtual channels that can be used, may increase memory consumption significantly**

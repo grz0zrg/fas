@@ -73,12 +73,13 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
             if (l > 0 ) {
                 volume_l = l * inv_full_brightness;
                 pvl = pl * inv_full_brightness;
-                _note->previous_volume_l = pvl;
-                _note->volume_l = volume_l;
-                _note->diff_volume_l = volume_l - pvl;
+                _note->previous_volume_l = (isinf(pvl) || isnan(pvl)) ? 0 : pvl;
+                _note->volume_l = (isinf(volume_l)  || isnan(volume_l)) ? 0 : volume_l;
+                _note->diff_volume_l = _note->volume_l - _note->previous_volume_l;
             } else {
                 if (pl > 0) {
                     pvl = pl * inv_full_brightness;
+                    pvl = (isinf(pvl) || isnan(pvl)) ? 0 : pvl;
 
                     _note->previous_volume_l = pvl;
                     _note->diff_volume_l = -pvl;
@@ -102,12 +103,13 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
             if (r > 0) {
                 volume_r = r * inv_full_brightness;
                 pvr = pr * inv_full_brightness;
-                _note->previous_volume_r = pvr;
-                _note->volume_r = volume_r;
-                _note->diff_volume_r = volume_r - pvr;
+                _note->previous_volume_r = (isinf(pvr) || isnan(pvr)) ? 0 : pvr;
+                _note->volume_r = (isinf(volume_r)  || isnan(volume_r)) ? 0 : volume_r;
+                _note->diff_volume_r = _note->volume_r - _note->previous_volume_r;
             } else {
                 if (pr > 0) {
                     pvr = pr * inv_full_brightness;
+                    pvr = (isinf(pvr)  || isnan(pvr)) ? 0 : pvr;
 
                     _note->previous_volume_r = pvr;
                     _note->diff_volume_r = -pvr;
@@ -131,12 +133,12 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
             if (_note->volume_l != -1 || _note->volume_r != -1) {
                 _note->osc_index = y;
 
-                _note->alpha = alpha;
-                _note->palpha = pa;
-                _note->pblue = pb;
-                _note->blue = blue;
+                _note->alpha = (isinf(alpha) || isnan(alpha)) ? 0 : alpha;
+                _note->palpha = (isinf(pa) || isnan(pa)) ? 0 : pa;
+                _note->pblue = (isinf(pb) || isnan(pb)) ? 0 : pb;
+                _note->blue = (isinf(blue) || isnan(blue)) ? 0 : blue;
 
-                _note->density = fabs(round(blue));
+                _note->density = fabs(round(_note->blue));
 
                 _note->norm_density = 1.0f / (_note->density + 0.0000001f);
 
@@ -151,10 +153,10 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
                 double dummy_int_part;
                 double alpha_int_part;
                 double palpha_int_part;
-                FAS_FLOAT blue_frac_part = modf(fabs(blue), &dummy_int_part);
-                FAS_FLOAT pblue_frac_part = modf(fabs(pb), &dummy_int_part);
-                FAS_FLOAT palpha_frac_part = modf(fabs(pa), &palpha_int_part);
-                FAS_FLOAT alpha_frac_part = modf(fabs(alpha), &alpha_int_part);
+                FAS_FLOAT blue_frac_part = modf(fabs(_note->blue), &dummy_int_part);
+                FAS_FLOAT pblue_frac_part = modf(fabs(_note->pblue), &dummy_int_part);
+                FAS_FLOAT palpha_frac_part = modf(fabs(_note->palpha), &palpha_int_part);
+                FAS_FLOAT alpha_frac_part = modf(fabs(_note->alpha), &alpha_int_part);
 
                 // for granular synthesis, samples and related
                 _note->smp_index = blue_frac_part * (samples_count + 1);
@@ -165,7 +167,7 @@ void fillNotesBuffer(unsigned int samples_count, unsigned int waves_count, unsig
                 _note->pwav_index = (int)palpha_int_part % (waves_count + 1);
 
                 // for subtractive synthesis
-                _note->cutoff = fabs(blue);
+                _note->cutoff = fabs(_note->blue);
                 _note->res = alpha_frac_part;
             }
 

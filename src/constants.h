@@ -45,7 +45,7 @@
     #define FAS_FRAMES_PER_BUFFER 0
     #define FAS_DEFLATE 0
     #define FAS_WAVETABLE 1
-    #define FAS_WAVETABLE_SIZE 8192
+    #define FAS_WAVETABLE_SIZE 16384
     #define FAS_DEFAULT_FPS 60
     #define FAS_DEFAULT_GAIN 0.05
     #define FAS_PORT 3003

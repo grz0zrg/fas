@@ -3,3 +3,12 @@
 *.zip
 *.exe
 *.wav
+*.gz
+*.so*
+*.Z
+*.AppImage
+*.lib
+*.pdf
+*.syx
+packages
+CMakeFiles

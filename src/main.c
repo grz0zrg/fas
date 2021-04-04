@@ -608,42 +608,44 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                     FAS_FLOAT fbf = (osc->fp1[k][0] + osc->fp1[k][1]) / 2; // 'anti-hunting' filter (simple low-pass)
                     FAS_FLOAT feedback_level = lerp(osc->fp4[k][1], osc->fp4[k][0], curr_synth.lerp_t);
-                    FAS_FLOAT fb = fbf * feedback_level;
+                    FAS_FLOAT fb = fbf * feedback_level * mod_wav_size;
+
+                    osc->phase_index2[k] += mod_phase_step;
+                    osc->phase_index2[k] = fmod(osc->phase_index2[k], mod_wav_size);
                     
-                    FAS_FLOAT ph2 = fmod(osc->phase_index2[k] + (fb * mod_wav_size), fmax(mod_wav_size, 1));
+                    FAS_FLOAT fpm = osc->phase_index2[k] + fb;
+                    fpm = fmod(fpm, mod_wav_size);
+                    if (fpm < 0) fpm += mod_wav_size;
 
                     FAS_FLOAT mod_amplitude = lerp(osc->fp3[k][1], osc->fp3[k][0], curr_synth.lerp_t);
 
-                    FAS_FLOAT smp_mod = osc->wav2[k][(int)ph2];
-                    FAS_FLOAT mod = (((FAS_FLOAT)smp_mod * mod_amplitude) * car_wav_size);
-                    FAS_FLOAT ph1 = fmod(osc->phase_index[k] + mod, fmax(car_wav_size, 1));
+                    FAS_FLOAT smp_mod = osc->wav2[k][(int)fpm];
+                    FAS_FLOAT mod = smp_mod * mod_amplitude * car_wav_size;
+                    
+                    osc->phase_index[k] += osc->fp1[k][3];
+                    osc->phase_index[k] = osc->phase_index[k] + mod;
 
-                    int phase_index1 = (int)ph1;
+                    if (osc->phase_index[k] < 0) osc->phase_index[k] += car_wav_size;
+                    osc->phase_index[k] = fmod(osc->phase_index[k], car_wav_size);
+
+                    int phase_index1 = (int)osc->phase_index[k];
                     int phase_index2 = phase_index1 + 1;
 
                     FAS_FLOAT smp1 = osc->wav1[k][phase_index1];
                     FAS_FLOAT smp2 = osc->wav1[k][phase_index2];
 
-                    FAS_FLOAT mu = ph1 - (FAS_FLOAT)phase_index1;
+                    FAS_FLOAT mu = osc->phase_index[k] - phase_index1;
                     FAS_FLOAT smp = smp1 + mu * (smp2 - smp1);
 
                     FAS_FLOAT vl = n->previous_volume_l + n->diff_volume_l * curr_synth.lerp_t;
                     FAS_FLOAT vr = n->previous_volume_r + n->diff_volume_r * curr_synth.lerp_t;
 
-                    // dc filter (due to feedback there is a 0Hz component)
-                    FAS_FLOAT dc_filtered_smp = smp - osc->pvalue[k] + ((FAS_FLOAT)0.99 * osc->fp1[k][2]);
-                    osc->pvalue[k] = smp;
-                    osc->fp1[k][2] = dc_filtered_smp;
-
-                    output_l += vl * dc_filtered_smp;
-                    output_r += vr * dc_filtered_smp;
-
-                    osc->phase_index[k] += osc->fp1[k][3];
-                    osc->phase_index2[k] += mod_phase_step;
+                    output_l += vl * smp;
+                    output_r += vr * smp;
 
                     // feedback
                     osc->fp1[k][0] = osc->fp1[k][1];
-                    osc->fp1[k][1] = vl * smp_mod;
+                    osc->fp1[k][1] = smp;
                 }
             } else if (synthesis_method == FAS_SUBTRACTIVE) {
                 int filter_type = instrument->p0;
@@ -1854,7 +1856,9 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
 
                                 osc->fp3[k][0] = modf(fabs(n->pblue), &dummy_int_part);
                                 osc->fp4[k][0] = floor(fabs(n->pblue)) / 65536.0;
-                                osc->fp4[k][3] = osc->fp4[k][2];
+                                
+                                osc->fp1[k][0] = 0;
+                                osc->fp1[k][1] = 0;
                             }
 
                             if (instrument->p0 >= 0 && waves_count > 0) {
@@ -1887,7 +1891,7 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                                 osc->wav2[k] = fas_sine_wavetable;
 
                                 osc->fp4[k][3] = osc->fp4[k][2];
-                                osc->fp4[k][2] = n->alpha / (FAS_FLOAT)fas_sample_rate * fas_wavetable_size;
+                                osc->fp4[k][2] = n->alpha / (FAS_FLOAT)fas_sample_rate * (FAS_FLOAT)fas_wavetable_size;
                                 osc->fp2[k][1] = fas_wavetable_size;
                             }
 

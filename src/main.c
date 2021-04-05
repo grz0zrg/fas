@@ -299,6 +299,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
     if (audio_thread_state == FAS_AUDIO_DO_PAUSE) {
         last_gain_lr = curr_synth.settings->gain_lr;
 
+        curr_synth.lerp_t = 0.0;
+
         audio_thread_state = FAS_AUDIO_PAUSE;
     } else if (audio_thread_state == FAS_AUDIO_DO_PLAY) {
         curr_synth.lerp_t = 0.0;
@@ -321,6 +323,8 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
         curr_notes = dummy_notes;
 
         last_gain_lr = curr_synth.settings->gain_lr;
+
+        curr_synth.lerp_t = 0.0;
 
         audio_thread_state = FAS_AUDIO_PAUSE;
     }

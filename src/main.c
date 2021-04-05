@@ -4229,12 +4229,10 @@ int main(int argc, char **argv)
 
 #if defined(_WIN32) || defined(_WIN64)
 	if (_kbhit()) {
-            break;
+        keep_running = 0;
 	}
-    } while (1);
-#else
-    } while (keep_running);
 #endif
+    } while (keep_running);
 
 quit:
 

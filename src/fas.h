@@ -186,8 +186,7 @@
     FAS_FLOAT *fas_white_noise_table = NULL;
     uint16_t noise_index = 0.;
 
-    unsigned int window_size = 8192;
-    unsigned int hop_size = 2048;
+    unsigned int hop_size = FAS_STFT_HOP_SIZE;
 
     double note_time;
     FAS_FLOAT note_time_samples;

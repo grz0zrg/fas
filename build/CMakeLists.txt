@@ -11,6 +11,7 @@ option (WITH_JACK "Use Jack instead of PortAudio" off)
 option (WITH_AUBIO "Use Aubio to automatically detect samples fundamental frequencies" on)
 option (WITH_SOUNDPIPE "Use Soundpipe (extended generators / effects)" on)
 #option (WITH_RUBBERBAND "Use Rubberband (granular pitch shifting)" on)
+option (WITH_SOUNDTOUCH "Use SoundTouch (input instrument pitch shifting / time stretching)" on)
 option (MAGIC_CIRCLE "Use additive synthesis magic circle oscillator" on)
 option (PARTIAL_FX "Use additive synthesis per partial effects" on)
 option (USE_NEON "Use NEON instructions (ARM platforms)" off)
@@ -169,6 +170,15 @@ if (WITH_AUBIO)
 
     add_definitions(-DWITH_AUBIO)
     target_link_libraries(fas ${LIBAUBIO_LIBRARIES})
+endif()
+
+if (WITH_SOUNDTOUCH)
+    find_package(LibSoundTouch MODULE REQUIRED)
+    include_directories(${LIBSOUNDTOUCH_INCLUDE_DIR})
+
+    add_definitions(-DWITH_SOUNDTOUCH)
+    link_directories(${ROOT}/lib/soundtouch/source/SoundTouchDLL/)
+    target_link_libraries(fas ${LIBSOUNDTOUCH_LIBRARIES})
 endif()
 
 #if (WITH_RUBBERBAND)

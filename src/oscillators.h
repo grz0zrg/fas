@@ -12,6 +12,10 @@
     #include "faust.h"
 #endif
 
+#ifdef WITH_SOUNDTOUCH
+    #include "SoundTouchDLL.h"
+#endif
+
     #include "constants.h"
     #include "tools.h"
 
@@ -65,6 +69,10 @@
 #ifdef WITH_FAUST
         struct _fas_faust_dsp ***faust_gens;
         size_t faust_gens_len;
+#endif
+
+#ifdef WITH_SOUNDTOUCH
+        void ***st;
 #endif
 
         // Soundpipe generators/modifiers/filters

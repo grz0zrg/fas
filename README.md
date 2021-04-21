@@ -454,14 +454,20 @@ Fractional part of the blue channel can be used to target a channel (> 0) or an 
 
 This just play an input channel. Typically used in conjunction with formant / modal / bandpass / pd synthesis and effects.
 
+Input channel can be pitch-shifted and time-stretched when compiled with SoundTouch.
+
+Note : Every notes will add a playback of the input channel.
+
+Note : Not tested but SoundTouch may not work with high sample rate (44100, 48000 is ok)
+
 #### RGBA interpretation
 
 | Components | Interpretations                        |
 | ---------: | :------------------------------------- |
 |          R | Amplitude value of the LEFT channel    |
 |          G | Amplitude value of the RIGHT channel   |
-|          B | integral part : source channel index       |
-|          A | Unused        |
+|          B | integral part : source channel index; fractional part : time-stretching factor (with 10x multiplier so 0.1 is normal playback)       |
+|          A | Pitch-shift ratio        |
 
 ### Modulation
 
@@ -883,6 +889,7 @@ Requirements :
  * [aubio](https://www.aubio.org/)
  * [libsndfile](https://github.com/erikd/libsndfile)
  * [libsamplerate](https://github.com/erikd/libsamplerate)
+ * [SoundTouch](http://soundtouch.surina.net/) (Optional)
  * [liblo](http://liblo.sourceforge.net/) (Optional)
  * [Soundpipe](https://github.com/PaulBatchelor/Soundpipe) (Optional)
  * [Faust](https://github.com/grame-cncm/faust) (Optional)
@@ -890,7 +897,7 @@ Requirements :
 
 FAS also make use of [tinydir](https://github.com/cxong/tinydir) [lodepng](https://github.com/lvandeve/lodepng) and [afSTFT](https://github.com/jvilkamo/afSTFT) (all of them bundled)
 
-Compiling requirements for Ubuntu/Raspberry Pi/Linux with PortAudio :
+Compiling requirements (note : this is recommended but some libraries are optional, see above) for Ubuntu/Raspberry Pi/Linux with PortAudio :
 
  * Get latest [PortAudio v19 package](http://www.portaudio.com/download.html)
    * sudo apt-get install libasound-dev jackd qjackctl libjack-jackd2-dev
@@ -903,6 +910,10 @@ Compiling requirements for Ubuntu/Raspberry Pi/Linux with PortAudio :
    * uncompress into **lib** directory, go into the directory "liblfds711"
    * go into the directory "build/gcc_gnumake"
    * make
+ * Get latest [SoundTouch package from gitlab repository](http://soundtouch.surina.net/)
+   * clone into **lib** directory, go into the directory "soundtouch/source/SoundTouchDLLfds711"
+   * run `bash make-gnu-dll.sh`
+   * rename `SoundTouchDll.so` by `libSoundTouchDll.so` (otherwise CMake won't be able to find it)
  * Get latest [libwebsockets 2.2.x package](https://libwebsockets.org/) from github
    * sudo apt-get install cmake zlib1g-dev
    * go into the libwebsockets directory
@@ -971,6 +982,7 @@ There is some cmake build options available to customize features :
  * `-DWITH_JACK` : Use Jack driver instead of PortAudio (may be faster)
  * `-DWITH_FAUST` : Use Faust
  * `-DWITH_SOUNDPIPE` : Use Soundpipe
+ * `-DWITH_SOUNDTOUCH` : Use SoundTouch for pitch-shifting / time stretching of input instrument
  * `-DWITH_AUBIO` : Use automatic pitch detection
  * `-DMAGIC_CIRCLE` : Use additive synthesis magic circle oscillator (may be faster than wavetable on some platforms; no bandlimited noise for per partial effects)
  * `-DPARTIAL_FX`: Use additive synthesis per partial effects
@@ -979,7 +991,7 @@ There is some cmake build options available to customize features :
  * `-DUSE_SSE` : Use SSE instructions (optimizations; Desktop platforms)
  * `-DUSE_DOUBLE` : Use double precision for all internal computations (note : must probably compile dependencies such as Soundpipe and Faust as well when it is defined)
 
-By default FAS build with `-DWITH_FAUST -DWITH_AUBIO -DWITH_SOUNDPIPE -DMAGIC_CIRCLE -DPARTIAL_FX -DINTERLEAVED_SAMPLE_FORMAT`
+By default FAS build with `-DWITH_FAUST -DWITH_AUBIO -DWITH_SOUNDPIPE -DWITH_SOUNDTOUCH -DMAGIC_CIRCLE -DPARTIAL_FX -DINTERLEAVED_SAMPLE_FORMAT`
 
 ## Building with MSYS2 on Windows
 
@@ -1058,12 +1070,14 @@ Finally the audio server can be built:
 
 ```
 cd build
-cmake -S . -B . -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON && mingw32-make.exe
+cmake -S . -B . -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release -DWITH_SOUNDTOUCH=off -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON && mingw32-make.exe
 ```
 
 Some DLLs may be needed alonside the fas.exe binary to run the audio server, they can easily be located by calling `updatedb` first then `locate dll_name` in the MSYS terminal.
 
 Note : if FAS doesn't launch (silently fail to do anything) it may be because JACK is installed / being used, this is probably due to PortAudio trying to select JACK when it launch and failing to do so, there is no fixes yet except stopping / disabling / uninstalling Jack on Windows before running the audio server.
+
+Note : SoundTouch isn't yet tested on Windows but there is no reasons it won't work.
 
 ## Usage
 

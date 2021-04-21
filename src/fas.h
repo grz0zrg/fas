@@ -72,9 +72,13 @@
     #include "AHEasing/easing.h"
 
 #ifdef WITH_SOUNDPIPE
-      #include "soundpipe.h"
+    #include "soundpipe.h"
 
-      sp_data *sp = NULL;
+    sp_data *sp = NULL;
+#endif
+
+#ifdef WITH_SOUNDTOUCH
+    #include "SoundTouchDLL.h"
 #endif
 
     // fas

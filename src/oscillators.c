@@ -243,6 +243,10 @@ struct oscillator *createOscillatorsBank(
 
         osc->bw = malloc(sizeof(FAS_FLOAT) * max_instruments);
 
+#ifdef WITH_SOUNDTOUCH
+        osc->st = malloc(sizeof(void *) * max_instruments);
+#endif
+
 #ifdef WITH_SOUNDPIPE
         osc->sp_filters = malloc(sizeof(void **) * max_instruments);
         osc->sp_mods = malloc(sizeof(void **) * max_instruments);
@@ -373,6 +377,14 @@ struct oscillator *createOscillatorsBank(
             dist->pregain = 1.f;
             dist->postgain = 1.f;
 */
+#endif
+
+#ifdef WITH_SOUNDTOUCH
+            osc->st[i] = soundtouch_createInstance();
+            soundtouch_setSampleRate(osc->st[i], sample_rate);
+            soundtouch_setChannels(osc->st[i], 2);
+            soundtouch_setTempo(osc->st[i], 1);
+            soundtouch_setRate(osc->st[i], 1);
 #endif
 
             // == PM
@@ -524,6 +536,10 @@ struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, un
 
             free(oscs[y].sp_mods[i]);
 #endif
+
+#ifdef WITH_SOUNDTOUCH
+            soundtouch_destroyInstance(oscs[y].st[i]);
+#endif
         }
 
         free(oscs[y].fp1);
@@ -540,6 +556,10 @@ struct oscillator *freeOscillatorsBank(struct oscillator **o, unsigned int n, un
         free(oscs[y].sp_filters);
         free(oscs[y].sp_gens);
         free(oscs[y].sp_mods);
+#endif
+
+#ifdef WITH_SOUNDTOUCH
+        free(oscs[y].st);
 #endif
     }
 

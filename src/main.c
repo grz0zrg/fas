@@ -985,12 +985,34 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                     int chn = abs((int)n->blue) % chn_count;
 
 #ifdef INTERLEAVED_SAMPLE_FORMAT
-                    output_l += audio_in[i * 2 * chn_count + chn * 2] * vl;
-                    output_r += audio_in[i * 2 * chn_count + 1 + chn * 2] * vr;
+                    FAS_FLOAT inl = audio_in[i * 2 * chn_count + chn * 2];
+                    FAS_FLOAT inr = audio_in[i * 2 * chn_count + 1 + chn * 2];
 #else
-                    output_l += inputBuffer[chn][i] * vl;
-                    output_r += inputBuffer[chn][i] * vr;
+                    FAS_FLOAT inl = inputBuffer[chn * 2][i];
+                    FAS_FLOAT inr = inputBuffer[chn * 2 + 1][i];
 #endif
+
+                    FAS_FLOAT outl = inl;
+                    FAS_FLOAT outr = inr;
+ 
+#ifdef WITH_SOUNDTOUCH
+                    FAS_FLOAT data[2] = { inl, inr };
+
+                    soundtouch_setPitch(osc->st[k], lerp(osc->fp1[k][0], osc->fp1[k][1], curr_synth.lerp_t));
+
+                    soundtouch_setTempo(osc->st[k], lerp(osc->fp1[k][2], osc->fp1[k][3], curr_synth.lerp_t) * 10.);
+                    soundtouch_putSamples(osc->st[k], &data[0], 1);
+
+                    unsigned int result = soundtouch_receiveSamples(osc->st[k], &data[0], 1);
+
+                    if (result) {
+                        outl = data[0];
+                        outr = data[1];
+                    }
+#endif
+
+                    output_l += outl * vl;
+                    output_r += outr * vr;
                 }
             }
 #ifdef WITH_SOUNDPIPE
@@ -1847,6 +1869,26 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                             pdhalf->tamount = fmin(fmax(n->alpha, -1.f), 1.f);
 #endif
                         } 
+                    } else if (synthesis_method == FAS_INPUT) {
+#ifdef WITH_SOUNDTOUCH
+                        for (j = s; j < e; j += 1) {
+                            struct note *n = &curr_notes[j];
+
+                            struct oscillator *osc = &curr_synth.oscillators[n->osc_index];
+
+                            FAS_FLOAT pv = fmax(0.01f, fabs(n->alpha));
+
+                            osc->fp1[k][0] = fmax(0.01f, fabs(osc->fp1[k][1]));
+                            osc->fp1[k][1] = pv;
+
+                            double bint = 0;
+                            FAS_FLOAT t = modf(fabs(n->blue), &bint);
+                            FAS_FLOAT tv = fmax(0.001f, t);
+
+                            osc->fp1[k][2] = fmax(0.001f, fabs(osc->fp1[k][3]));
+                            osc->fp1[k][3] = tv;
+                        }
+#endif
                     } else if (synthesis_method == FAS_FM) {
                         for (j = s; j < e; j += 1) {
                             struct note *n = &curr_notes[j];

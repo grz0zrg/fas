@@ -516,7 +516,7 @@ Note : Parameters which require re-allocation (eg. convolution file, delay comb 
 
 [Faust](https://faust.grame.fr/) is embedded (when compiled with `WITH_FAUST`) and allow to dynamically extend FAS bank generators and effects with custom one written with the Faust DSP specification language.
 
-Faust DSP focused language is simple and intuitive to learn and produce highly optimized effects and generators. Faust documentation is available [here](https://faust.grame.fr/doc/manual/index.html)
+Faust DSP focused language is simple and intuitive to learn and produce highly optimized effects and generators. Faust documentation is available [here](https://faustdoc.grame.fr/)
 
 FAS look and load any Faust DSP code (*.dsp) at startup in the `faust/generators` and `faust/effects` directories. FAS can also reload Faust code dynamically when the appropriate ACTION packet is received.
 
@@ -530,7 +530,7 @@ Generators code will be hooked to the synthesis part of the sound engine while e
 
 Some generators and effects already exist and extend FAS with bandpass filters bank and so on...
 
-FAS to Faust DSP parameters can be specified through [nentry](https://faust.grame.fr/doc/manual/#nentry-primitive) interface primitive and are used to transfer note / initial generator data.
+FAS to Faust DSP parameters can be specified through [nentry](https://faustdoc.grame.fr/manual/syntax/#nentry-primitive) interface primitive and are used to transfer note / initial generator data.
 
 Here is a list of usable Faust **generators** `nentry` key :
 

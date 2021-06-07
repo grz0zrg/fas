@@ -640,7 +640,7 @@ A directly usable implementation with NodeJS of a distributed synthesis relay ca
 
 This feature was successfully used with cheap small boards clusters of [NapoPI NEO 2](https://www.friendlyarm.com/index.php?route=product/product&product_id=180) and [NetJack](https://github.com/jackaudio/jackaudio.github.com/wiki/WalkThrough_User_NetJack2) in a setup with 10 quad-core ARM boards + i7 (48 cores) running, linked to the NetJack driver, it is important that the relay program run on a powerfull board with (most importantly) a good Gigabit Ethernet controller to reduce latency issues.
 
-Note : All instruments which use input instrument or channel are computed on each instances, this probably kill any performance gain when using alot of these instruments.
+Note : All instruments which use input instrument or channel see their dependencies being computed on all instances. (eg. if there is a subtractive instrument and a bandpass instrument which use it as source the subtractive instrument will be computed on all instances)
 
 #### Frames drop
 

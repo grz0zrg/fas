@@ -746,7 +746,9 @@ static int audioCallback(float **inputBuffer, float **outputBuffer, unsigned lon
                         sp_lpf18_compute(sp, lpf18, &smp, &smp);
                     }
 #else
-                    smp = huovilainen_moog(smp, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
+                    if (filter_type == 0) {
+                        smp = huovilainen_moog(smp, n->cutoff, n->res, osc->fp1[k], osc->fp2[k], osc->fp3[k], 2);
+                    }
 #endif
 
                     output_l += vl * smp;

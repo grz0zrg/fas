@@ -72,7 +72,7 @@
 #endif
 
 #ifdef WITH_SOUNDTOUCH
-        void ***st;
+        void **st;
 #endif
 
         // Soundpipe generators/modifiers/filters

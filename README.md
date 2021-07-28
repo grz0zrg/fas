@@ -516,7 +516,7 @@ Note : Parameters which require re-allocation (eg. convolution file, delay comb 
 
 [Faust](https://faust.grame.fr/) is embedded (when compiled with `WITH_FAUST`) and allow to dynamically extend FAS bank generators and effects with custom one written with the Faust DSP specification language.
 
-Faust DSP focused language is simple and intuitive to learn and produce highly optimized effects and generators. Faust documentation is available [here](https://faust.grame.fr/doc/manual/index.html)
+Faust DSP focused language is simple and intuitive to learn and produce highly optimized effects and generators. Faust documentation is available [here](https://faustdoc.grame.fr/)
 
 FAS look and load any Faust DSP code (*.dsp) at startup in the `faust/generators` and `faust/effects` directories. FAS can also reload Faust code dynamically when the appropriate ACTION packet is received.
 
@@ -530,7 +530,7 @@ Generators code will be hooked to the synthesis part of the sound engine while e
 
 Some generators and effects already exist and extend FAS with bandpass filters bank and so on...
 
-FAS to Faust DSP parameters can be specified through [nentry](https://faust.grame.fr/doc/manual/#nentry-primitive) interface primitive and are used to transfer note / initial generator data.
+FAS to Faust DSP parameters can be specified through [nentry](https://faustdoc.grame.fr/manual/syntax/#nentry-primitive) interface primitive and are used to transfer note / initial generator data.
 
 Here is a list of usable Faust **generators** `nentry` key :
 
@@ -640,7 +640,7 @@ A directly usable implementation with NodeJS of a distributed synthesis relay ca
 
 This feature was successfully used with cheap small boards clusters of [NapoPI NEO 2](https://www.friendlyarm.com/index.php?route=product/product&product_id=180) and [NetJack](https://github.com/jackaudio/jackaudio.github.com/wiki/WalkThrough_User_NetJack2) in a setup with 10 quad-core ARM boards + i7 (48 cores) running, linked to the NetJack driver, it is important that the relay program run on a powerfull board with (most importantly) a good Gigabit Ethernet controller to reduce latency issues.
 
-Note : All instruments which use input instrument or channel are computed on each instances, this probably kill any performance gain when using alot of these instruments.
+Note : All instruments which use input instrument or channel see their dependencies being computed on all instances. (eg. if there is a subtractive instrument and a bandpass instrument which use it as source the subtractive instrument will be computed on all instances)
 
 #### Frames drop
 

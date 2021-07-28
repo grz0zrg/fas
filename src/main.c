@@ -2699,10 +2699,10 @@ if (remaining_payload != 0) {
 
                     // compute latency between frames & treshold stream rate to avoid unecessary computations
                     uint64_t nowtime = ns();
-                    double time_between_frames_ms = (double)(nowtime - frame_sync.lasttime) / 1000000UL;
+                    fas_time_between_frames_ms = (double)(nowtime - frame_sync.lasttime) / 1000000UL;
                     frame_sync.lasttime = nowtime;
 
-                    frame_sync.acc_time += time_between_frames_ms;
+                    frame_sync.acc_time += fas_time_between_frames_ms;
                     if (frame_sync.acc_time < note_time * 1000) {
 #ifdef DEBUG_FRAME_DATA
                         printf("Skipping a frame. (< treshold)\n");
@@ -2711,7 +2711,7 @@ if (remaining_payload != 0) {
                         goto free_packet;
                     } else {
 #ifdef DEBUG_FRAME_DATA
-                        printf("Frame latency %fms\nFrame overall time %fms\n", time_between_frames_ms, frame_sync.acc_time);
+                        printf("Frame latency %fms\nFrame overall time %fms\n", fas_time_between_frames_ms, frame_sync.acc_time);
                         fflush(stdout);
 #endif
 
@@ -2786,7 +2786,7 @@ if (remaining_payload != 0) {
                     time(&stream_load_end);
                     double stream_load_time = difftime(stream_load_end,stream_load_begin);
                     if (stream_load_time > fas_stream_infos_send_delay) {
-                        sendPerformances(wsi, time_between_frames_ms);
+                        lws_callback_on_writable(wsi);
                     }
                 } else if (pid == SYNTH_SETTINGS) {
                     uint32_t target = 0;
@@ -3220,7 +3220,9 @@ fflush(stdout);
                         fas_paused_by_client = 1;
 
                         // just to refresh load stats
-                        sendPerformances(wsi, 0);
+                        fas_time_between_frames_ms = 0;
+
+                        lws_callback_on_writable(wsi);
                     } else if (action_type[0] == FAS_ACTION_RESUME) {
                         // reset performances stats
                         frame_sync.lasttime = ns();
@@ -3268,6 +3270,10 @@ free_packet:
 #ifdef DEBUG
     fflush(stdout);
 #endif
+            break;
+
+        case LWS_CALLBACK_SERVER_WRITEABLE:
+            sendPerformances(wsi, fas_time_between_frames_ms);
             break;
 
         case LWS_CALLBACK_WS_PEER_INITIATED_CLOSE:
@@ -3351,7 +3357,7 @@ int start_server(void) {
     struct lws_context_creation_info context_info = {
         .port = 3003, .iface = fas_iface, .protocols = protocols, .extensions = NULL,
         .ssl_cert_filepath = NULL, .ssl_private_key_filepath = NULL, .ssl_ca_filepath = NULL,
-        .gid = -1, .uid = -1, .options = 0, NULL, .ka_time = 0, .ka_probes = 0, .ka_interval = 0
+        .gid = -1, .uid = -1, .options = 0, NULL, .ka_time = 20, .ka_probes = 12, .ka_interval = 10 // keep alive of 20 sec with 12 max attempts 2 minutes max wait before giving up
     };
 
     context_info.port = fas_port;

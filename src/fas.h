@@ -177,6 +177,8 @@
     char *fas_faust_effs_path = NULL;
     char *fas_faust_libs_path = NULL;
 
+    double fas_time_between_frames_ms = 0;
+
     unsigned int fas_drop_counter = 0;
 
     unsigned long int fas_render_counter = 0;

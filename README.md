@@ -258,7 +258,7 @@ Wavetable synthesis is fast and provide rich sounds.
 
 Note : FAS does not really have multiple 'wavetables' as it load every waves into a big continuous wavetable but the different wavetables are ordered (by directory then by filename) when loaded so that each loaded waves are contiguous.
 
-Note : The wavetable can be used as a sampler as long as the input file is exported into small chunks (with some kind of windowing to remove crackles), this can be done easily with a small script or some software. An example Python script `sample_split.py` is available in the scripts directory.
+Note : The wavetable can be used as a sampler as long as the input file is exported into small chunks (with some kind of windowing to remove crackles), this can be done easily with a small script or some software. An example Python script `sample_split.py` is available in the scripts directory, it is able to split all files from a specified directory.
 
 #### RGBA interpretation
 

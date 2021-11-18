@@ -30,6 +30,8 @@ for root, dirs, files in os.walk(sys.argv[1]):
             audio = AudioSegment.from_file(input_file)
         except Exception as e:
             print('AudioSegment.from_file failed: ' + input_file)
+        if not audio:
+            continue
         audio_samples = audio.get_array_of_samples()
 
         # get informations

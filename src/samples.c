@@ -347,7 +347,7 @@ unsigned int load_samples(
                     index = i * sfinfo.channels + j;
 
                     // normalize
-                    smp->data[index] = smp->data[index] * (1.0f / max_value[j]);
+                    smp->data[index] = (max_value[j] == 0) ? 0 : smp->data[index] * (1.0f / max_value[j]);
                 }
             }
 

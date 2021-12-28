@@ -201,8 +201,9 @@ struct oscillator *createOscillatorsBank(
         index = nmo - y;
 
         frequency = base_frequency * pow(2.0, y / octave_length);
-        frequency_prev = base_frequency * pow(2.0, (y - 1) / octave_length);
+        frequency_prev = base_frequency * pow(2.0, (int)(y - 1) / octave_length);
         frequency_next = base_frequency * pow(2.0, (y + 1) / octave_length);
+
         phase_step = frequency / (FAS_FLOAT)sample_rate * wavetable_size;
         phase_increment = frequency * 2 * 3.141592653589 / (FAS_FLOAT)sample_rate;
 

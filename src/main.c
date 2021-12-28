@@ -2483,6 +2483,17 @@ int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
                 }
             }
 
+            // allocate packet
+            usd->packet = (char *)malloc(packet_max_len * sizeof(char));
+            if (usd->packet == NULL) {
+                freeUserSynthChnFxSettings(usd->synth_chn_fx_settings);
+
+                printf("packet alloc failed, connection refused\n");
+                fflush(stdout);
+
+                return -1;
+            }
+
             // local instruments copy
             usd->instruments = calloc(fas_max_instruments, sizeof(struct _synth_instrument));
             if (!usd->instruments) {
@@ -2490,6 +2501,8 @@ int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
 
                 printf("instruments calloc failed, connection refused\n");
                 fflush(stdout);
+
+                free(usd->packet);
             
                 return -1;
             }
@@ -2504,7 +2517,6 @@ int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
                 usd->peer_name, usd->peer_ip);
             fflush(stdout);
 
-            usd->packet = NULL;
             usd->packet_len = 0;
             usd->packet_skip = 0;
             usd->frame_data = NULL;
@@ -2529,50 +2541,30 @@ int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
 
             usd->packet_len += len;
 
-            remaining_payload = lws_remaining_packet_payload(wsi);
-
-            if (usd->packet == NULL) {
-                // we initialize the first fragment or the final one
-                // this mechanism depend on the rx buffer size
-                usd->packet = (char *)malloc(len);
+            // grow packet as needed
+            if (usd->packet_len > packet_max_len || usd->packet == NULL) {
+                packet_max_len = usd->packet_len;
+                
+                free(usd->packet);
+                usd->packet = (char *)malloc(packet_max_len * sizeof(char));
                 if (usd->packet == NULL) {
-                    if (is_final_fragment) {
-                        printf("A packet was skipped due to alloc. error.\n");
-                    } else {
-                        printf("A packet will be skipped due to alloc. error.\n");
-
-                        usd->packet_skip = 1;
-                    }
-                    fflush(stdout);
-
-                    return 0;
-                }
-
-                memcpy(usd->packet, &((char *) in)[0], len);
-
-#ifdef DEBUG_NETWORK
-    printf("\nReceiving packet...\n");
-#endif
-            } else {
-                // accumulate the packet fragments to construct the final one
-                char *new_packet = (char *)realloc(usd->packet, usd->packet_len);
-
-                if (new_packet == NULL) {
-                    free(usd->packet);
-                    usd->packet = NULL;
-
-                    usd->packet_skip = 1;
-
                     printf("A packet will be skipped due to alloc. error.\n");
                     fflush(stdout);
 
+                    if (!is_final_fragment) {
+                        usd->packet_skip = 1;
+                    }
+
+                    usd->packet_len = 0;
+
                     return 0;
                 }
-
-                usd->packet = new_packet;
-
-                memcpy(&(usd->packet)[usd->packet_len - len], &((char *) in)[0], len);
             }
+
+            remaining_payload = lws_remaining_packet_payload(wsi);
+
+            // assemble packet
+            memcpy(&(usd->packet)[usd->packet_len - len], &((char *) in)[0], len);
 
 #ifdef DEBUG_NETWORK
 if (remaining_payload != 0) {
@@ -3262,8 +3254,8 @@ fflush(stdout);
                 }
 
 free_packet:
-                free(usd->packet);
-                usd->packet = NULL;
+                //free(usd->packet);
+                //usd->packet = NULL;
 
                 usd->packet_len = 0;
             }
@@ -3304,6 +3296,8 @@ free_packet:
                 if (curr_synth.oscillators) {
                     curr_synth.oscillators = freeOscillatorsBank(&curr_synth.oscillators, curr_synth.bank_settings->h, fas_max_instruments);
                 }
+
+                free(usd->packet);
 
                 free(usd->prev_frame_data);
                 free(usd->frame_data);
@@ -3744,6 +3738,8 @@ int main(int argc, char **argv)
 
         fas_rx_buffer_size = FAS_RX_BUFFER_SIZE;
     }
+
+    packet_max_len = fas_rx_buffer_size;
 
     if (fas_frames_queue_size == 0) {
         printf("Warning: frames_queue_size program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_FRAMES_QUEUE_SIZE);

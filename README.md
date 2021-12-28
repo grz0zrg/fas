@@ -691,7 +691,7 @@ Due to licensing issues with cSound and the Soundpipe library all derived cSound
 
 The architecture is done so there is **zero memory allocation** done in the audio callback, there is also **zero locks mechanism**, all communications between main thread and audio callback is done using a mixture of lock-free algorithms with freelist to avoid memory allocations.
 
-Only one memory allocation is done in real-time in the network thread to assemble fragmented packets, some non-realtime actions such as samples reload and global synth settings change like bank height / remap do memory allocation.
+Some non-realtime actions such as samples reload and global synth settings change like bank height / remap do memory allocation.
 
 The audio thread has two state *pause* and *play* (with smooth transition) which are handled through an atomic type.
 It also has a transitionary flush state which make sure no data is being used on the audio thread and pause it.

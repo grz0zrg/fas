@@ -177,6 +177,8 @@
     char *fas_faust_effs_path = NULL;
     char *fas_faust_libs_path = NULL;
 
+    unsigned int packet_max_len = 8192; // defined by rx_buffer_size at startup
+
     double fas_time_between_frames_ms = 0;
 
     unsigned int fas_drop_counter = 0;

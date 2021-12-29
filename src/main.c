@@ -2483,6 +2483,9 @@ int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
                 }
             }
 
+            // reset
+            packet_max_len = fas_rx_buffer_size;
+
             // allocate packet
             usd->packet = (char *)malloc(packet_max_len * sizeof(char));
             if (usd->packet == NULL) {
@@ -3738,8 +3741,6 @@ int main(int argc, char **argv)
 
         fas_rx_buffer_size = FAS_RX_BUFFER_SIZE;
     }
-
-    packet_max_len = fas_rx_buffer_size;
 
     if (fas_frames_queue_size == 0) {
         printf("Warning: frames_queue_size program option argument is invalid, should be > 0, the default value (%u) will be used.\n", FAS_FRAMES_QUEUE_SIZE);

@@ -188,8 +188,10 @@ void doSynthCommands() {
     fflush(stdout);
 #endif
 
-            struct oscillator *osc = &curr_synth.oscillators[osc_index];
-            osc->triggered[instrument_index] = 1;
+            if (osc_index < curr_synth.bank_settings->h) {
+                struct oscillator *osc = &curr_synth.oscillators[osc_index];
+                osc->triggered[instrument_index] = 1;
+            }
         } else if (synth_command->type == FAS_CMD_CHN_FX_SETTINGS) {
             uint32_t chn = synth_command->value[0];
             uint32_t slot = synth_command->value[1];

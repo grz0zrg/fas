@@ -2545,12 +2545,11 @@ int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
             usd->packet_len += len;
 
             // grow packet as needed
-            if (usd->packet_len > packet_max_len || usd->packet == NULL) {
+            if (usd->packet_len > packet_max_len) {
                 packet_max_len = usd->packet_len;
                 
-                free(usd->packet);
-                usd->packet = (char *)malloc(packet_max_len * sizeof(char));
-                if (usd->packet == NULL) {
+                char *new_packet = (char *)realloc(usd->packet, packet_max_len * sizeof(char));
+                if (new_packet == NULL) {
                     printf("A packet will be skipped due to alloc. error.\n");
                     fflush(stdout);
 
@@ -2561,6 +2560,8 @@ int ws_callback(struct lws *wsi, enum lws_callback_reasons reason,
                     usd->packet_len = 0;
 
                     return 0;
+                } else {
+                    usd->packet = new_packet;
                 }
             }
 
@@ -3301,6 +3302,7 @@ free_packet:
                 }
 
                 free(usd->packet);
+                usd->packet = NULL;
 
                 free(usd->prev_frame_data);
                 free(usd->frame_data);

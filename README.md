@@ -911,9 +911,9 @@ Compiling requirements (note : this is recommended but some libraries are option
    * go into the directory "build/gcc_gnumake"
    * make
  * Get latest [SoundTouch package from gitlab repository](http://soundtouch.surina.net/)
-   * clone into **lib** directory, go into the directory "soundtouch/source/SoundTouchDLLfds711"
+   * clone into **lib** directory, go into the directory "soundtouch/source/SoundTouchDLL"
    * run `bash make-gnu-dll.sh`
-   * rename `SoundTouchDll.so` by `libSoundTouchDll.so` (otherwise CMake won't be able to find it)
+   * copy `SoundTouchDll.so` as `libSoundTouchDll.so` (otherwise CMake won't be able to find it)
  * Get latest [libwebsockets 2.2.x package](https://libwebsockets.org/) from github
    * sudo apt-get install cmake zlib1g-dev
    * go into the libwebsockets directory
